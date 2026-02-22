@@ -41,16 +41,16 @@ export function HomeScreen() {
   return (
     <div className="flex flex-col">
       {/* Top App Bar */}
-      <div className="sticky top-0 z-10 bg-[#FFFBFE] px-4 pt-[48px] pb-4">
+      <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[14px] text-[#49454F]">Good morning</p>
-            <h1 className="text-[22px] font-medium text-[#1C1B1F] leading-tight">
+            <p className="text-body-md text-on-surface-variant">Good morning</p>
+            <h1 className="text-title-lg font-medium text-on-surface leading-tight">
               Hello User, Ready to play?
             </h1>
           </div>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[#F5F5F5] min-w-[48px] min-h-[48px]">
-            <Bell className="w-5 h-5 text-[#49454F]" />
+          <button className="w-10 h-10 rounded-md3-full flex items-center justify-center bg-surface-container-low hover:bg-on-surface/8 transition-colors min-w-[48px] min-h-[48px]">
+            <Bell className="w-5 h-5 text-on-surface-variant" />
           </button>
         </div>
       </div>
@@ -58,8 +58,8 @@ export function HomeScreen() {
       {/* My Groups - Horizontal scroll */}
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[16px] font-medium text-[#1C1B1F]">My Groups</h2>
-          <button className="flex items-center gap-0.5 text-[13px] text-[#2D7A3A] font-medium min-h-[48px]">
+          <h2 className="text-title-md font-medium text-on-surface">My Groups</h2>
+          <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
             See all <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -67,7 +67,7 @@ export function HomeScreen() {
           {groups.map((group) => (
             <div
               key={group.name}
-              className="flex-shrink-0 w-[140px] rounded-[16px] overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+              className="flex-shrink-0 w-[140px] rounded-md3-large overflow-hidden bg-surface-container-lowest shadow-md3-1"
             >
               <div className="h-[80px] overflow-hidden">
                 <ImageWithFallback
@@ -77,10 +77,10 @@ export function HomeScreen() {
                 />
               </div>
               <div className="p-2.5">
-                <p className="text-[13px] font-medium text-[#1C1B1F] truncate">
+                <p className="text-label-lg font-medium text-on-surface truncate">
                   {group.name}
                 </p>
-                <p className="text-[11px] text-[#49454F]">
+                <p className="text-label-sm text-on-surface-variant">
                   {group.members} members
                 </p>
               </div>
@@ -92,8 +92,8 @@ export function HomeScreen() {
       {/* Schedule - Horizontal scroll */}
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[16px] font-medium text-[#1C1B1F]">Schedule</h2>
-          <button className="flex items-center gap-0.5 text-[13px] text-[#2D7A3A] font-medium min-h-[48px]">
+          <h2 className="text-title-md font-medium text-on-surface">Schedule</h2>
+          <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
             View all <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -101,16 +101,16 @@ export function HomeScreen() {
           {scheduleItems.map((item) => (
             <div
               key={`${item.day}-${item.date}`}
-              className={`flex-shrink-0 w-[56px] h-[72px] rounded-[16px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              className={`flex-shrink-0 w-[56px] h-[72px] rounded-md3-large flex flex-col items-center justify-center gap-0.5 transition-colors ${
                 item.active
-                  ? "bg-[#2D7A3A] text-white"
-                  : "bg-[#F5F5F5] text-[#49454F]"
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container-low text-on-surface-variant"
               }`}
             >
-              <span className="text-[11px] font-medium opacity-80">
+              <span className="text-label-sm font-medium opacity-80">
                 {item.day}
               </span>
-              <span className="text-[18px] font-medium">{item.date}</span>
+              <span className="text-title-lg font-medium">{item.date}</span>
             </div>
           ))}
         </div>
@@ -118,7 +118,7 @@ export function HomeScreen() {
 
       {/* Upcoming Games */}
       <div className="px-4 mb-6">
-        <h2 className="text-[16px] font-medium text-[#1C1B1F] mb-3">
+        <h2 className="text-title-md font-medium text-on-surface mb-3">
           Upcoming Games
         </h2>
         <div className="flex flex-col gap-3">
@@ -142,10 +142,10 @@ export function HomeScreen() {
       {completedGames.length > 0 && (
         <div className="px-4 mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[16px] font-medium text-[#1C1B1F]">
+            <h2 className="text-title-md font-medium text-on-surface">
               Recent Games
             </h2>
-            <button className="flex items-center gap-0.5 text-[13px] text-[#2D7A3A] font-medium min-h-[48px]">
+            <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>

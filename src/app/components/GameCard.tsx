@@ -45,12 +45,12 @@ export function GameCard({
   return (
     <button
       onClick={() => navigate(`/game/${id}`)}
-      className="w-full text-left bg-surface rounded-md3-medium p-4 shadow-md3-1 active:scale-[0.98] transition-transform border border-outline-variant"
+      className="w-full text-left bg-surface-container-low rounded-md3-medium p-4 shadow-md3-1 md3-state-surface transition-colors"
     >
       {/* Status chip */}
       <div className="flex items-center justify-between mb-3">
         <span
-          className={`inline-flex items-center px-3 py-1 rounded-md3-small text-label-md font-medium ${statusConfig.chipBg} ${statusConfig.chipText}`}
+          className={`inline-flex items-center px-3 py-1 rounded-md3-full text-label-md font-medium ${statusConfig.chipBg} ${statusConfig.chipText}`}
         >
           {statusConfig.label}
         </span>

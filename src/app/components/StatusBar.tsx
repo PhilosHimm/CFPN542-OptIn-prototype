@@ -3,7 +3,7 @@ import { Signal, Wifi, BatteryFull } from "lucide-react";
 export function StatusBar() {
   return (
     <div className="flex justify-between items-center px-6 py-4 sticky top-0 z-50 bg-transparent backdrop-blur-sm">
-      <span className="text-[15px] font-semibold tracking-tight">
+      <span className="text-label-lg font-semibold">
         9:41
       </span>
       {/* Dynamic Island Inspired Shape */}

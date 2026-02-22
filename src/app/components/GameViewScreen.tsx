@@ -49,30 +49,30 @@ function getStatusConfig(status: Game["status"]) {
     case "proposal":
       return {
         label: "Voting Phase",
-        bg: "bg-[#FFF3E0]",
-        text: "text-[#E65100]",
-        dot: "bg-[#E65100]",
+        bg: "bg-tertiary-container",
+        text: "text-on-tertiary-container",
+        dot: "bg-tertiary",
       };
     case "confirmed":
       return {
         label: "Confirmed",
-        bg: "bg-[#E8F5E9]",
-        text: "text-[#2D7A3A]",
-        dot: "bg-[#2D7A3A]",
+        bg: "bg-primary-container",
+        text: "text-on-primary-container",
+        dot: "bg-primary",
       };
     case "completed":
       return {
         label: "Completed",
-        bg: "bg-[#F5F5F5]",
-        text: "text-[#757575]",
-        dot: "bg-[#757575]",
+        bg: "bg-surface-container",
+        text: "text-on-surface-variant",
+        dot: "bg-on-surface-variant",
       };
     case "cancelled":
       return {
         label: "Cancelled",
-        bg: "bg-[#FFEBEE]",
-        text: "text-[#B3261E]",
-        dot: "bg-[#B3261E]",
+        bg: "bg-error-container",
+        text: "text-on-error-container",
+        dot: "bg-error",
       };
   }
 }
@@ -100,13 +100,13 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <div className="flex items-center gap-2 bg-[#FFF3E0] rounded-[12px] px-4 py-3 mb-4">
-      <Timer className="w-5 h-5 text-[#E65100] flex-shrink-0" />
+    <div className="flex items-center gap-2 bg-tertiary-container rounded-md3-medium px-4 py-3 mb-4">
+      <Timer className="w-5 h-5 text-on-tertiary-container flex-shrink-0" />
       <div className="flex-1">
-        <p className="text-[12px] text-[#E65100] leading-none mb-0.5 font-medium">
+        <p className="text-label-md text-on-tertiary-container leading-none mb-0.5 font-medium">
           Voting closes in
         </p>
-        <p className="text-[20px] font-medium text-[#E65100] leading-tight tracking-wider font-mono">
+        <p className="text-title-lg font-medium text-on-tertiary-container leading-tight font-mono">
           {pad(timeLeft.hours)}:{pad(timeLeft.minutes)}:{pad(timeLeft.seconds)}
         </p>
       </div>
@@ -132,29 +132,29 @@ function VoteButton({
     in: {
       label: "I'm In",
       icon: CheckCircle2,
-      activeBg: "bg-[#2D7A3A]",
-      activeText: "text-white",
-      inactiveBg: "bg-[#E8F5E9]",
-      inactiveText: "text-[#2D7A3A]",
-      inactiveBorder: "border-[#2D7A3A]",
+      activeBg: "bg-primary",
+      activeText: "text-on-primary",
+      inactiveBg: "bg-primary-container",
+      inactiveText: "text-on-primary-container",
+      inactiveBorder: "border-primary",
     },
     maybe: {
       label: "Maybe",
       icon: CircleAlert,
-      activeBg: "bg-[#F9A825]",
-      activeText: "text-white",
-      inactiveBg: "bg-[#FFF8E1]",
-      inactiveText: "text-[#F9A825]",
-      inactiveBorder: "border-[#F9A825]",
+      activeBg: "bg-secondary",
+      activeText: "text-on-secondary",
+      inactiveBg: "bg-secondary-container",
+      inactiveText: "text-on-secondary-container",
+      inactiveBorder: "border-secondary",
     },
     out: {
       label: "Can't",
       icon: CircleX,
-      activeBg: "bg-[#B3261E]",
-      activeText: "text-white",
-      inactiveBg: "bg-[#FFEBEE]",
-      inactiveText: "text-[#B3261E]",
-      inactiveBorder: "border-[#B3261E]",
+      activeBg: "bg-error",
+      activeText: "text-on-error",
+      inactiveBg: "bg-error-container",
+      inactiveText: "text-on-error-container",
+      inactiveBorder: "border-error",
     },
   }[type];
 
@@ -164,17 +164,17 @@ function VoteButton({
     <button
       onClick={onPress}
       disabled={disabled}
-      className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-[12px] border-2 transition-all min-h-[48px] ${
+      className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-md3-medium border-2 transition-colors min-h-[48px] ${
         disabled
-          ? "opacity-50 cursor-not-allowed border-[#E0E0E0] bg-[#F5F5F5]"
+          ? "opacity-50 cursor-not-allowed border-outline-variant bg-surface-container"
           : isActive
           ? `${config.activeBg} ${config.activeText} border-transparent`
           : `${config.inactiveBg} ${config.inactiveText} ${config.inactiveBorder}`
       }`}
     >
       <Icon className="w-5 h-5" />
-      <span className="text-[12px] font-medium leading-none">{config.label}</span>
-      <span className="text-[11px] leading-none opacity-80">{count}</span>
+      <span className="text-label-md font-medium leading-none">{config.label}</span>
+      <span className="text-label-sm leading-none opacity-80">{count}</span>
     </button>
   );
 }
@@ -198,7 +198,7 @@ function AvatarStack({
         return (
           <div
             key={pid}
-            className="w-[28px] h-[28px] rounded-full border-2 border-white overflow-hidden flex-shrink-0"
+            className="w-[28px] h-[28px] rounded-md3-full border-2 border-surface overflow-hidden flex-shrink-0"
             style={{ marginLeft: i > 0 ? -8 : 0, zIndex: visible.length - i }}
           >
             <ImageWithFallback
@@ -211,10 +211,10 @@ function AvatarStack({
       })}
       {extra > 0 && (
         <div
-          className="w-[28px] h-[28px] rounded-full bg-[#E0E0E0] flex items-center justify-center border-2 border-white flex-shrink-0"
+          className="w-[28px] h-[28px] rounded-md3-full bg-surface-variant flex items-center justify-center border-2 border-surface flex-shrink-0"
           style={{ marginLeft: -8 }}
         >
-          <span className="text-[10px] font-medium text-[#49454F] leading-none">
+          <span className="text-label-sm font-medium text-on-surface-variant leading-none">
             +{extra}
           </span>
         </div>
@@ -250,29 +250,29 @@ function OptionCard({
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06 }}
-      className={`rounded-[16px] border-2 p-4 mb-3 transition-colors ${
+      transition={{ delay: index * 0.06, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
+      className={`rounded-md3-large border-2 p-4 mb-3 transition-colors ${
         isWinner
-          ? "border-[#2D7A3A] bg-[rgba(45,122,58,0.04)]"
+          ? "border-primary bg-primary/5"
           : isConfirmed && !isWinner
-          ? "border-[#E0E0E0] bg-[#FAFAFA] opacity-60"
-          : "border-[#79747E] bg-white"
+          ? "border-outline-variant bg-surface-container-low opacity-60"
+          : "border-outline bg-surface-container-lowest"
       }`}
     >
       {/* Option header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {isWinner && (
-            <div className="w-5 h-5 rounded-full bg-[#2D7A3A] flex items-center justify-center flex-shrink-0">
-              <Trophy className="w-3 h-3 text-white" />
+            <div className="w-5 h-5 rounded-md3-full bg-primary flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-3 h-3 text-on-primary" />
             </div>
           )}
-          <span className="text-[13px] font-medium text-[#2D7A3A] leading-none">
+          <span className="text-label-lg font-medium text-primary leading-none">
             Option {index + 1}
             {isWinner ? " \u2014 Winner" : ""}
           </span>
         </div>
-        <span className="text-[12px] text-[#49454F] leading-none font-medium">
+        <span className="text-label-md text-on-surface-variant leading-none font-medium">
           {totalIn} In
         </span>
       </div>
@@ -280,20 +280,20 @@ function OptionCard({
       {/* Date & Time */}
       <div className="flex flex-col gap-1 mb-3">
         <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-[#49454F] flex-shrink-0" />
-          <span className="text-[14px] text-[#1C1B1F] leading-normal">
+          <CalendarDays className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+          <span className="text-body-md text-on-surface leading-normal">
             {formatDate(option.date)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#49454F] flex-shrink-0" />
-          <span className="text-[14px] text-[#1C1B1F] leading-normal">
+          <Clock className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+          <span className="text-body-md text-on-surface leading-normal">
             {formatTime(option.startTime)} \u2013 {formatTime(option.endTime)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-[#49454F] flex-shrink-0" />
-          <span className="text-[14px] text-[#1C1B1F] leading-normal">
+          <MapPin className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+          <span className="text-body-md text-on-surface leading-normal">
             {option.location}
           </span>
         </div>
@@ -304,7 +304,7 @@ function OptionCard({
         <div className="flex items-center gap-2 mb-3">
           <AvatarStack playerIds={option.votes.in} />
           {option.votes.in.length > 0 && (
-            <span className="text-[11px] text-[#49454F] leading-none">
+            <span className="text-label-sm text-on-surface-variant leading-none">
               voted In
             </span>
           )}
@@ -339,20 +339,20 @@ function OptionCard({
       {isReadOnly && (
         <div className="flex gap-3">
           <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-[#2D7A3A]" />
-            <span className="text-[12px] text-[#2D7A3A] font-medium leading-none">
+            <CheckCircle2 className="w-4 h-4 text-primary" />
+            <span className="text-label-md text-primary font-medium leading-none">
               {totalIn} In
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <CircleAlert className="w-4 h-4 text-[#F9A825]" />
-            <span className="text-[12px] text-[#F9A825] font-medium leading-none">
+            <CircleAlert className="w-4 h-4 text-secondary" />
+            <span className="text-label-md text-secondary font-medium leading-none">
               {totalMaybe} Maybe
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <CircleX className="w-4 h-4 text-[#B3261E]" />
-            <span className="text-[12px] text-[#B3261E] font-medium leading-none">
+            <CircleX className="w-4 h-4 text-error" />
+            <span className="text-label-md text-error font-medium leading-none">
               {totalOut} Out
             </span>
           </div>
@@ -374,23 +374,23 @@ function RosterSection({
   const visibleRoster = expanded ? roster : roster.slice(0, 4);
 
   return (
-    <div className="bg-white rounded-[16px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
+    <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-[#2D7A3A]" />
-          <h3 className="text-[14px] font-medium text-[#1C1B1F] leading-none">
+          <Users className="w-5 h-5 text-primary" />
+          <h3 className="text-body-md font-medium text-on-surface leading-none">
             Roster
           </h3>
         </div>
-        <span className="text-[13px] font-medium text-[#2D7A3A] leading-none">
+        <span className="text-label-lg font-medium text-primary leading-none">
           {roster.length}/{maxPlayers}
         </span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-[6px] rounded-full bg-[#E0E0E0] mb-3 overflow-hidden">
+      <div className="w-full h-[6px] rounded-md3-full bg-surface-variant mb-3 overflow-hidden">
         <div
-          className="h-full rounded-full bg-[#2D7A3A] transition-all"
+          className="h-full rounded-md3-full bg-primary transition-all"
           style={{ width: `${Math.min(100, (roster.length / maxPlayers) * 100)}%` }}
         />
       </div>
@@ -405,13 +405,13 @@ function RosterSection({
             <ImageWithFallback
               src={player.avatar}
               alt={player.name}
-              className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+              className="w-9 h-9 rounded-md3-full object-cover flex-shrink-0"
             />
-            <span className="text-[14px] text-[#1C1B1F] leading-none flex-1">
+            <span className="text-body-md text-on-surface leading-none flex-1">
               {player.name}
             </span>
-            <div className="w-5 h-5 rounded-full bg-[#E8F5E9] flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#2D7A3A]" />
+            <div className="w-5 h-5 rounded-md3-full bg-primary-container flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5 text-on-primary-container" />
             </div>
           </div>
         ))}
@@ -421,15 +421,15 @@ function RosterSection({
       {roster.length > 4 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-center gap-1 pt-2 mt-1 border-t border-[rgba(0,0,0,0.06)] min-h-[48px]"
+          className="w-full flex items-center justify-center gap-1 pt-2 mt-1 border-t border-outline-variant/50 min-h-[48px]"
         >
-          <span className="text-[13px] text-[#2D7A3A] font-medium leading-none">
+          <span className="text-label-lg text-primary font-medium leading-none">
             {expanded ? "Show less" : `Show all ${roster.length} players`}
           </span>
           {expanded ? (
-            <ChevronUp className="w-4 h-4 text-[#2D7A3A]" />
+            <ChevronUp className="w-4 h-4 text-primary" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-[#2D7A3A]" />
+            <ChevronDown className="w-4 h-4 text-primary" />
           )}
         </button>
       )}
@@ -502,10 +502,10 @@ export function GameViewScreen() {
   if (!game) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <p className="text-[16px] text-[#49454F] mb-4">Game not found.</p>
+        <p className="text-body-lg text-on-surface-variant mb-4">Game not found.</p>
         <button
           onClick={() => navigate("/")}
-          className="px-6 py-3 bg-[#2D7A3A] text-white rounded-full text-[14px] font-medium min-h-[48px]"
+          className="px-6 py-3 bg-primary text-on-primary rounded-md3-full text-label-lg font-medium min-h-[48px]"
         >
           Go Home
         </button>
@@ -517,7 +517,7 @@ export function GameViewScreen() {
   const createdByPlayer = getPlayerById(game.createdBy);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FFFBFE]">
+    <div className="flex flex-col min-h-screen bg-surface">
       {/* Hero Image */}
       <div className="relative h-[200px] overflow-hidden">
         <ImageWithFallback
@@ -531,24 +531,24 @@ export function GameViewScreen() {
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="absolute top-[48px] left-4 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
+          className="absolute top-[48px] left-4 w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
         >
-          <ArrowLeft className="w-5 h-5 text-[#1C1B1F]" />
+          <ArrowLeft className="w-5 h-5 text-on-surface" />
         </button>
 
         {/* Share button */}
-        <button className="absolute top-[48px] right-4 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md">
-          <Share2 className="w-5 h-5 text-[#1C1B1F]" />
+        <button className="absolute top-[48px] right-4 w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md">
+          <Share2 className="w-5 h-5 text-on-surface" />
         </button>
 
         {/* Title on hero */}
         <div className="absolute bottom-4 left-4 right-4">
           <span
-            className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium mb-2 ${statusConfig.bg} ${statusConfig.text}`}
+            className={`inline-flex items-center px-3 py-1 rounded-md3-full text-label-md font-medium mb-2 ${statusConfig.bg} ${statusConfig.text}`}
           >
             {statusConfig.label}
           </span>
-          <h1 className="text-[22px] font-medium text-white leading-tight drop-shadow-md">
+          <h1 className="text-title-lg font-medium text-white leading-tight drop-shadow-md">
             {game.title}
           </h1>
         </div>
@@ -558,25 +558,25 @@ export function GameViewScreen() {
       <div className="px-4 pt-4 pb-6">
         {/* Quick Info Row */}
         <div className="flex items-center flex-wrap gap-2 mb-4">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F5F5F5] rounded-full">
-            <span className="text-[14px] leading-none">{game.sportEmoji}</span>
-            <span className="text-[12px] font-medium text-[#1C1B1F] leading-none">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md3-full">
+            <span className="text-body-md leading-none">{game.sportEmoji}</span>
+            <span className="text-label-md font-medium text-on-surface leading-none">
               {game.sport}
             </span>
           </span>
           <span
-            className={`inline-flex items-center px-3 py-1.5 rounded-full text-[12px] font-medium leading-none ${
+            className={`inline-flex items-center px-3 py-1.5 rounded-md3-full text-label-md font-medium leading-none ${
               game.gameType === "competitive"
-                ? "bg-[#FFF3E0] text-[#E65100]"
-                : "bg-[#E8F5E9] text-[#2D7A3A]"
+                ? "bg-tertiary-container text-on-tertiary-container"
+                : "bg-primary-container text-on-primary-container"
             }`}
           >
             {game.gameType === "competitive" ? "\uD83C\uDFC6 Competitive" : "\uD83C\uDF89 Casual"}
           </span>
           {game.totalCost > 0 && (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#E8F5E9] rounded-full">
-              <DollarSign className="w-3.5 h-3.5 text-[#2D7A3A]" />
-              <span className="text-[12px] font-medium text-[#2D7A3A] leading-none">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-container rounded-md3-full">
+              <DollarSign className="w-3.5 h-3.5 text-on-primary-container" />
+              <span className="text-label-md font-medium text-on-primary-container leading-none">
                 {perPersonCost} / person
               </span>
             </span>
@@ -584,40 +584,40 @@ export function GameViewScreen() {
         </div>
 
         {/* Details Card */}
-        <div className="bg-white rounded-[16px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
+        <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-[#49454F] flex-shrink-0" />
-              <span className="text-[14px] text-[#1C1B1F] leading-normal">
+              <MapPin className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
+              <span className="text-body-md text-on-surface leading-normal">
                 {game.location}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <CalendarDays className="w-5 h-5 text-[#49454F] flex-shrink-0" />
-              <span className="text-[14px] text-[#1C1B1F] leading-normal">
+              <CalendarDays className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
+              <span className="text-body-md text-on-surface leading-normal">
                 {game.date}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-[#49454F] flex-shrink-0" />
-              <span className="text-[14px] text-[#1C1B1F] leading-normal">
+              <Clock className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
+              <span className="text-body-md text-on-surface leading-normal">
                 {game.time}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Users className="w-5 h-5 text-[#49454F] flex-shrink-0" />
-              <span className="text-[14px] text-[#1C1B1F] leading-normal">
+              <Users className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
+              <span className="text-body-md text-on-surface leading-normal">
                 {game.roster.length}/{game.maxPlayers} players
               </span>
             </div>
             {createdByPlayer && (
-              <div className="flex items-center gap-3 pt-1 mt-1 border-t border-[rgba(0,0,0,0.06)]">
+              <div className="flex items-center gap-3 pt-1 mt-1 border-t border-outline-variant/50">
                 <ImageWithFallback
                   src={createdByPlayer.avatar}
                   alt={createdByPlayer.name}
-                  className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                  className="w-5 h-5 rounded-md3-full object-cover flex-shrink-0"
                 />
-                <span className="text-[12px] text-[#49454F] leading-none">
+                <span className="text-label-md text-on-surface-variant leading-none">
                   Created by {createdByPlayer.name}
                 </span>
               </div>
@@ -632,9 +632,9 @@ export function GameViewScreen() {
 
         {/* Confirmed banner */}
         {isConfirmed && (
-          <div className="flex items-center gap-2 bg-[#E8F5E9] rounded-[12px] px-4 py-3 mb-4">
-            <CheckCircle2 className="w-5 h-5 text-[#2D7A3A] flex-shrink-0" />
-            <p className="text-[14px] text-[#2D7A3A] font-medium leading-normal">
+          <div className="flex items-center gap-2 bg-primary-container rounded-md3-medium px-4 py-3 mb-4">
+            <CheckCircle2 className="w-5 h-5 text-on-primary-container flex-shrink-0" />
+            <p className="text-body-md text-on-primary-container font-medium leading-normal">
               This game is confirmed! See you there.
             </p>
           </div>
@@ -642,9 +642,9 @@ export function GameViewScreen() {
 
         {/* Completed banner */}
         {game.status === "completed" && (
-          <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-[12px] px-4 py-3 mb-4">
-            <Trophy className="w-5 h-5 text-[#757575] flex-shrink-0" />
-            <p className="text-[14px] text-[#757575] font-medium leading-normal">
+          <div className="flex items-center gap-2 bg-surface-container rounded-md3-medium px-4 py-3 mb-4">
+            <Trophy className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
+            <p className="text-body-md text-on-surface-variant font-medium leading-normal">
               This game has been completed. Thanks for playing!
             </p>
           </div>
@@ -652,7 +652,7 @@ export function GameViewScreen() {
 
         {/* Time Options Section */}
         <div className="mb-4">
-          <h2 className="text-[16px] font-medium text-[#1C1B1F] mb-3 leading-none">
+          <h2 className="text-title-md font-medium text-on-surface mb-3 leading-none">
             {game.status === "proposal"
               ? "Vote on a Time"
               : game.status === "confirmed"
@@ -680,7 +680,7 @@ export function GameViewScreen() {
 
           {/* Propose new time */}
           {game.status === "proposal" && (
-            <button className="w-full text-center py-3 text-[13px] text-[#2D7A3A] font-medium min-h-[48px]">
+            <button className="w-full text-center py-3 text-label-lg text-primary font-medium min-h-[48px]">
               + Propose a new time
             </button>
           )}
@@ -688,35 +688,35 @@ export function GameViewScreen() {
 
         {/* Cost Breakdown */}
         {game.totalCost > 0 && (
-          <div className="bg-white rounded-[16px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
+          <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
             <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="w-5 h-5 text-[#2D7A3A]" />
-              <h3 className="text-[14px] font-medium text-[#1C1B1F] leading-none">
+              <DollarSign className="w-5 h-5 text-primary" />
+              <h3 className="text-body-md font-medium text-on-surface leading-none">
                 Cost Breakdown
               </h3>
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex justify-between">
-                <span className="text-[13px] text-[#49454F] leading-normal">
+                <span className="text-label-lg text-on-surface-variant leading-normal">
                   Total Venue Cost
                 </span>
-                <span className="text-[14px] text-[#1C1B1F] font-medium leading-normal">
+                <span className="text-body-md text-on-surface font-medium leading-normal">
                   ${game.totalCost.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[13px] text-[#49454F] leading-normal">
+                <span className="text-label-lg text-on-surface-variant leading-normal">
                   Split
                 </span>
-                <span className="text-[14px] text-[#1C1B1F] leading-normal">
+                <span className="text-body-md text-on-surface leading-normal">
                   {game.splitCost ? "Equally" : "No split"}
                 </span>
               </div>
-              <div className="border-t border-[rgba(0,0,0,0.06)] pt-2 mt-1 flex justify-between">
-                <span className="text-[14px] text-[#2D7A3A] font-medium leading-normal">
+              <div className="border-t border-outline-variant/50 pt-2 mt-1 flex justify-between">
+                <span className="text-body-md text-primary font-medium leading-normal">
                   Per Person
                 </span>
-                <span className="text-[16px] text-[#2D7A3A] font-medium leading-normal">
+                <span className="text-title-md text-primary font-medium leading-normal">
                   {perPersonCost}
                 </span>
               </div>
@@ -728,17 +728,17 @@ export function GameViewScreen() {
         <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} />
 
         {/* Group Info */}
-        <div className="bg-white rounded-[16px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
+        <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[12px] text-[#49454F] mb-1 leading-none">
+              <p className="text-label-md text-on-surface-variant mb-1 leading-none">
                 Group
               </p>
-              <p className="text-[14px] font-medium text-[#1C1B1F] leading-none">
+              <p className="text-body-md font-medium text-on-surface leading-none">
                 {game.group}
               </p>
             </div>
-            <button className="px-4 py-2 rounded-full bg-[#E8F5E9] text-[13px] font-medium text-[#2D7A3A] min-h-[48px]">
+            <button className="px-4 py-2 rounded-md3-full bg-secondary-container text-label-lg font-medium text-on-secondary-container min-h-[48px]">
               View Group
             </button>
           </div>
@@ -746,16 +746,16 @@ export function GameViewScreen() {
 
         {/* Bottom Action */}
         {game.status === "proposal" && (
-          <button className="w-full h-[52px] bg-[#2D7A3A] text-white rounded-full text-[14px] font-medium shadow-md hover:bg-[#236B2F] active:bg-[#1B5724] transition-colors min-h-[52px]">
+          <button className="w-full h-[52px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors min-h-[52px]">
             Confirm My Votes
           </button>
         )}
         {isConfirmed && (
           <div className="flex gap-3">
-            <button className="flex-1 h-[52px] bg-[#2D7A3A] text-white rounded-full text-[14px] font-medium shadow-md hover:bg-[#236B2F] transition-colors min-h-[52px]">
+            <button className="flex-1 h-[52px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors min-h-[52px]">
               I'm Attending
             </button>
-            <button className="h-[52px] px-5 rounded-full border-2 border-[#79747E] text-[14px] font-medium text-[#49454F] min-h-[52px]">
+            <button className="h-[52px] px-5 rounded-md3-full border-2 border-outline text-label-lg font-medium text-on-surface-variant min-h-[52px]">
               Can't Make It
             </button>
           </div>

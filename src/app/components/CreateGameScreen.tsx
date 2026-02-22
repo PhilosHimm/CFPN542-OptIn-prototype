@@ -150,32 +150,37 @@ function OutlinedTextField({
   prefix?: string;
   inputMode?: "text" | "numeric" | "decimal";
 }) {
+  const hasValue = value.length > 0;
   return (
     <div className="mb-4">
-      <label className="block text-label-md font-medium text-on-surface-variant mb-1.5 leading-none">
-        {label}
-      </label>
-      <div className="relative">
+      <div className="md3-outlined-field relative">
         {icon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant z-10">
             {icon}
           </div>
         )}
         {prefix && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-body-lg text-on-surface-variant">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-body-lg text-on-surface-variant z-10">
             {prefix}
           </div>
         )}
         <input
           type={type}
           inputMode={inputMode}
-          placeholder={placeholder}
+          placeholder=" "
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full h-[56px] ${
             icon ? "pl-12" : prefix ? "pl-9" : "pl-4"
-          } pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:border-2 focus:outline-none transition-colors`}
+          } pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface focus:border-primary focus:border-2 focus:outline-none transition-colors peer`}
         />
+        <label
+          className={`md3-floating-label ${
+            icon ? "!left-12" : prefix ? "!left-9" : ""
+          }`}
+        >
+          {label}
+        </label>
       </div>
     </div>
   );
@@ -197,7 +202,7 @@ function NextButton({
       className={`w-full h-[40px] rounded-md3-full text-label-lg font-medium shadow-md3-1 transition-colors ${
         disabled
           ? "bg-surface-variant text-on-surface-variant opacity-38 cursor-not-allowed"
-          : "bg-primary text-on-primary hover:bg-primary/90 active:bg-primary/80"
+          : "bg-primary text-on-primary md3-state-primary"
       }`}
     >
       {label}
@@ -357,7 +362,7 @@ export function CreateGameScreen() {
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ type: "spring", duration: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.05, 0.7, 0.1, 1.0] }}
           className="w-[80px] h-[80px] rounded-md3-full bg-secondary-container flex items-center justify-center mb-6"
         >
           <CheckCircle2 className="w-10 h-10 text-on-secondary-container" />
@@ -365,15 +370,15 @@ export function CreateGameScreen() {
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-headline-small font-medium text-on-surface mb-2"
+          transition={{ delay: 0.2, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
+          className="text-headline-sm font-medium text-on-surface mb-2"
         >
           Game Created!
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
+          transition={{ delay: 0.35, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
           className="text-body-md text-on-surface-variant text-center"
         >
           Your game proposal has been sent to{" "}
@@ -396,7 +401,7 @@ export function CreateGameScreen() {
         <div className="flex items-center gap-3 mb-1">
           <button
             onClick={goBack}
-            className="w-10 h-10 rounded-md3-full flex items-center justify-center hover:bg-surface-variant min-w-[48px] min-h-[48px]"
+            className="w-10 h-10 rounded-md3-full flex items-center justify-center hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors min-w-[48px] min-h-[48px]"
           >
             <ArrowLeft className="w-5 h-5 text-on-surface" />
           </button>
@@ -420,7 +425,7 @@ export function CreateGameScreen() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.25, ease: "easeInOut" }}
+            transition={{ duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
             className="px-4 pb-6"
           >
             {currentStep === 1 && (
@@ -535,34 +540,34 @@ function StepDetails({
 }) {
   return (
     <>
-      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
         Let's get started. What are we playing?
       </p>
 
       {/* Sport Dropdown */}
       <div className="mb-4 relative">
-        <label className="block text-[12px] font-medium text-[#49454F] mb-1.5 leading-none">
+        <label className="block text-label-md font-medium text-on-surface-variant mb-1.5 leading-none">
           Sport
         </label>
         <button
           onClick={() => setSportDropdownOpen(!sportDropdownOpen)}
-          className="w-full h-[56px] px-4 rounded-[4px] border border-[#79747E] bg-transparent flex items-center justify-between text-left hover:border-[#1C1B1F] transition-colors"
+          className="w-full h-[56px] px-4 rounded-md3-extra-small border border-outline bg-transparent flex items-center justify-between text-left hover:border-on-surface transition-colors"
         >
           <span
-            className={`text-[16px] ${
-              selectedSport ? "text-[#1C1B1F]" : "text-[#49454F]"
+            className={`text-body-lg ${
+              selectedSport ? "text-on-surface" : "text-on-surface-variant"
             }`}
           >
             {selectedSport || "Select Sport"}
           </span>
           <ChevronDown
-            className={`w-5 h-5 text-[#49454F] transition-transform ${
+            className={`w-5 h-5 text-on-surface-variant transition-transform ${
               sportDropdownOpen ? "rotate-180" : ""
             }`}
           />
         </button>
         {sportDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[4px] shadow-[0_3px_14px_rgba(0,0,0,0.12)] border border-[rgba(0,0,0,0.08)] z-20 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-md3-extra-small shadow-md3-3 border border-outline-variant z-20 overflow-hidden">
             {sports.map((sport) => (
               <button
                 key={sport}
@@ -570,10 +575,10 @@ function StepDetails({
                   setSelectedSport(sport);
                   setSportDropdownOpen(false);
                 }}
-                className={`w-full px-4 py-3 text-left text-[14px] hover:bg-[#F5F5F5] transition-colors ${
+                className={`w-full px-4 py-3 text-left text-body-md hover:bg-on-surface/8 transition-colors ${
                   selectedSport === sport
-                    ? "bg-[#E8F5E9] text-[#2D7A3A] font-medium"
-                    : "text-[#1C1B1F]"
+                    ? "bg-secondary-container text-on-secondary-container font-medium"
+                    : "text-on-surface"
                 }`}
               >
                 {sport}
@@ -597,11 +602,11 @@ function StepDetails({
         placeholder="Where is it? Address"
         value={address}
         onChange={setAddress}
-        icon={<MapPin className="w-5 h-5 text-[#49454F]" />}
+        icon={<MapPin className="w-5 h-5 text-on-surface-variant" />}
       />
 
       {/* Map Placeholder */}
-      <div className="mb-5 rounded-[12px] overflow-hidden h-[140px]">
+      <div className="mb-5 rounded-md3-medium overflow-hidden h-[140px]">
         <ImageWithFallback
           src="https://images.unsplash.com/photo-1707826858461-45968b58532e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaXR5JTIwcGFyayUyMG1hcCUyMG92ZXJoZWFkJTIwc2F0ZWxsaXRlJTIwdmlld3xlbnwxfHx8fDE3NzE2MjgxMzJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
           alt="Map view"
@@ -641,7 +646,7 @@ function StepDetails({
               }`}
             >
               <div className="flex flex-col items-center gap-1">
-                <span className="text-[20px] leading-none">{item.emoji}</span>
+                <span className="text-title-lg leading-none">{item.emoji}</span>
                 <span
                   className={`text-label-lg font-medium leading-none ${
                     gameType === item.key ? "text-on-secondary-container" : "text-on-surface"
@@ -664,7 +669,7 @@ function StepDetails({
         placeholder="12"
         value={maxPlayers}
         onChange={setMaxPlayers}
-        icon={<Users className="w-5 h-5 text-[#49454F]" />}
+        icon={<Users className="w-5 h-5 text-on-surface-variant" />}
         type="number"
         inputMode="numeric"
       />
@@ -698,18 +703,18 @@ function StepTimeLocation({
 }) {
   return (
     <>
-      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
         Propose up to 5 date/time options for voting.
       </p>
 
       {timeOptions.map((option, index) => (
         <div
           key={option.id}
-          className="mb-4 p-4 rounded-[12px] border border-[#79747E] bg-white relative"
+          className="mb-4 p-4 rounded-md3-medium border border-outline bg-surface-container-lowest relative"
         >
           {/* Option header */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[14px] font-medium text-[#2D7A3A] leading-none">
+            <span className="text-body-md font-medium text-primary leading-none">
               Option {index + 1}
             </span>
             {timeOptions.length > 1 && (
@@ -717,25 +722,25 @@ function StepTimeLocation({
                 onClick={() => onRemove(option.id)}
                 className="w-8 h-8 min-w-[48px] min-h-[48px] flex items-center justify-center -mr-2 -mt-1"
               >
-                <Trash2 className="w-4 h-4 text-[#B3261E]" />
+                <Trash2 className="w-4 h-4 text-error" />
               </button>
             )}
           </div>
 
           {/* Date */}
           <div className="mb-3">
-            <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+            <label className="block text-label-md font-medium text-on-surface-variant mb-1 leading-none">
               Date
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <CalendarDays className="w-4 h-4 text-[#49454F]" />
+                <CalendarDays className="w-4 h-4 text-on-surface-variant" />
               </div>
               <input
                 type="date"
                 value={option.date}
                 onChange={(e) => onUpdate(option.id, "date", e.target.value)}
-                className="w-full h-[48px] pl-10 pr-3 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
               />
             </div>
           </div>
@@ -743,12 +748,12 @@ function StepTimeLocation({
           {/* Time row */}
           <div className="flex gap-3 mb-3">
             <div className="flex-1">
-              <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+              <label className="block text-label-md font-medium text-on-surface-variant mb-1 leading-none">
                 Start Time
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                  <Clock className="w-4 h-4 text-[#49454F]" />
+                  <Clock className="w-4 h-4 text-on-surface-variant" />
                 </div>
                 <input
                   type="time"
@@ -756,17 +761,17 @@ function StepTimeLocation({
                   onChange={(e) =>
                     onUpdate(option.id, "startTime", e.target.value)
                   }
-                  className="w-full h-[48px] pl-10 pr-2 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                  className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
                 />
               </div>
             </div>
             <div className="flex-1">
-              <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+              <label className="block text-label-md font-medium text-on-surface-variant mb-1 leading-none">
                 End Time
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                  <Clock className="w-4 h-4 text-[#49454F]" />
+                  <Clock className="w-4 h-4 text-on-surface-variant" />
                 </div>
                 <input
                   type="time"
@@ -774,7 +779,7 @@ function StepTimeLocation({
                   onChange={(e) =>
                     onUpdate(option.id, "endTime", e.target.value)
                   }
-                  className="w-full h-[48px] pl-10 pr-2 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                  className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
                 />
               </div>
             </div>
@@ -782,12 +787,12 @@ function StepTimeLocation({
 
           {/* Option-specific address */}
           <div>
-            <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+            <label className="block text-label-md font-medium text-on-surface-variant mb-1 leading-none">
               Venue (optional)
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <MapPin className="w-4 h-4 text-[#49454F]" />
+                <MapPin className="w-4 h-4 text-on-surface-variant" />
               </div>
               <input
                 type="text"
@@ -796,7 +801,7 @@ function StepTimeLocation({
                 onChange={(e) =>
                   onUpdate(option.id, "address", e.target.value)
                 }
-                className="w-full h-[48px] pl-10 pr-3 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] placeholder:text-[#9E9E9E] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:border-2 focus:outline-none"
               />
             </div>
           </div>
@@ -843,7 +848,7 @@ function StepCosts({
 }) {
   return (
     <>
-      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
         Add any venue or equipment costs. Players can see the split.
       </p>
 
@@ -859,39 +864,36 @@ function StepCosts({
       />
 
       {/* Split Toggle */}
-      <div className="flex items-center justify-between py-4 mb-4 border-b border-[rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between py-4 mb-4 border-b border-outline-variant/50">
         <div>
-          <p className="text-[14px] font-medium text-[#1C1B1F] leading-normal">
+          <p className="text-body-md font-medium text-on-surface leading-normal">
             Split cost among players?
           </p>
-          <p className="text-[12px] text-[#49454F] leading-normal">
+          <p className="text-label-md text-on-surface-variant leading-normal">
             Divide equally among confirmed players
           </p>
         </div>
         <button
           onClick={() => setSplitCost(!splitCost)}
-          className={`w-[52px] h-[32px] rounded-full relative transition-colors min-w-[52px] min-h-[48px] flex items-center ${
-            splitCost ? "bg-[#2D7A3A]" : "bg-[#79747E]"
-          }`}
+          className="md3-switch min-w-[52px] min-h-[48px]"
+          data-checked={splitCost ? "true" : "false"}
+          role="switch"
+          aria-checked={splitCost}
         >
-          <div
-            className={`w-[24px] h-[24px] rounded-full bg-white shadow-md absolute transition-transform ${
-              splitCost ? "translate-x-[24px]" : "translate-x-[4px]"
-            }`}
-          />
+          <div className="md3-switch-thumb" />
         </button>
       </div>
 
       {/* Per-person estimate */}
-      <div className="bg-[#E8F5E9] rounded-[16px] p-5 mb-6 flex flex-col items-center gap-1">
-        <DollarSign className="w-6 h-6 text-[#2D7A3A] mb-1" />
-        <span className="text-[12px] text-[#49454F] leading-none">
+      <div className="bg-primary-container rounded-md3-large p-5 mb-6 flex flex-col items-center gap-1">
+        <DollarSign className="w-6 h-6 text-on-primary-container mb-1" />
+        <span className="text-label-md text-on-primary-container leading-none">
           Estimated per person
         </span>
-        <span className="text-[28px] font-medium text-[#2D7A3A] leading-tight">
+        <span className="text-headline-md font-medium text-on-primary-container leading-tight">
           ${perPersonCost}
         </span>
-        <span className="text-[12px] text-[#49454F] leading-none">
+        <span className="text-label-md text-on-primary-container leading-none">
           {splitCost ? "Split equally" : "No split — full amount shown"}
         </span>
       </div>
@@ -926,7 +928,7 @@ function StepCosts({
                     setSplitCost(true);
                   }
                 }}
-                className={`px-4 py-2 rounded-md3-small border text-label-lg font-medium transition-colors min-h-[32px] ${
+                className={`px-4 py-2 rounded-md3-full border text-label-lg font-medium transition-colors min-h-[32px] ${
                   isActive
                     ? "bg-secondary-container text-on-secondary-container border-transparent"
                     : "bg-surface text-on-surface-variant border-outline"
@@ -970,7 +972,7 @@ function StepInvite({
 }) {
   return (
     <>
-      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
         Share the game or invite specific players.
       </p>
 
@@ -1008,42 +1010,42 @@ function StepInvite({
       {/* Search */}
       <div className="relative mb-4">
         <div className="absolute left-4 top-1/2 -translate-y-1/2">
-          <Search className="w-5 h-5 text-[#49454F]" />
+          <Search className="w-5 h-5 text-on-surface-variant" />
         </div>
         <input
           type="text"
           placeholder="Search players..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-[48px] pl-12 pr-10 rounded-full border border-[#79747E] bg-white text-[14px] text-[#1C1B1F] placeholder:text-[#49454F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+          className="w-full h-[48px] pl-12 pr-10 rounded-md3-full border border-outline bg-surface text-body-md text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:border-2 focus:outline-none"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center"
           >
-            <X className="w-4 h-4 text-[#49454F]" />
+            <X className="w-4 h-4 text-on-surface-variant" />
           </button>
         )}
       </div>
 
       {/* Suggested Players header + Select All */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[14px] font-medium text-[#1C1B1F] leading-none">
+        <span className="text-body-md font-medium text-on-surface leading-none">
           Suggested Players
         </span>
         <button
           onClick={toggleSelectAll}
           className="flex items-center gap-2 min-h-[48px] px-2"
         >
-          <span className="text-[13px] text-[#2D7A3A] font-medium leading-none">
+          <span className="text-label-lg text-primary font-medium leading-none">
             {allSelected ? "Deselect All" : "Select All"}
           </span>
           <div
-            className={`w-5 h-5 rounded-[4px] border-2 flex items-center justify-center transition-colors ${
+            className={`w-5 h-5 rounded-md3-extra-small border-2 flex items-center justify-center transition-colors ${
               allSelected
-                ? "bg-[#2D7A3A] border-[#2D7A3A]"
-                : "border-[#79747E] bg-transparent"
+                ? "bg-primary border-primary"
+                : "border-outline bg-transparent"
             }`}
           >
             {allSelected && (
@@ -1074,28 +1076,28 @@ function StepInvite({
             <button
               key={player.id}
               onClick={() => togglePlayer(player.id)}
-              className={`flex items-center gap-3 px-3 py-3 rounded-[12px] transition-colors min-h-[56px] ${
-                isSelected ? "bg-[#E8F5E9]" : "hover:bg-[#F5F5F5]"
+              className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[56px] ${
+                isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
               }`}
             >
               <ImageWithFallback
                 src={player.avatar}
                 alt={player.name}
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                className="w-10 h-10 rounded-md3-full object-cover flex-shrink-0"
               />
               <div className="flex-1 text-left">
-                <p className="text-[14px] font-medium text-[#1C1B1F] leading-tight">
+                <p className="text-body-md font-medium text-on-surface leading-tight">
                   {player.name}
                 </p>
-                <p className="text-[12px] text-[#49454F] leading-tight">
+                <p className="text-label-md text-on-surface-variant leading-tight">
                   {player.sport}
                 </p>
               </div>
               <div
-                className={`w-5 h-5 rounded-[4px] border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                className={`w-5 h-5 rounded-md3-extra-small border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                   isSelected
-                    ? "bg-[#2D7A3A] border-[#2D7A3A]"
-                    : "border-[#79747E] bg-transparent"
+                    ? "bg-primary border-primary"
+                    : "border-outline bg-transparent"
                 }`}
               >
                 {isSelected && (
@@ -1123,7 +1125,7 @@ function StepInvite({
       {/* Selected count */}
       {selectedPlayers.length > 0 && (
         <div className="mb-4 text-center">
-          <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#E8F5E9] text-[13px] font-medium text-[#2D7A3A]">
+          <span className="inline-flex items-center px-4 py-1.5 rounded-md3-full bg-secondary-container text-label-lg font-medium text-on-secondary-container">
             {selectedPlayers.length} player
             {selectedPlayers.length > 1 ? "s" : ""} selected
           </span>
@@ -1190,13 +1192,13 @@ function StepReview({
 
   return (
     <>
-      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
         Review your game details before posting.
       </p>
 
       {/* Game Details Section */}
-      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
           Game Details
         </h3>
         <div className="flex flex-col gap-2">
@@ -1212,8 +1214,8 @@ function StepReview({
       </div>
 
       {/* Time Options Section */}
-      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
           Proposed Times
         </h3>
         {timeOptions.map((option, index) => (
@@ -1221,19 +1223,19 @@ function StepReview({
             key={option.id}
             className={`flex flex-col gap-1 ${
               index < timeOptions.length - 1
-                ? "pb-3 mb-3 border-b border-[rgba(0,0,0,0.06)]"
+                ? "pb-3 mb-3 border-b border-outline-variant/50"
                 : ""
             }`}
           >
-            <span className="text-[12px] font-medium text-[#49454F] leading-none">
+            <span className="text-label-md font-medium text-on-surface-variant leading-none">
               Option {index + 1}
             </span>
-            <span className="text-[14px] text-[#1C1B1F] leading-normal">
+            <span className="text-body-md text-on-surface leading-normal">
               {formatDate(option.date)} &middot;{" "}
               {formatTime(option.startTime)} – {formatTime(option.endTime)}
             </span>
             {option.address && (
-              <span className="text-[12px] text-[#49454F] leading-normal">
+              <span className="text-label-md text-on-surface-variant leading-normal">
                 {option.address}
               </span>
             )}
@@ -1242,8 +1244,8 @@ function StepReview({
       </div>
 
       {/* Cost Section */}
-      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
           Cost
         </h3>
         <div className="flex flex-col gap-2">
@@ -1265,8 +1267,8 @@ function StepReview({
       </div>
 
       {/* Invited Players */}
-      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
           Invited Players
         </h3>
         {selectedPlayers.length > 0 ? (
@@ -1277,14 +1279,14 @@ function StepReview({
               return (
                 <div
                   key={pid}
-                  className="flex items-center gap-2 bg-[#E8F5E9] rounded-full px-3 py-1.5"
+                  className="flex items-center gap-2 bg-secondary-container rounded-md3-full px-3 py-1.5"
                 >
                   <ImageWithFallback
                     src={player.avatar}
                     alt={player.name}
-                    className="w-6 h-6 rounded-full object-cover"
+                    className="w-6 h-6 rounded-md3-full object-cover"
                   />
-                  <span className="text-[12px] font-medium text-[#1C1B1F] leading-none">
+                  <span className="text-label-md font-medium text-on-surface leading-none">
                     {player.name.split(" ")[0]}
                   </span>
                 </div>
@@ -1292,7 +1294,7 @@ function StepReview({
             })}
           </div>
         ) : (
-          <p className="text-[13px] text-[#49454F] leading-normal">
+          <p className="text-label-lg text-on-surface-variant leading-normal">
             No players invited yet. Share the link after creating.
           </p>
         )}
@@ -1331,8 +1333,8 @@ function StepReview({
       </div>
 
       {/* Group Assignment */}
-      <div className="bg-white rounded-[16px] p-4 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-6 shadow-md3-1">
+        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
           Assign to Group
         </h3>
         <div className="flex flex-col gap-0">
@@ -1342,22 +1344,22 @@ function StepReview({
               <button
                 key={group.id}
                 onClick={() => setAssignedGroup(group.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-[12px] transition-colors min-h-[48px] ${
-                  isSelected ? "bg-[#E8F5E9]" : "hover:bg-[#F5F5F5]"
+                className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[48px] ${
+                  isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  className={`w-5 h-5 rounded-md3-full border-2 flex items-center justify-center flex-shrink-0 ${
                     isSelected
-                      ? "border-[#2D7A3A]"
-                      : "border-[#79747E]"
+                      ? "border-primary"
+                      : "border-outline"
                   }`}
                 >
                   {isSelected && (
-                    <div className="w-[10px] h-[10px] rounded-full bg-[#2D7A3A]" />
+                    <div className="w-[10px] h-[10px] rounded-md3-full bg-primary" />
                   )}
                 </div>
-                <span className="text-[14px] text-[#1C1B1F] font-medium leading-none">
+                <span className="text-body-md text-on-surface font-medium leading-none">
                   {group.name}
                 </span>
               </button>
@@ -1369,7 +1371,7 @@ function StepReview({
       {/* Create Game CTA */}
       <button
         onClick={onSubmit}
-        className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 hover:bg-primary/90 active:bg-primary/80 transition-colors"
+        className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors"
       >
         Create Game
       </button>
@@ -1381,10 +1383,10 @@ function StepReview({
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-start gap-4">
-      <span className="text-[12px] text-[#49454F] leading-normal flex-shrink-0">
+      <span className="text-label-md text-on-surface-variant leading-normal flex-shrink-0">
         {label}
       </span>
-      <span className="text-[14px] text-[#1C1B1F] text-right leading-normal">
+      <span className="text-body-md text-on-surface text-right leading-normal">
         {value}
       </span>
     </div>

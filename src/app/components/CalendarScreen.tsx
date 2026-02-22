@@ -78,29 +78,29 @@ export function CalendarScreen() {
   return (
     <div className="flex flex-col">
       {/* Top App Bar */}
-      <div className="sticky top-0 z-10 bg-[#FFFBFE] px-4 pt-[48px] pb-3">
-        <h1 className="text-[22px] font-medium text-[#1C1B1F]">Games</h1>
+      <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-3">
+        <h1 className="text-title-lg font-medium text-on-surface">Games</h1>
       </div>
 
       {/* Calendar */}
       <div className="px-4 mb-4">
-        <div className="bg-white rounded-[16px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+        <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1">
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={goToPrevMonth}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#F5F5F5] min-w-[48px] min-h-[48px]"
+              className="w-8 h-8 rounded-md3-full flex items-center justify-center hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors min-w-[48px] min-h-[48px]"
             >
-              <ChevronLeft className="w-5 h-5 text-[#49454F]" />
+              <ChevronLeft className="w-5 h-5 text-on-surface-variant" />
             </button>
-            <span className="text-[16px] font-medium text-[#1C1B1F]">
+            <span className="text-title-md font-medium text-on-surface">
               {MONTH_NAMES[currentMonth]} {currentYear}
             </span>
             <button
               onClick={goToNextMonth}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#F5F5F5] min-w-[48px] min-h-[48px]"
+              className="w-8 h-8 rounded-md3-full flex items-center justify-center hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors min-w-[48px] min-h-[48px]"
             >
-              <ChevronRight className="w-5 h-5 text-[#49454F]" />
+              <ChevronRight className="w-5 h-5 text-on-surface-variant" />
             </button>
           </div>
 
@@ -111,7 +111,7 @@ export function CalendarScreen() {
                 key={day}
                 className="h-8 flex items-center justify-center"
               >
-                <span className="text-[12px] font-medium text-[#49454F]">
+                <span className="text-label-md font-medium text-on-surface-variant">
                   {day}
                 </span>
               </div>
@@ -133,10 +133,10 @@ export function CalendarScreen() {
 
               const dotColor = eventInfo
                 ? eventInfo.status === "proposal"
-                  ? "bg-[#E65100]"
+                  ? "bg-tertiary"
                   : eventInfo.status === "confirmed"
-                  ? "bg-[#2D7A3A]"
-                  : "bg-[#757575]"
+                  ? "bg-primary"
+                  : "bg-on-surface-variant"
                 : "";
 
               return (
@@ -146,19 +146,19 @@ export function CalendarScreen() {
                   className="h-[44px] flex flex-col items-center justify-center relative min-w-[44px]"
                 >
                   <div
-                    className={`w-[36px] h-[36px] rounded-full flex items-center justify-center transition-colors ${
+                    className={`w-[36px] h-[36px] rounded-md3-full flex items-center justify-center transition-colors ${
                       isSelected
-                        ? "bg-[#2D7A3A] text-white"
+                        ? "bg-primary text-on-primary"
                         : isToday
-                        ? "border-2 border-[#2D7A3A] text-[#2D7A3A]"
-                        : "text-[#1C1B1F] hover:bg-[#F5F5F5]"
+                        ? "border-2 border-primary text-primary"
+                        : "text-on-surface hover:bg-on-surface/8"
                     }`}
                   >
-                    <span className="text-[13px]">{day}</span>
+                    <span className="text-label-lg">{day}</span>
                   </div>
                   {eventInfo && !isSelected && (
                     <div
-                      className={`absolute bottom-0 w-[5px] h-[5px] rounded-full ${dotColor}`}
+                      className={`absolute bottom-0 w-[5px] h-[5px] rounded-md3-full ${dotColor}`}
                     />
                   )}
                 </button>
@@ -172,7 +172,7 @@ export function CalendarScreen() {
       <div className="px-4">
         {gamesForDate.length > 0 ? (
           <>
-            <h2 className="text-[16px] font-medium text-[#1C1B1F] mb-3">
+            <h2 className="text-title-md font-medium text-on-surface mb-3">
               {MONTH_NAMES[currentMonth]} {selectedDate} Games
             </h2>
             <div className="flex flex-col gap-3">
@@ -199,14 +199,14 @@ export function CalendarScreen() {
           </>
         ) : (
           <>
-            <h2 className="text-[16px] font-medium text-[#1C1B1F] mb-3">
+            <h2 className="text-title-md font-medium text-on-surface mb-3">
               Scheduled Games
             </h2>
             <div className="flex flex-col items-center py-8">
-              <p className="text-[14px] text-[#49454F] text-center">
+              <p className="text-body-md text-on-surface-variant text-center">
                 No games on {MONTH_NAMES[currentMonth]} {selectedDate}.
               </p>
-              <p className="text-[12px] text-[#9E9E9E] mt-1 text-center">
+              <p className="text-label-md text-on-surface-variant/60 mt-1 text-center">
                 Tap a date with a dot to see games.
               </p>
             </div>

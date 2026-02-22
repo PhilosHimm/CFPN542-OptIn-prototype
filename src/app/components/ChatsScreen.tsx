@@ -55,36 +55,36 @@ export function ChatsScreen() {
   return (
     <div className="flex flex-col">
       {/* Top App Bar */}
-      <div className="sticky top-0 z-10 bg-[#FFFBFE] px-4 pt-[48px] pb-0">
+      <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-0">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[22px] font-medium text-[#1C1B1F]">Messages</h1>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#F5F5F5]">
-            <Search className="w-5 h-5 text-[#49454F]" />
+          <h1 className="text-title-lg font-medium text-on-surface">Messages</h1>
+          <button className="w-10 h-10 rounded-md3-full flex items-center justify-center hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors min-w-[48px] min-h-[48px]">
+            <Search className="w-5 h-5 text-on-surface-variant" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[rgba(0,0,0,0.08)]">
+        <div className="flex border-b border-outline-variant">
           <button
             onClick={() => setActiveTab("direct")}
-            className={`flex-1 pb-3 text-[14px] font-medium relative transition-colors ${
-              activeTab === "direct" ? "text-[#2D7A3A]" : "text-[#49454F]"
+            className={`flex-1 pb-3 text-label-lg font-medium relative transition-colors ${
+              activeTab === "direct" ? "text-primary" : "text-on-surface-variant"
             }`}
           >
             Direct
             {activeTab === "direct" && (
-              <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-[#2D7A3A] rounded-full" />
+              <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-primary rounded-md3-full" />
             )}
           </button>
           <button
             onClick={() => setActiveTab("groups")}
-            className={`flex-1 pb-3 text-[14px] font-medium relative transition-colors ${
-              activeTab === "groups" ? "text-[#2D7A3A]" : "text-[#49454F]"
+            className={`flex-1 pb-3 text-label-lg font-medium relative transition-colors ${
+              activeTab === "groups" ? "text-primary" : "text-on-surface-variant"
             }`}
           >
             Groups
             {activeTab === "groups" && (
-              <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-[#2D7A3A] rounded-full" />
+              <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-primary rounded-md3-full" />
             )}
           </button>
         </div>
@@ -95,10 +95,10 @@ export function ChatsScreen() {
         {messages.map((msg) => (
           <button
             key={msg.id}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors text-left"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors text-left"
           >
             {/* Avatar */}
-            <div className="w-[48px] h-[48px] rounded-full overflow-hidden flex-shrink-0">
+            <div className="w-[48px] h-[48px] rounded-md3-full overflow-hidden flex-shrink-0">
               <ImageWithFallback
                 src={msg.avatar}
                 alt={msg.name}
@@ -109,17 +109,17 @@ export function ChatsScreen() {
             {/* Text */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-[#1C1B1F] truncate">
+                <span className="text-body-md font-medium text-on-surface truncate">
                   {msg.name}
                 </span>
-                <span className="text-[12px] text-[#49454F] flex-shrink-0 ml-2">{msg.time}</span>
+                <span className="text-label-md text-on-surface-variant flex-shrink-0 ml-2">{msg.time}</span>
               </div>
-              <p className="text-[13px] text-[#49454F] truncate mt-0.5">{msg.message}</p>
+              <p className="text-body-sm text-on-surface-variant truncate mt-0.5">{msg.message}</p>
             </div>
 
             {/* Unread dot */}
             {msg.unread && (
-              <div className="w-[10px] h-[10px] rounded-full bg-[#2D7A3A] flex-shrink-0" />
+              <div className="w-[10px] h-[10px] rounded-md3-full bg-primary flex-shrink-0" />
             )}
           </button>
         ))}
