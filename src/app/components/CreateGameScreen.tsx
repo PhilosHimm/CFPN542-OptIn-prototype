@@ -1,0 +1,1392 @@
+import { useState, useMemo, useCallback } from "react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  MapPin,
+  Plus,
+  Trash2,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  Link2,
+  Share2,
+  Search,
+  Users,
+  Eye,
+  CheckCircle2,
+  X,
+} from "lucide-react";
+import { useNavigate } from "react-router";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { motion, AnimatePresence } from "motion/react";
+
+// ─── Constants ─────────────────────────────────────────────
+const TOTAL_STEPS = 5;
+const sports = [
+  "Soccer",
+  "Basketball",
+  "Volleyball",
+  "Tennis",
+  "Flag Football",
+  "Softball",
+];
+const stepLabels = [
+  "Details",
+  "Times",
+  "Costs",
+  "Invite",
+  "Review",
+];
+
+const suggestedPlayers = [
+  {
+    id: "1",
+    name: "Marcus Johnson",
+    avatar:
+      "https://images.unsplash.com/photo-1751730739769-00b6e0807d65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbGUlMjBhdGhsZXRlJTIwcG9ydHJhaXQlMjBoZWFkc2hvdHxlbnwxfHx8fDE3NzE2MzA5OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Basketball",
+  },
+  {
+    id: "2",
+    name: "Sarah Chen",
+    avatar:
+      "https://images.unsplash.com/photo-1650066579657-ae92847b1482?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMGZlbWFsZSUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMHNtaWxlfGVufDF8fHx8MTc3MTYzMDk5Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Soccer",
+  },
+  {
+    id: "3",
+    name: "DeAndre Williams",
+    avatar:
+      "https://images.unsplash.com/photo-1590156552211-69280532a54a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYWxlJTIwYmFza2V0YmFsbCUyMHBsYXllciUyMHBvcnRyYWl0JTIwY2FzdWFsfGVufDF8fHx8MTc3MTYzMDk5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Basketball",
+  },
+  {
+    id: "4",
+    name: "Priya Patel",
+    avatar:
+      "https://images.unsplash.com/photo-1762170318123-616b97727044?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmZW1hbGUlMjBzb2NjZXIlMjBwbGF5ZXIlMjBwb3J0cmFpdCUyMG91dGRvb3J8ZW58MXx8fHwxNzcxNjMwOTk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Volleyball",
+  },
+  {
+    id: "5",
+    name: "Jake Torres",
+    avatar:
+      "https://images.unsplash.com/photo-1649440100794-0776df1177b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHNwb3J0eSUyMHBvcnRyYWl0JTIwZml0bmVzc3xlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Soccer",
+  },
+  {
+    id: "6",
+    name: "Aisha Robinson",
+    avatar:
+      "https://images.unsplash.com/photo-1695774361378-a8a8695c408e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwYXRobGV0aWMlMjBwb3J0cmFpdCUyMGd5bXxlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    sport: "Volleyball",
+  },
+];
+
+const groups = [
+  { id: "g1", name: "Sunday Soccer" },
+  { id: "g2", name: "Pickup Hoops" },
+  { id: "g3", name: "Beach Volley" },
+];
+
+// ─── Types ─────────────────────────────────────────────────
+interface TimeOption {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  address: string;
+}
+
+// ─── Sub-components ────────────────────────────────────────
+function ProgressBar({ step }: { step: number }) {
+  return (
+    <div className="flex items-center gap-1.5 px-4 pt-2 pb-3">
+      {stepLabels.map((label, i) => {
+        const stepNum = i + 1;
+        const isComplete = step > stepNum;
+        const isCurrent = step === stepNum;
+        return (
+          <div key={label} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className={`h-[4px] w-full rounded-md3-full transition-colors duration-300 ${
+                isComplete || isCurrent
+                  ? "bg-primary"
+                  : "bg-surface-variant"
+              }`}
+            />
+            <span
+              className={`text-label-sm leading-none transition-colors duration-300 ${
+                isComplete || isCurrent
+                  ? "text-primary font-medium"
+                  : "text-on-surface-variant"
+              }`}
+            >
+              {label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OutlinedTextField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  icon,
+  type = "text",
+  prefix,
+  inputMode,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  icon?: React.ReactNode;
+  type?: string;
+  prefix?: string;
+  inputMode?: "text" | "numeric" | "decimal";
+}) {
+  return (
+    <div className="mb-4">
+      <label className="block text-label-md font-medium text-on-surface-variant mb-1.5 leading-none">
+        {label}
+      </label>
+      <div className="relative">
+        {icon && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+            {icon}
+          </div>
+        )}
+        {prefix && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-body-lg text-on-surface-variant">
+            {prefix}
+          </div>
+        )}
+        <input
+          type={type}
+          inputMode={inputMode}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full h-[56px] ${
+            icon ? "pl-12" : prefix ? "pl-9" : "pl-4"
+          } pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:border-2 focus:outline-none transition-colors`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NextButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full h-[40px] rounded-md3-full text-label-lg font-medium shadow-md3-1 transition-colors ${
+        disabled
+          ? "bg-surface-variant text-on-surface-variant opacity-38 cursor-not-allowed"
+          : "bg-primary text-on-primary hover:bg-primary/90 active:bg-primary/80"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────
+export function CreateGameScreen() {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [direction, setDirection] = useState(1); // 1 = forward, -1 = back
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Step 1 state
+  const [selectedSport, setSelectedSport] = useState("");
+  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
+  const [gameTitle, setGameTitle] = useState("");
+  const [address, setAddress] = useState("");
+  const [gameType, setGameType] = useState<"casual" | "competitive" | "">("");
+  const [maxPlayers, setMaxPlayers] = useState("12");
+
+  // Step 2 state
+  const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
+    { id: "1", date: "2026-02-28", startTime: "10:00", endTime: "12:00", address: "" },
+  ]);
+
+  // Step 3 state
+  const [totalCost, setTotalCost] = useState("");
+  const [splitCost, setSplitCost] = useState(true);
+
+  // Step 4 state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Step 5 state
+  const [visibility, setVisibility] = useState<"public" | "group" | "private">(
+    "group"
+  );
+  const [assignedGroup, setAssignedGroup] = useState("g1");
+
+  // ─── Derived ──────────────────────────────────────────
+  const perPersonCost = useMemo(() => {
+    const cost = parseFloat(totalCost) || 0;
+    const players = parseInt(maxPlayers) || 1;
+    if (!splitCost || cost === 0) return "0.00";
+    return (cost / players).toFixed(2);
+  }, [totalCost, splitCost, maxPlayers]);
+
+  const filteredPlayers = useMemo(() => {
+    if (!searchQuery.trim()) return suggestedPlayers;
+    return suggestedPlayers.filter((p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
+
+  const allSelected = selectedPlayers.length === suggestedPlayers.length;
+
+  // ─── Handlers ─────────────────────────────────────────
+  const goNext = useCallback(() => {
+    if (currentStep < TOTAL_STEPS) {
+      setDirection(1);
+      setCurrentStep((s) => s + 1);
+    }
+  }, [currentStep]);
+
+  const goBack = useCallback(() => {
+    if (currentStep > 1) {
+      setDirection(-1);
+      setCurrentStep((s) => s - 1);
+    } else {
+      navigate(-1);
+    }
+  }, [currentStep, navigate]);
+
+  const addTimeOption = useCallback(() => {
+    if (timeOptions.length >= 5) return;
+    setTimeOptions((prev) => [
+      ...prev,
+      {
+        id: String(Date.now()),
+        date: "",
+        startTime: "",
+        endTime: "",
+        address: "",
+      },
+    ]);
+  }, [timeOptions.length]);
+
+  const removeTimeOption = useCallback((id: string) => {
+    setTimeOptions((prev) => prev.filter((o) => o.id !== id));
+  }, []);
+
+  const updateTimeOption = useCallback(
+    (id: string, field: keyof TimeOption, value: string) => {
+      setTimeOptions((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, [field]: value } : o))
+      );
+    },
+    []
+  );
+
+  const togglePlayer = useCallback((id: string) => {
+    setSelectedPlayers((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedPlayers([]);
+    } else {
+      setSelectedPlayers(suggestedPlayers.map((p) => p.id));
+    }
+  }, [allSelected]);
+
+  const handleCopyLink = useCallback(() => {
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }, []);
+
+  const handleCreateGame = useCallback(() => {
+    setShowSuccess(true);
+    setTimeout(() => {
+      navigate("/");
+    }, 2000);
+  }, [navigate]);
+
+  // ─── Step validation ──────────────────────────────────
+  const isStep1Valid =
+    selectedSport !== "" && gameTitle.trim() !== "" && gameType !== "";
+  const isStep2Valid = timeOptions.every(
+    (o) => o.date !== "" && o.startTime !== "" && o.endTime !== ""
+  );
+
+  // ─── Animation variants ───────────────────────────────
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? 300 : -300,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? -300 : 300,
+      opacity: 0,
+    }),
+  };
+
+  // ─── Success overlay ─────────────────────────────────
+  if (showSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-surface px-4">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", duration: 0.5 }}
+          className="w-[80px] h-[80px] rounded-md3-full bg-secondary-container flex items-center justify-center mb-6"
+        >
+          <CheckCircle2 className="w-10 h-10 text-on-secondary-container" />
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-headline-small font-medium text-on-surface mb-2"
+        >
+          Game Created!
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="text-body-md text-on-surface-variant text-center"
+        >
+          Your game proposal has been sent to{" "}
+          {selectedPlayers.length > 0
+            ? `${selectedPlayers.length} player${
+                selectedPlayers.length > 1 ? "s" : ""
+              }`
+            : "your group"}
+          . Voting is now open!
+        </motion.p>
+      </div>
+    );
+  }
+
+  // ─── Render ───────────────────────────────────────────
+  return (
+    <div className="flex flex-col min-h-screen bg-surface">
+      {/* Top App Bar */}
+      <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-1">
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            onClick={goBack}
+            className="w-10 h-10 rounded-md3-full flex items-center justify-center hover:bg-surface-variant min-w-[48px] min-h-[48px]"
+          >
+            <ArrowLeft className="w-5 h-5 text-on-surface" />
+          </button>
+          <h1 className="text-title-lg font-medium text-on-surface leading-tight">
+            Create Game
+          </h1>
+          <span className="ml-auto text-label-md text-on-surface-variant">
+            {currentStep}/{TOTAL_STEPS}
+          </span>
+        </div>
+        <ProgressBar step={currentStep} />
+      </div>
+
+      {/* Step Content */}
+      <div className="flex-1 overflow-hidden relative">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="px-4 pb-6"
+          >
+            {currentStep === 1 && (
+              <StepDetails
+                selectedSport={selectedSport}
+                setSelectedSport={setSelectedSport}
+                sportDropdownOpen={sportDropdownOpen}
+                setSportDropdownOpen={setSportDropdownOpen}
+                gameTitle={gameTitle}
+                setGameTitle={setGameTitle}
+                address={address}
+                setAddress={setAddress}
+                gameType={gameType}
+                setGameType={setGameType}
+                maxPlayers={maxPlayers}
+                setMaxPlayers={setMaxPlayers}
+                onNext={goNext}
+                isValid={isStep1Valid}
+              />
+            )}
+            {currentStep === 2 && (
+              <StepTimeLocation
+                timeOptions={timeOptions}
+                onAdd={addTimeOption}
+                onRemove={removeTimeOption}
+                onUpdate={updateTimeOption}
+                onNext={goNext}
+                isValid={isStep2Valid}
+              />
+            )}
+            {currentStep === 3 && (
+              <StepCosts
+                totalCost={totalCost}
+                setTotalCost={setTotalCost}
+                splitCost={splitCost}
+                setSplitCost={setSplitCost}
+                perPersonCost={perPersonCost}
+                onNext={goNext}
+              />
+            )}
+            {currentStep === 4 && (
+              <StepInvite
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filteredPlayers={filteredPlayers}
+                selectedPlayers={selectedPlayers}
+                togglePlayer={togglePlayer}
+                allSelected={allSelected}
+                toggleSelectAll={toggleSelectAll}
+                linkCopied={linkCopied}
+                handleCopyLink={handleCopyLink}
+                onNext={goNext}
+              />
+            )}
+            {currentStep === 5 && (
+              <StepReview
+                selectedSport={selectedSport}
+                gameTitle={gameTitle}
+                address={address}
+                gameType={gameType}
+                maxPlayers={maxPlayers}
+                timeOptions={timeOptions}
+                totalCost={totalCost}
+                splitCost={splitCost}
+                perPersonCost={perPersonCost}
+                selectedPlayers={selectedPlayers}
+                visibility={visibility}
+                setVisibility={setVisibility}
+                assignedGroup={assignedGroup}
+                setAssignedGroup={setAssignedGroup}
+                onSubmit={handleCreateGame}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ─── STEP 1: Game Details ──────────────────────────────────
+function StepDetails({
+  selectedSport,
+  setSelectedSport,
+  sportDropdownOpen,
+  setSportDropdownOpen,
+  gameTitle,
+  setGameTitle,
+  address,
+  setAddress,
+  gameType,
+  setGameType,
+  maxPlayers,
+  setMaxPlayers,
+  onNext,
+  isValid,
+}: {
+  selectedSport: string;
+  setSelectedSport: (v: string) => void;
+  sportDropdownOpen: boolean;
+  setSportDropdownOpen: (v: boolean) => void;
+  gameTitle: string;
+  setGameTitle: (v: string) => void;
+  address: string;
+  setAddress: (v: string) => void;
+  gameType: "casual" | "competitive" | "";
+  setGameType: (v: "casual" | "competitive") => void;
+  maxPlayers: string;
+  setMaxPlayers: (v: string) => void;
+  onNext: () => void;
+  isValid: boolean;
+}) {
+  return (
+    <>
+      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+        Let's get started. What are we playing?
+      </p>
+
+      {/* Sport Dropdown */}
+      <div className="mb-4 relative">
+        <label className="block text-[12px] font-medium text-[#49454F] mb-1.5 leading-none">
+          Sport
+        </label>
+        <button
+          onClick={() => setSportDropdownOpen(!sportDropdownOpen)}
+          className="w-full h-[56px] px-4 rounded-[4px] border border-[#79747E] bg-transparent flex items-center justify-between text-left hover:border-[#1C1B1F] transition-colors"
+        >
+          <span
+            className={`text-[16px] ${
+              selectedSport ? "text-[#1C1B1F]" : "text-[#49454F]"
+            }`}
+          >
+            {selectedSport || "Select Sport"}
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 text-[#49454F] transition-transform ${
+              sportDropdownOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        {sportDropdownOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-[4px] shadow-[0_3px_14px_rgba(0,0,0,0.12)] border border-[rgba(0,0,0,0.08)] z-20 overflow-hidden">
+            {sports.map((sport) => (
+              <button
+                key={sport}
+                onClick={() => {
+                  setSelectedSport(sport);
+                  setSportDropdownOpen(false);
+                }}
+                className={`w-full px-4 py-3 text-left text-[14px] hover:bg-[#F5F5F5] transition-colors ${
+                  selectedSport === sport
+                    ? "bg-[#E8F5E9] text-[#2D7A3A] font-medium"
+                    : "text-[#1C1B1F]"
+                }`}
+              >
+                {sport}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Game Title */}
+      <OutlinedTextField
+        label="Game Title"
+        placeholder="e.g. Sunday Soccer Showdown"
+        value={gameTitle}
+        onChange={setGameTitle}
+      />
+
+      {/* Address Field */}
+      <OutlinedTextField
+        label="Location"
+        placeholder="Where is it? Address"
+        value={address}
+        onChange={setAddress}
+        icon={<MapPin className="w-5 h-5 text-[#49454F]" />}
+      />
+
+      {/* Map Placeholder */}
+      <div className="mb-5 rounded-[12px] overflow-hidden h-[140px]">
+        <ImageWithFallback
+          src="https://images.unsplash.com/photo-1707826858461-45968b58532e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaXR5JTIwcGFyayUyMG1hcCUyMG92ZXJoZWFkJTIwc2F0ZWxsaXRlJTIwdmlld3xlbnwxfHx8fDE3NzE2MjgxMzJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+          alt="Map view"
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Game Type */}
+      <div className="mb-5">
+        <h3 className="text-title-sm font-medium text-on-surface mb-3 leading-none">
+          Game Type
+        </h3>
+        <div className="flex gap-3">
+          {(
+            [
+              {
+                key: "casual" as const,
+                emoji: "🎉",
+                label: "Casual",
+                sub: "Just for fun",
+              },
+              {
+                key: "competitive" as const,
+                emoji: "🏆",
+                label: "Competitive",
+                sub: "Serious play",
+              },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setGameType(item.key)}
+              className={`flex-1 py-3 px-4 rounded-md3-medium border text-center transition-all min-h-[48px] ${
+                gameType === item.key
+                  ? "border-primary bg-secondary-container"
+                  : "border-outline bg-surface"
+              }`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[20px] leading-none">{item.emoji}</span>
+                <span
+                  className={`text-label-lg font-medium leading-none ${
+                    gameType === item.key ? "text-on-secondary-container" : "text-on-surface"
+                  }`}
+                >
+                  {item.label}
+                </span>
+                <span className="text-body-sm text-on-surface-variant leading-none">
+                  {item.sub}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Max Players */}
+      <OutlinedTextField
+        label="Max Players"
+        placeholder="12"
+        value={maxPlayers}
+        onChange={setMaxPlayers}
+        icon={<Users className="w-5 h-5 text-[#49454F]" />}
+        type="number"
+        inputMode="numeric"
+      />
+
+      <div className="mt-2">
+        <NextButton
+          label="Next: Time Slots"
+          onClick={onNext}
+          disabled={!isValid}
+        />
+      </div>
+    </>
+  );
+}
+
+// ─── STEP 2: Time & Location ───────────────────────────────
+function StepTimeLocation({
+  timeOptions,
+  onAdd,
+  onRemove,
+  onUpdate,
+  onNext,
+  isValid,
+}: {
+  timeOptions: TimeOption[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, field: keyof TimeOption, value: string) => void;
+  onNext: () => void;
+  isValid: boolean;
+}) {
+  return (
+    <>
+      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+        Propose up to 5 date/time options for voting.
+      </p>
+
+      {timeOptions.map((option, index) => (
+        <div
+          key={option.id}
+          className="mb-4 p-4 rounded-[12px] border border-[#79747E] bg-white relative"
+        >
+          {/* Option header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[14px] font-medium text-[#2D7A3A] leading-none">
+              Option {index + 1}
+            </span>
+            {timeOptions.length > 1 && (
+              <button
+                onClick={() => onRemove(option.id)}
+                className="w-8 h-8 min-w-[48px] min-h-[48px] flex items-center justify-center -mr-2 -mt-1"
+              >
+                <Trash2 className="w-4 h-4 text-[#B3261E]" />
+              </button>
+            )}
+          </div>
+
+          {/* Date */}
+          <div className="mb-3">
+            <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+              Date
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <CalendarDays className="w-4 h-4 text-[#49454F]" />
+              </div>
+              <input
+                type="date"
+                value={option.date}
+                onChange={(e) => onUpdate(option.id, "date", e.target.value)}
+                className="w-full h-[48px] pl-10 pr-3 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Time row */}
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+                Start Time
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                  <Clock className="w-4 h-4 text-[#49454F]" />
+                </div>
+                <input
+                  type="time"
+                  value={option.startTime}
+                  onChange={(e) =>
+                    onUpdate(option.id, "startTime", e.target.value)
+                  }
+                  className="w-full h-[48px] pl-10 pr-2 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+                End Time
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                  <Clock className="w-4 h-4 text-[#49454F]" />
+                </div>
+                <input
+                  type="time"
+                  value={option.endTime}
+                  onChange={(e) =>
+                    onUpdate(option.id, "endTime", e.target.value)
+                  }
+                  className="w-full h-[48px] pl-10 pr-2 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Option-specific address */}
+          <div>
+            <label className="block text-[12px] font-medium text-[#49454F] mb-1 leading-none">
+              Venue (optional)
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <MapPin className="w-4 h-4 text-[#49454F]" />
+              </div>
+              <input
+                type="text"
+                placeholder="Same as game location"
+                value={option.address}
+                onChange={(e) =>
+                  onUpdate(option.id, "address", e.target.value)
+                }
+                className="w-full h-[48px] pl-10 pr-3 rounded-[4px] border border-[#79747E] bg-transparent text-[14px] text-[#1C1B1F] placeholder:text-[#9E9E9E] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Add another time */}
+      {timeOptions.length < 5 && (
+        <button
+          onClick={onAdd}
+          className="w-full h-[40px] mb-6 rounded-md3-full border border-outline flex items-center justify-center gap-2 text-label-lg font-medium text-primary hover:bg-secondary-container transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Add another time ({timeOptions.length}/5)
+        </button>
+      )}
+
+      <div className="mt-2">
+        <NextButton
+          label="Next: Costs"
+          onClick={onNext}
+          disabled={!isValid}
+        />
+      </div>
+    </>
+  );
+}
+
+// ─── STEP 3: Costs ─────────────────────────────────────────
+function StepCosts({
+  totalCost,
+  setTotalCost,
+  splitCost,
+  setSplitCost,
+  perPersonCost,
+  onNext,
+}: {
+  totalCost: string;
+  setTotalCost: (v: string) => void;
+  splitCost: boolean;
+  setSplitCost: (v: boolean) => void;
+  perPersonCost: string;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+        Add any venue or equipment costs. Players can see the split.
+      </p>
+
+      {/* Total Cost */}
+      <OutlinedTextField
+        label="Total Venue Cost"
+        placeholder="0.00"
+        value={totalCost}
+        onChange={setTotalCost}
+        prefix="$"
+        type="text"
+        inputMode="decimal"
+      />
+
+      {/* Split Toggle */}
+      <div className="flex items-center justify-between py-4 mb-4 border-b border-[rgba(0,0,0,0.08)]">
+        <div>
+          <p className="text-[14px] font-medium text-[#1C1B1F] leading-normal">
+            Split cost among players?
+          </p>
+          <p className="text-[12px] text-[#49454F] leading-normal">
+            Divide equally among confirmed players
+          </p>
+        </div>
+        <button
+          onClick={() => setSplitCost(!splitCost)}
+          className={`w-[52px] h-[32px] rounded-full relative transition-colors min-w-[52px] min-h-[48px] flex items-center ${
+            splitCost ? "bg-[#2D7A3A]" : "bg-[#79747E]"
+          }`}
+        >
+          <div
+            className={`w-[24px] h-[24px] rounded-full bg-white shadow-md absolute transition-transform ${
+              splitCost ? "translate-x-[24px]" : "translate-x-[4px]"
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Per-person estimate */}
+      <div className="bg-[#E8F5E9] rounded-[16px] p-5 mb-6 flex flex-col items-center gap-1">
+        <DollarSign className="w-6 h-6 text-[#2D7A3A] mb-1" />
+        <span className="text-[12px] text-[#49454F] leading-none">
+          Estimated per person
+        </span>
+        <span className="text-[28px] font-medium text-[#2D7A3A] leading-tight">
+          ${perPersonCost}
+        </span>
+        <span className="text-[12px] text-[#49454F] leading-none">
+          {splitCost ? "Split equally" : "No split — full amount shown"}
+        </span>
+      </div>
+
+      {/* Free / Per Player / Fixed Total chips */}
+      <div className="mb-6">
+        <h3 className="text-title-sm font-medium text-on-surface mb-3 leading-none">
+          Cost Type
+        </h3>
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { label: "Free", value: "" },
+            { label: "Per Player $", value: "per" },
+            { label: "Fixed Total $", value: "fixed" },
+          ].map((chip) => {
+            const isActive =
+              chip.value === ""
+                ? totalCost === "" || totalCost === "0"
+                : chip.value === "fixed"
+                ? parseFloat(totalCost) > 0 && splitCost
+                : parseFloat(totalCost) > 0 && !splitCost;
+            return (
+              <button
+                key={chip.value}
+                onClick={() => {
+                  if (chip.value === "") {
+                    setTotalCost("");
+                    setSplitCost(false);
+                  } else if (chip.value === "per") {
+                    setSplitCost(false);
+                  } else {
+                    setSplitCost(true);
+                  }
+                }}
+                className={`px-4 py-2 rounded-md3-small border text-label-lg font-medium transition-colors min-h-[32px] ${
+                  isActive
+                    ? "bg-secondary-container text-on-secondary-container border-transparent"
+                    : "bg-surface text-on-surface-variant border-outline"
+                }`}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <NextButton label="Next: Invite Players" onClick={onNext} />
+    </>
+  );
+}
+
+// ─── STEP 4: Invite Players ────────────────────────────────
+function StepInvite({
+  searchQuery,
+  setSearchQuery,
+  filteredPlayers,
+  selectedPlayers,
+  togglePlayer,
+  allSelected,
+  toggleSelectAll,
+  linkCopied,
+  handleCopyLink,
+  onNext,
+}: {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  filteredPlayers: typeof suggestedPlayers;
+  selectedPlayers: string[];
+  togglePlayer: (id: string) => void;
+  allSelected: boolean;
+  toggleSelectAll: () => void;
+  linkCopied: boolean;
+  handleCopyLink: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+        Share the game or invite specific players.
+      </p>
+
+      {/* Share methods */}
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={handleCopyLink}
+          className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-md3-medium border transition-all min-h-[48px] ${
+            linkCopied
+              ? "border-primary bg-secondary-container"
+              : "border-outline bg-surface"
+          }`}
+        >
+          {linkCopied ? (
+            <CheckCircle2 className="w-5 h-5 text-primary" />
+          ) : (
+            <Link2 className="w-5 h-5 text-on-surface-variant" />
+          )}
+          <span
+            className={`text-label-lg font-medium leading-none ${
+              linkCopied ? "text-on-secondary-container" : "text-on-surface"
+            }`}
+          >
+            {linkCopied ? "Copied!" : "Copy Link"}
+          </span>
+        </button>
+        <button className="flex-1 flex flex-col items-center gap-2 py-4 rounded-md3-medium border border-outline bg-surface min-h-[48px]">
+          <Share2 className="w-5 h-5 text-on-surface-variant" />
+          <span className="text-label-lg font-medium text-on-surface leading-none">
+            Share
+          </span>
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2">
+          <Search className="w-5 h-5 text-[#49454F]" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search players..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-[48px] pl-12 pr-10 rounded-full border border-[#79747E] bg-white text-[14px] text-[#1C1B1F] placeholder:text-[#49454F] focus:border-[#2D7A3A] focus:border-2 focus:outline-none"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center"
+          >
+            <X className="w-4 h-4 text-[#49454F]" />
+          </button>
+        )}
+      </div>
+
+      {/* Suggested Players header + Select All */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[14px] font-medium text-[#1C1B1F] leading-none">
+          Suggested Players
+        </span>
+        <button
+          onClick={toggleSelectAll}
+          className="flex items-center gap-2 min-h-[48px] px-2"
+        >
+          <span className="text-[13px] text-[#2D7A3A] font-medium leading-none">
+            {allSelected ? "Deselect All" : "Select All"}
+          </span>
+          <div
+            className={`w-5 h-5 rounded-[4px] border-2 flex items-center justify-center transition-colors ${
+              allSelected
+                ? "bg-[#2D7A3A] border-[#2D7A3A]"
+                : "border-[#79747E] bg-transparent"
+            }`}
+          >
+            {allSelected && (
+              <svg
+                width="12"
+                height="10"
+                viewBox="0 0 12 10"
+                fill="none"
+              >
+                <path
+                  d="M1 5L4.5 8.5L11 1.5"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </div>
+        </button>
+      </div>
+
+      {/* Player list */}
+      <div className="flex flex-col gap-0 mb-6">
+        {filteredPlayers.map((player) => {
+          const isSelected = selectedPlayers.includes(player.id);
+          return (
+            <button
+              key={player.id}
+              onClick={() => togglePlayer(player.id)}
+              className={`flex items-center gap-3 px-3 py-3 rounded-[12px] transition-colors min-h-[56px] ${
+                isSelected ? "bg-[#E8F5E9]" : "hover:bg-[#F5F5F5]"
+              }`}
+            >
+              <ImageWithFallback
+                src={player.avatar}
+                alt={player.name}
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              />
+              <div className="flex-1 text-left">
+                <p className="text-[14px] font-medium text-[#1C1B1F] leading-tight">
+                  {player.name}
+                </p>
+                <p className="text-[12px] text-[#49454F] leading-tight">
+                  {player.sport}
+                </p>
+              </div>
+              <div
+                className={`w-5 h-5 rounded-[4px] border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  isSelected
+                    ? "bg-[#2D7A3A] border-[#2D7A3A]"
+                    : "border-[#79747E] bg-transparent"
+                }`}
+              >
+                {isSelected && (
+                  <svg
+                    width="12"
+                    height="10"
+                    viewBox="0 0 12 10"
+                    fill="none"
+                  >
+                    <path
+                      d="M1 5L4.5 8.5L11 1.5"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected count */}
+      {selectedPlayers.length > 0 && (
+        <div className="mb-4 text-center">
+          <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#E8F5E9] text-[13px] font-medium text-[#2D7A3A]">
+            {selectedPlayers.length} player
+            {selectedPlayers.length > 1 ? "s" : ""} selected
+          </span>
+        </div>
+      )}
+
+      <NextButton label="Next: Review & Create" onClick={onNext} />
+    </>
+  );
+}
+
+// ─── STEP 5: Review & Post ─────────────────────────────────
+function StepReview({
+  selectedSport,
+  gameTitle,
+  address,
+  gameType,
+  maxPlayers,
+  timeOptions,
+  totalCost,
+  splitCost,
+  perPersonCost,
+  selectedPlayers,
+  visibility,
+  setVisibility,
+  assignedGroup,
+  setAssignedGroup,
+  onSubmit,
+}: {
+  selectedSport: string;
+  gameTitle: string;
+  address: string;
+  gameType: string;
+  maxPlayers: string;
+  timeOptions: TimeOption[];
+  totalCost: string;
+  splitCost: boolean;
+  perPersonCost: string;
+  selectedPlayers: string[];
+  visibility: "public" | "group" | "private";
+  setVisibility: (v: "public" | "group" | "private") => void;
+  assignedGroup: string;
+  setAssignedGroup: (v: string) => void;
+  onSubmit: () => void;
+}) {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return "—";
+    const [h, m] = timeStr.split(":");
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h12 = hour % 12 || 12;
+    return `${h12}:${m} ${ampm}`;
+  };
+
+  return (
+    <>
+      <p className="text-[14px] text-[#49454F] mb-5 leading-normal">
+        Review your game details before posting.
+      </p>
+
+      {/* Game Details Section */}
+      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+          Game Details
+        </h3>
+        <div className="flex flex-col gap-2">
+          <ReviewRow label="Sport" value={selectedSport || "—"} />
+          <ReviewRow label="Title" value={gameTitle || "—"} />
+          <ReviewRow label="Location" value={address || "—"} />
+          <ReviewRow
+            label="Type"
+            value={gameType ? gameType.charAt(0).toUpperCase() + gameType.slice(1) : "—"}
+          />
+          <ReviewRow label="Max Players" value={maxPlayers || "—"} />
+        </div>
+      </div>
+
+      {/* Time Options Section */}
+      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+          Proposed Times
+        </h3>
+        {timeOptions.map((option, index) => (
+          <div
+            key={option.id}
+            className={`flex flex-col gap-1 ${
+              index < timeOptions.length - 1
+                ? "pb-3 mb-3 border-b border-[rgba(0,0,0,0.06)]"
+                : ""
+            }`}
+          >
+            <span className="text-[12px] font-medium text-[#49454F] leading-none">
+              Option {index + 1}
+            </span>
+            <span className="text-[14px] text-[#1C1B1F] leading-normal">
+              {formatDate(option.date)} &middot;{" "}
+              {formatTime(option.startTime)} – {formatTime(option.endTime)}
+            </span>
+            {option.address && (
+              <span className="text-[12px] text-[#49454F] leading-normal">
+                {option.address}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Cost Section */}
+      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+          Cost
+        </h3>
+        <div className="flex flex-col gap-2">
+          <ReviewRow
+            label="Total Cost"
+            value={
+              totalCost && parseFloat(totalCost) > 0
+                ? `$${parseFloat(totalCost).toFixed(2)}`
+                : "Free"
+            }
+          />
+          {totalCost && parseFloat(totalCost) > 0 && (
+            <>
+              <ReviewRow label="Split" value={splitCost ? "Yes" : "No"} />
+              <ReviewRow label="Per Person" value={`$${perPersonCost}`} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Invited Players */}
+      <div className="bg-white rounded-[16px] p-4 mb-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+          Invited Players
+        </h3>
+        {selectedPlayers.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {selectedPlayers.map((pid) => {
+              const player = suggestedPlayers.find((p) => p.id === pid);
+              if (!player) return null;
+              return (
+                <div
+                  key={pid}
+                  className="flex items-center gap-2 bg-[#E8F5E9] rounded-full px-3 py-1.5"
+                >
+                  <ImageWithFallback
+                    src={player.avatar}
+                    alt={player.name}
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                  <span className="text-[12px] font-medium text-[#1C1B1F] leading-none">
+                    {player.name.split(" ")[0]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-[13px] text-[#49454F] leading-normal">
+            No players invited yet. Share the link after creating.
+          </p>
+        )}
+      </div>
+
+      {/* Visibility */}
+      <div className="bg-surface rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <h3 className="text-title-sm font-medium text-primary mb-3 leading-none">
+          Visibility
+        </h3>
+        <div className="flex gap-2">
+          {(
+            [
+              { key: "public" as const, label: "Public", icon: Eye },
+              { key: "group" as const, label: "Group Only", icon: Users },
+            ] as const
+          ).map((item) => {
+            const Icon = item.icon;
+            const isActive = visibility === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setVisibility(item.key)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-md3-full text-label-lg font-medium transition-colors min-h-[40px] ${
+                  isActive
+                    ? "bg-secondary-container text-on-secondary-container"
+                    : "bg-surface text-on-surface-variant border border-outline"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="leading-none">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Group Assignment */}
+      <div className="bg-white rounded-[16px] p-4 mb-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <h3 className="text-[14px] font-medium text-[#2D7A3A] mb-3 leading-none">
+          Assign to Group
+        </h3>
+        <div className="flex flex-col gap-0">
+          {groups.map((group) => {
+            const isSelected = assignedGroup === group.id;
+            return (
+              <button
+                key={group.id}
+                onClick={() => setAssignedGroup(group.id)}
+                className={`flex items-center gap-3 px-3 py-3 rounded-[12px] transition-colors min-h-[48px] ${
+                  isSelected ? "bg-[#E8F5E9]" : "hover:bg-[#F5F5F5]"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    isSelected
+                      ? "border-[#2D7A3A]"
+                      : "border-[#79747E]"
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="w-[10px] h-[10px] rounded-full bg-[#2D7A3A]" />
+                  )}
+                </div>
+                <span className="text-[14px] text-[#1C1B1F] font-medium leading-none">
+                  {group.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Create Game CTA */}
+      <button
+        onClick={onSubmit}
+        className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 hover:bg-primary/90 active:bg-primary/80 transition-colors"
+      >
+        Create Game
+      </button>
+    </>
+  );
+}
+
+// ─── Shared tiny component ─────────────────────────────────
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-start gap-4">
+      <span className="text-[12px] text-[#49454F] leading-normal flex-shrink-0">
+        {label}
+      </span>
+      <span className="text-[14px] text-[#1C1B1F] text-right leading-normal">
+        {value}
+      </span>
+    </div>
+  );
+}

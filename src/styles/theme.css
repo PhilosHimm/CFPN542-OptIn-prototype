@@ -1,0 +1,194 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* MD3 Color Roles (Green Theme) */
+  --primary: #2D7A3A;
+  --on-primary: #FFFFFF;
+  --primary-container: #Adf3b0;
+  --on-primary-container: #002106;
+  --secondary: #52634f;
+  --on-secondary: #ffffff;
+  --secondary-container: #d5e8cf;
+  --on-secondary-container: #111f0f;
+  --tertiary: #38656a;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #bcebf0;
+  --on-tertiary-container: #002023;
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+  --background: #fbfdf7;
+  --on-background: #1a1c19;
+  --surface: #fbfdf7;
+  --on-surface: #1a1c19;
+  --surface-variant: #dee5d8;
+  --on-surface-variant: #424940;
+  --outline: #72796f;
+  --outline-variant: #c2c8bd;
+  --surface-container-highest: #e2e3de;
+  --surface-container-high: #e7e9e3;
+  --surface-container: #edeee9;
+  --surface-container-low: #f3f4ee;
+  --surface-container-lowest: #ffffff;
+
+  /* MD3 Typography */
+  --font-family: 'Roboto', system-ui, sans-serif;
+  --text-display-lg: 57px;
+  --line-height-display-lg: 64px;
+  --text-display-md: 45px;
+  --line-height-display-md: 52px;
+  --text-display-sm: 36px;
+  --line-height-display-sm: 44px;
+  --text-headline-lg: 32px;
+  --line-height-headline-lg: 40px;
+  --text-headline-md: 28px;
+  --line-height-headline-md: 36px;
+  --text-headline-sm: 24px;
+  --line-height-headline-sm: 32px;
+  --text-title-lg: 22px;
+  --line-height-title-lg: 28px;
+  --text-title-md: 16px;
+  --line-height-title-md: 24px;
+  --text-title-sm: 14px;
+  --line-height-title-sm: 20px;
+  --text-label-lg: 14px;
+  --line-height-label-lg: 20px;
+  --text-label-md: 12px;
+  --line-height-label-md: 16px;
+  --text-label-sm: 11px;
+  --line-height-label-sm: 16px;
+  --text-body-lg: 16px;
+  --line-height-body-lg: 24px;
+  --text-body-md: 14px;
+  --line-height-body-md: 20px;
+  --text-body-sm: 12px;
+  --line-height-body-sm: 16px;
+
+  /* MD3 Shapes */
+  --shape-none: 0px;
+  --shape-extra-small: 4px;
+  --shape-small: 8px;
+  --shape-medium: 12px;
+  --shape-large: 16px;
+  --shape-extra-large: 28px;
+  --shape-full: 9999px;
+
+  /* MD3 Elevation */
+  --elevation-0: none;
+  --elevation-1: 0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15);
+  --elevation-2: 0px 1px 2px 0px rgba(0,0,0,0.3), 0px 2px 6px 2px rgba(0,0,0,0.15);
+  --elevation-3: 0px 1px 3px 0px rgba(0,0,0,0.3), 0px 4px 8px 3px rgba(0,0,0,0.15);
+  --elevation-4: 0px 2px 3px 0px rgba(0,0,0,0.3), 0px 6px 10px 4px rgba(0,0,0,0.15);
+  --elevation-5: 0px 4px 4px 0px rgba(0,0,0,0.3), 0px 8px 12px 6px rgba(0,0,0,0.15);
+}
+
+.dark {
+  /* Dark theme equivalents (simplified for now) */
+  --primary: #Adf3b0;
+  --on-primary: #00390f;
+  --primary-container: #125124;
+  --on-primary-container: #c8ffc9;
+  --secondary: #b9ccb4;
+  --on-secondary: #253423;
+  --secondary-container: #3b4b38;
+  --on-secondary-container: #d5e8cf;
+  --tertiary: #a0cfd4;
+  --on-tertiary: #00363b;
+  --tertiary-container: #1e4d52;
+  --on-tertiary-container: #bcebf0;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  --background: #1a1c19;
+  --on-background: #e2e3de;
+  --surface: #1a1c19;
+  --on-surface: #e2e3de;
+  --surface-variant: #424940;
+  --on-surface-variant: #c2c8bd;
+  --outline: #8c9388;
+  --outline-variant: #424940;
+  --surface-container-highest: #333532;
+  --surface-container-high: #2d2f2c;
+  --surface-container: #272926;
+  --surface-container-low: #1a1c19;
+  --surface-container-lowest: #0f110e;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+
+  --font-display-lg: var(--text-display-lg);
+  --font-display-md: var(--text-display-md);
+  --font-display-sm: var(--text-display-sm);
+  --font-headline-lg: var(--text-headline-lg);
+  --font-headline-md: var(--text-headline-md);
+  --font-headline-sm: var(--text-headline-sm);
+  --font-title-lg: var(--text-title-lg);
+  --font-title-md: var(--text-title-md);
+  --font-title-sm: var(--text-title-sm);
+  --font-label-lg: var(--text-label-lg);
+  --font-label-md: var(--text-label-md);
+  --font-label-sm: var(--text-label-sm);
+  --font-body-lg: var(--text-body-lg);
+  --font-body-md: var(--text-body-md);
+  --font-body-sm: var(--text-body-sm);
+
+  --radius-md3-none: var(--shape-none);
+  --radius-md3-extra-small: var(--shape-extra-small);
+  --radius-md3-small: var(--shape-small);
+  --radius-md3-medium: var(--shape-medium);
+  --radius-md3-large: var(--shape-large);
+  --radius-md3-extra-large: var(--shape-extra-large);
+  --radius-md3-full: var(--shape-full);
+
+  --shadow-md3-0: var(--elevation-0);
+  --shadow-md3-1: var(--elevation-1);
+  --shadow-md3-2: var(--elevation-2);
+  --shadow-md3-3: var(--elevation-3);
+  --shadow-md3-4: var(--elevation-4);
+  --shadow-md3-5: var(--elevation-5);
+}
+
+@layer base {
+  * {
+    @apply border-outline-variant outline-primary/50;
+  }
+
+  body {
+    @apply bg-background text-on-background font-sans;
+  }
+
+  html {
+    font-family: var(--font-family);
+  }
+}
