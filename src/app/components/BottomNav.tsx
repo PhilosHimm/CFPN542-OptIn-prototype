@@ -14,7 +14,7 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant bg-surface-container" style={{ maxWidth: 430, margin: "0 auto" }}>
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 border-t border-outline-variant bg-surface-container">
       <div className="flex items-center justify-around h-[80px] px-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -24,7 +24,9 @@ export function BottomNav() {
             <button
               key={item.label}
               onClick={() => navigate(item.path)}
-              className="flex flex-col items-center justify-center gap-1 min-w-[48px] py-2"
+              aria-label={item.label}
+              aria-current={isActive ? "page" : undefined}
+              className="flex flex-col items-center justify-center gap-1 min-w-[48px] py-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none rounded-lg"
             >
               <div
                 className={`flex items-center justify-center w-[64px] h-[32px] rounded-md3-full transition-colors ${

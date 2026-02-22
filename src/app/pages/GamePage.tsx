@@ -80,7 +80,8 @@ export function GamePage() {
       <header className="px-6 pt-4 flex items-center justify-between sticky top-0 z-50 bg-[#F2F2F7]/80 backdrop-blur-md pb-4">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 glass rounded-full flex items-center justify-center text-black/60 active:scale-90 transition-all"
+          aria-label="Go back"
+          className="w-10 h-10 glass rounded-full flex items-center justify-center text-black/60 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -88,7 +89,7 @@ export function GamePage() {
           <h2 className="text-sm font-bold text-black/90 uppercase tracking-widest">Game Session</h2>
           <p className="text-[10px] font-medium text-black/40">#{game.id.toUpperCase()}</p>
         </div>
-        <button className="w-10 h-10 glass rounded-full flex items-center justify-center text-primary active:scale-90 transition-all">
+        <button aria-label="Share game" className="w-10 h-10 glass rounded-full flex items-center justify-center text-primary active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none">
           <Share2 className="w-5 h-5" />
         </button>
       </header>

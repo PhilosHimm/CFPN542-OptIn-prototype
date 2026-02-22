@@ -8,11 +8,6 @@ import {
   Trophy, 
   Plus, 
   Calendar as CalendarIcon,
-  Circle,
-  Basketball,
-  Dribbble, // Using dribbble for ball-like or custom icons if needed, but let's stick to standard Lucide
-  Gamepad2,
-  Activity
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
 import { games, groups } from "../data/games";
@@ -44,21 +39,27 @@ export function Home() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="px-6 pt-4 flex justify-between items-end">
         <div>
-          <p className="text-black/40 text-sm font-medium">Friday, Feb 20</p>
+          <p className="text-black/40 text-sm font-medium">
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+          </p>
           <h1 className="text-3xl font-bold tracking-tight text-black/90">Hey, Marcus</h1>
         </div>
         <div className="flex gap-3">
-          <button className="relative w-11 h-11 glass rounded-full flex items-center justify-center text-black/70 active:scale-95 transition-all">
+          <button
+            aria-label="Notifications"
+            className="relative w-11 h-11 glass rounded-full flex items-center justify-center text-black/70 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" />
+            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" aria-hidden="true" />
           </button>
           <button 
             onClick={() => navigate("/profile")}
-            className="w-11 h-11 rounded-full border-2 border-white shadow-lg overflow-hidden active:scale-95 transition-all"
+            aria-label="View profile"
+            className="w-11 h-11 rounded-full border-2 border-white shadow-lg overflow-hidden active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
             <img 
               src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=100&auto=format&fit=crop" 
-              alt="Profile" 
+              alt="Marcus Johnson's profile photo"
               className="w-full h-full object-cover"
             />
           </button>
@@ -77,7 +78,7 @@ export function Home() {
           {groups.map((group) => (
             <button
               key={group.id}
-              className="flex-shrink-0 w-[120px] ios-card flex flex-col items-center gap-3 text-center transition-transform active:scale-95"
+              className="flex-shrink-0 w-[120px] ios-card flex flex-col items-center gap-3 text-center transition-transform active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
               <div 
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-inner shadow-black/5"
@@ -130,7 +131,7 @@ export function Home() {
               <button
                 key={game.id}
                 onClick={() => navigate(`/game/${game.id}`)}
-                className="w-full ios-card text-left flex flex-col gap-4 relative overflow-hidden active:scale-[0.98] transition-all"
+                className="w-full ios-card text-left flex flex-col gap-4 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
               >
                 {/* Visual Accent */}
                 <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: game.sportColor }} />
@@ -204,7 +205,7 @@ export function Home() {
       <section className="px-6">
         <button 
           onClick={() => navigate("/create")}
-          className="w-full bg-primary rounded-3xl p-6 flex items-center gap-4 text-white shadow-xl shadow-primary/20 active:scale-[0.98] transition-all overflow-hidden relative"
+          className="w-full bg-primary rounded-3xl p-6 flex items-center gap-4 text-white shadow-xl shadow-primary/20 active:scale-[0.98] transition-all overflow-hidden relative cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none"
         >
           <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 blur-3xl rounded-full" />
           <div className="w-14 h-14 glass rounded-2xl flex items-center justify-center text-white shrink-0">
@@ -229,7 +230,7 @@ export function Home() {
               <button
                 key={game.id}
                 onClick={() => navigate(`/game/${game.id}`)}
-                className="w-full ios-card p-3 flex items-center gap-4 active:scale-[0.98] transition-all opacity-80"
+                className="w-full ios-card p-3 flex items-center gap-4 active:scale-[0.98] transition-all opacity-80 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
               >
                 <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500">
                   <SportIcon sport={game.sport} className="w-6 h-6" />

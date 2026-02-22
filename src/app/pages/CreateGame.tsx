@@ -49,18 +49,20 @@ function TextField({
   type?: string;
   icon?: any;
 }) {
+  const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+      <label htmlFor={id} className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
         {label}
       </label>
       <div className="relative group">
         {Icon && (
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30 group-focus-within:text-primary transition-colors">
-            <Icon className="w-4 h-4" />
+            <Icon className="w-4 h-4" aria-hidden="true" />
           </div>
         )}
         <input
+          id={id}
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}

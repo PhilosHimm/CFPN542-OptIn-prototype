@@ -128,9 +128,10 @@ export function Messages() {
             <input
               type="text"
               placeholder="Type a message..."
+              aria-label="Message input"
               className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-[15px] font-medium"
             />
-            <button className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all">
+            <button aria-label="Send message" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none">
               <Send className="w-5 h-5" />
             </button>
           </div>
@@ -148,7 +149,7 @@ export function Messages() {
             <h1 className="text-3xl font-bold tracking-tight text-black/90">Messages</h1>
             <p className="text-black/40 text-sm font-medium mt-0.5">Stay connected with your teams</p>
           </div>
-          <button className="w-11 h-11 glass rounded-full flex items-center justify-center text-primary active:scale-95 transition-all">
+          <button aria-label="New message" className="w-11 h-11 glass rounded-full flex items-center justify-center text-primary active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none">
             <SquarePen className="w-5 h-5" />
           </button>
         </div>
@@ -165,7 +166,8 @@ export function Messages() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${
+                aria-pressed={isActive}
+                className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
                   isActive ? "bg-white shadow-sm" : "text-black/40"
                 }`}
               >

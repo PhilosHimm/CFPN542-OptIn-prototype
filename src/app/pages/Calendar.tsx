@@ -7,7 +7,6 @@ import {
   MapPin, 
   Plus,
   Calendar as CalendarIcon,
-  Circle
 } from "lucide-react";
 import { games, calendarMarkers, groups } from "../data/games";
 import type { GameStatus } from "../data/games";
@@ -52,7 +51,8 @@ export function Calendar() {
     .map((m) => ({ ...m, game: games.find((g) => g.id === m.gameId)! }))
     .filter((m) => m.game);
 
-  const todayStr = "2026-02-19";
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   return (
     <div className="space-y-6 pb-10 px-6">
@@ -68,7 +68,8 @@ export function Calendar() {
         <div className="flex items-center justify-between p-4 border-b border-black/5">
           <button 
             onClick={prevMonth}
-            className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all"
+            aria-label="Previous month"
+            className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -77,7 +78,8 @@ export function Calendar() {
           </span>
           <button 
             onClick={nextMonth}
-            className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all"
+            aria-label="Next month"
+            className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -108,7 +110,9 @@ export function Calendar() {
               <button
                 key={day}
                 onClick={() => setSelectedDate(dateStr)}
-                className="relative aspect-square flex flex-col items-center justify-center"
+                aria-label={`${MONTHS[month]} ${day}, ${year}${markers.length ? `, ${markers.length} game${markers.length > 1 ? 's' : ''}` : ''}`}
+                aria-pressed={isSelected}
+                className="relative aspect-square flex flex-col items-center justify-center cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none rounded-lg"
               >
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm transition-all duration-200 ${
@@ -149,7 +153,8 @@ export function Calendar() {
           {selectedGames.length > 0 && (
             <button 
               onClick={() => navigate("/create")}
-              className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center active:scale-90 transition-all"
+              aria-label="Create new game"
+              className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
               <Plus className="w-5 h-5" />
             </button>
@@ -167,7 +172,7 @@ export function Calendar() {
             </div>
             <button
               onClick={() => navigate("/create")}
-              className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all"
+              className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none"
             >
               Create Game
             </button>

@@ -77,7 +77,8 @@ export function Profile() {
         <h1 className="text-3xl font-bold tracking-tight text-black/90">Profile</h1>
         <button
           onClick={() => setEditMode(!editMode)}
-          className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm transition-all active:scale-95 ${
+          aria-label={editMode ? "Save profile changes" : "Edit profile"}
+          className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm transition-all active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
             editMode ? "bg-primary text-white shadow-lg" : "glass text-primary"
           }`}
         >
@@ -97,7 +98,7 @@ export function Profile() {
             />
           </div>
           {editMode && (
-            <button className="absolute bottom-1 right-1 w-9 h-9 bg-primary text-white rounded-full border-4 border-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
+            <button className="absolute bottom-1 right-1 w-9 h-9 bg-primary text-white rounded-full border-4 border-white flex items-center justify-center shadow-lg active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none" aria-label="Change profile photo">
               <Camera className="w-4 h-4" />
             </button>
           )}
@@ -178,7 +179,7 @@ export function Profile() {
           {settingsItems.map((item) => (
             <button
               key={item.label}
-              className="w-full flex items-center gap-4 p-4 active:bg-black/5 transition-colors text-left"
+              className="w-full flex items-center gap-4 p-4 active:bg-black/5 transition-colors text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.bg}`}>
                 <item.Icon className="w-5 h-5" style={{ color: item.color }} />
@@ -192,7 +193,7 @@ export function Profile() {
           ))}
           <button
             onClick={() => navigate("/")}
-            className="w-full flex items-center gap-4 p-4 active:bg-rose-50 transition-colors text-left text-rose-500"
+            className="w-full flex items-center gap-4 p-4 active:bg-rose-50 transition-colors text-left text-rose-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:outline-none"
           >
             <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
               <LogOut className="w-5 h-5" />
