@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -98,6 +98,20 @@ interface TimeOption {
   address: string;
 }
 
+// ─── Mock display helpers ───────────────────────────────────
+function formatDateDisplay(dateStr: string) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short", month: "short", day: "numeric",
+  });
+}
+function formatTimeDisplay(timeStr: string) {
+  if (!timeStr) return "";
+  const [h, min] = timeStr.split(":").map(Number);
+  return `${h % 12 || 12}:${String(min).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
 // ─── Sub-components ────────────────────────────────────────
 function ProgressBar({ step }: { step: number }) {
   return (
@@ -140,6 +154,7 @@ function OutlinedTextField({
   type = "text",
   prefix,
   inputMode,
+  mock,
 }: {
   label: string;
   placeholder: string;
@@ -149,8 +164,9 @@ function OutlinedTextField({
   type?: string;
   prefix?: string;
   inputMode?: "text" | "numeric" | "decimal";
+  mock?: boolean;
 }) {
-  const hasValue = value.length > 0;
+  const paddingLeft = icon ? "pl-12" : prefix ? "pl-9" : "pl-4";
   return (
     <div className="mb-4">
       <div className="md3-outlined-field relative">
@@ -164,18 +180,24 @@ function OutlinedTextField({
             {prefix}
           </div>
         )}
-        <input
-          type={type}
-          inputMode={inputMode}
-          placeholder=" "
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`w-full h-[56px] ${
-            icon ? "pl-12" : prefix ? "pl-9" : "pl-4"
-          } pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface focus:border-primary focus:border-2 focus:outline-none transition-colors peer`}
-        />
+        {mock ? (
+          <div
+            className={`w-full h-[56px] ${paddingLeft} pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface flex items-center`}
+          >
+            {value}
+          </div>
+        ) : (
+          <input
+            type={type}
+            inputMode={inputMode}
+            placeholder=" "
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={`w-full h-[56px] ${paddingLeft} pr-4 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface focus:border-primary focus:border-2 focus:outline-none transition-colors peer`}
+          />
+        )}
         <label
-          className={`md3-floating-label ${
+          className={`md3-floating-label ${mock ? "!top-0 !text-xs !text-primary" : ""} ${
             icon ? "!left-12" : prefix ? "!left-9" : ""
           }`}
         >
@@ -213,30 +235,39 @@ function NextButton({
 // ─── Main Component ────────────────────────────────────────
 export function CreateGameScreen() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [searchParams] = useSearchParams();
+  const mock = searchParams.get("mock") === "true";
+  const initialStep = Math.min(Math.max(parseInt(searchParams.get("step") || "1"), 1), 5);
+
+  const [currentStep, setCurrentStep] = useState(mock ? initialStep : 1);
   const [direction, setDirection] = useState(1); // 1 = forward, -1 = back
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(mock && searchParams.get("step") === "success");
 
   // Step 1 state
-  const [selectedSport, setSelectedSport] = useState("");
+  const [selectedSport, setSelectedSport] = useState(mock ? "Soccer" : "");
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
-  const [gameTitle, setGameTitle] = useState("");
-  const [address, setAddress] = useState("");
-  const [gameType, setGameType] = useState<"casual" | "competitive" | "">("");
-  const [maxPlayers, setMaxPlayers] = useState("12");
+  const [gameTitle, setGameTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
+  const [address, setAddress] = useState(mock ? "Riverside Park, Field 3, Chicago" : "");
+  const [gameType, setGameType] = useState<"casual" | "competitive" | "">(mock ? "casual" : "");
+  const [maxPlayers, setMaxPlayers] = useState(mock ? "12" : "12");
 
   // Step 2 state
-  const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
-    { id: "1", date: "2026-02-28", startTime: "10:00", endTime: "12:00", address: "" },
-  ]);
+  const [timeOptions, setTimeOptions] = useState<TimeOption[]>(
+    mock
+      ? [
+          { id: "1", date: "2026-02-25", startTime: "10:00", endTime: "12:00", address: "" },
+          { id: "2", date: "2026-02-25", startTime: "12:00", endTime: "14:00", address: "" },
+        ]
+      : [{ id: "1", date: "2026-02-28", startTime: "10:00", endTime: "12:00", address: "" }]
+  );
 
   // Step 3 state
-  const [totalCost, setTotalCost] = useState("");
+  const [totalCost, setTotalCost] = useState(mock ? "60" : "");
   const [splitCost, setSplitCost] = useState(true);
 
   // Step 4 state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>(mock ? ["1", "2", "3", "4"] : []);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // Step 5 state
@@ -454,6 +485,7 @@ export function CreateGameScreen() {
                 onUpdate={updateTimeOption}
                 onNext={goNext}
                 isValid={isStep2Valid}
+                mock={mock}
               />
             )}
             {currentStep === 3 && (
@@ -522,6 +554,7 @@ function StepDetails({
   setMaxPlayers,
   onNext,
   isValid,
+  mock,
 }: {
   selectedSport: string;
   setSelectedSport: (v: string) => void;
@@ -537,6 +570,7 @@ function StepDetails({
   setMaxPlayers: (v: string) => void;
   onNext: () => void;
   isValid: boolean;
+  mock?: boolean;
 }) {
   return (
     <>
@@ -693,6 +727,7 @@ function StepTimeLocation({
   onUpdate,
   onNext,
   isValid,
+  mock,
 }: {
   timeOptions: TimeOption[];
   onAdd: () => void;
@@ -700,6 +735,7 @@ function StepTimeLocation({
   onUpdate: (id: string, field: keyof TimeOption, value: string) => void;
   onNext: () => void;
   isValid: boolean;
+  mock?: boolean;
 }) {
   return (
     <>
@@ -736,12 +772,18 @@ function StepTimeLocation({
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
                 <CalendarDays className="w-4 h-4 text-on-surface-variant" />
               </div>
-              <input
-                type="date"
-                value={option.date}
-                onChange={(e) => onUpdate(option.id, "date", e.target.value)}
-                className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
-              />
+              {mock ? (
+                <div className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface flex items-center">
+                  {formatDateDisplay(option.date)}
+                </div>
+              ) : (
+                <input
+                  type="date"
+                  value={option.date}
+                  onChange={(e) => onUpdate(option.id, "date", e.target.value)}
+                  className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
+                />
+              )}
             </div>
           </div>
 
@@ -755,14 +797,20 @@ function StepTimeLocation({
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
                   <Clock className="w-4 h-4 text-on-surface-variant" />
                 </div>
-                <input
-                  type="time"
-                  value={option.startTime}
-                  onChange={(e) =>
-                    onUpdate(option.id, "startTime", e.target.value)
-                  }
-                  className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
-                />
+                {mock ? (
+                  <div className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface flex items-center">
+                    {formatTimeDisplay(option.startTime)}
+                  </div>
+                ) : (
+                  <input
+                    type="time"
+                    value={option.startTime}
+                    onChange={(e) =>
+                      onUpdate(option.id, "startTime", e.target.value)
+                    }
+                    className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
+                  />
+                )}
               </div>
             </div>
             <div className="flex-1">
@@ -773,14 +821,20 @@ function StepTimeLocation({
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
                   <Clock className="w-4 h-4 text-on-surface-variant" />
                 </div>
-                <input
-                  type="time"
-                  value={option.endTime}
-                  onChange={(e) =>
-                    onUpdate(option.id, "endTime", e.target.value)
-                  }
-                  className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
-                />
+                {mock ? (
+                  <div className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface flex items-center">
+                    {formatTimeDisplay(option.endTime)}
+                  </div>
+                ) : (
+                  <input
+                    type="time"
+                    value={option.endTime}
+                    onChange={(e) =>
+                      onUpdate(option.id, "endTime", e.target.value)
+                    }
+                    className="w-full h-[48px] pl-10 pr-2 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -794,15 +848,21 @@ function StepTimeLocation({
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
                 <MapPin className="w-4 h-4 text-on-surface-variant" />
               </div>
-              <input
-                type="text"
-                placeholder="Same as game location"
-                value={option.address}
-                onChange={(e) =>
-                  onUpdate(option.id, "address", e.target.value)
-                }
-                className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:border-2 focus:outline-none"
-              />
+              {mock ? (
+                <div className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface-variant/50 flex items-center">
+                  {option.address || "Same as game location"}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Same as game location"
+                  value={option.address}
+                  onChange={(e) =>
+                    onUpdate(option.id, "address", e.target.value)
+                  }
+                  className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:border-2 focus:outline-none"
+                />
+              )}
             </div>
           </div>
         </div>

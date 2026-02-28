@@ -20,6 +20,20 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function formatTime(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":");
+  let h = parseInt(hStr, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${h}:${mStr} ${ampm}`;
+}
+
+function formatOptionDate(isoDate: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 export function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(1); // February (0-indexed)
   const [currentYear, setCurrentYear] = useState(2026);
@@ -34,13 +48,19 @@ export function CalendarScreen() {
 
   // Map game dates to calendar days
   const eventDatesMap = useMemo(() => {
-    const map: Record<number, { status: string }> = {};
+    const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean }> = {};
     games.forEach((game) => {
-      game.timeOptions.forEach((opt) => {
+      const isConfirmed = !!game.confirmedOptionId;
+      const relevantOptions = isConfirmed
+        ? game.timeOptions.filter((opt) => opt.id === game.confirmedOptionId)
+        : game.timeOptions;
+      relevantOptions.forEach((opt) => {
         const d = new Date(opt.date + "T00:00:00");
         if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
           const day = d.getDate();
-          map[day] = { status: game.status };
+          if (!map[day]) map[day] = { hasConfirmed: false, hasProposal: false };
+          if (isConfirmed) map[day].hasConfirmed = true;
+          else map[day].hasProposal = true;
         }
       });
     });
@@ -50,9 +70,17 @@ export function CalendarScreen() {
   // Find games for selected date
   const gamesForDate = useMemo(() => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
-    return games.filter((g) =>
-      g.timeOptions.some((opt) => opt.date === dateStr)
-    );
+    return games.filter((g) => {
+      // For confirmed games, only match against the confirmed time option's date
+      if (g.confirmedOptionId) {
+        const confirmedOption = g.timeOptions.find(
+          (opt) => opt.id === g.confirmedOptionId
+        );
+        return confirmedOption?.date === dateStr;
+      }
+      // For proposal/voting games, match any time option
+      return g.timeOptions.some((opt) => opt.date === dateStr);
+    });
   }, [selectedDate, currentMonth, currentYear]);
 
   const goToPrevMonth = () => {
@@ -131,14 +159,6 @@ export function CalendarScreen() {
               const isSelected = day === selectedDate;
               const eventInfo = eventDatesMap[day];
 
-              const dotColor = eventInfo
-                ? eventInfo.status === "proposal"
-                  ? "bg-tertiary"
-                  : eventInfo.status === "confirmed"
-                  ? "bg-primary"
-                  : "bg-on-surface-variant"
-                : "";
-
               return (
                 <button
                   key={day}
@@ -157,9 +177,14 @@ export function CalendarScreen() {
                     <span className="text-label-lg">{day}</span>
                   </div>
                   {eventInfo && !isSelected && (
-                    <div
-                      className={`absolute bottom-0 w-[5px] h-[5px] rounded-md3-full ${dotColor}`}
-                    />
+                    <div className="absolute bottom-0 flex gap-[3px] items-center">
+                      {eventInfo.hasProposal && (
+                        <div className="w-[5px] h-[5px] rounded-full bg-[#2196A6]" />
+                      )}
+                      {eventInfo.hasConfirmed && (
+                        <div className="w-[5px] h-[5px] rounded-full bg-primary" />
+                      )}
+                    </div>
                   )}
                 </button>
               );
@@ -176,25 +201,47 @@ export function CalendarScreen() {
               {MONTH_NAMES[currentMonth]} {selectedDate} Games
             </h2>
             <div className="flex flex-col gap-3">
-              {gamesForDate.map((game) => (
-                <GameCard
-                  key={game.id}
-                  id={game.id}
-                  title={game.title}
-                  date={game.date}
-                  time={game.time}
-                  location={game.location}
-                  players={`${game.roster.length}/${game.maxPlayers}`}
-                  isFull={game.roster.length >= game.maxPlayers}
-                  variant={
-                    game.status === "proposal"
-                      ? "vote"
-                      : game.status === "confirmed"
-                      ? "confirmed"
-                      : "completed"
+              {gamesForDate.map((game) => {
+                let displayDate = game.date;
+                let displayTime = game.time;
+                let displayLocation = game.location;
+
+                if (!game.confirmedOptionId) {
+                  // Proposal: use the matching time option(s) for the selected date
+                  const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
+                  const matchingOpts = game.timeOptions.filter((opt) => opt.date === dateStr);
+                  if (matchingOpts.length === 1) {
+                    const opt = matchingOpts[0];
+                    displayDate = formatOptionDate(opt.date);
+                    displayTime = `${formatTime(opt.startTime)} – ${formatTime(opt.endTime)}`;
+                    displayLocation = opt.location;
+                  } else if (matchingOpts.length > 1) {
+                    displayDate = formatOptionDate(matchingOpts[0].date);
+                    displayTime = `${matchingOpts.length} time options`;
+                    displayLocation = matchingOpts[0].location;
                   }
-                />
-              ))}
+                }
+
+                return (
+                  <GameCard
+                    key={game.id}
+                    id={game.id}
+                    title={game.title}
+                    date={displayDate}
+                    time={displayTime}
+                    location={displayLocation}
+                    players={`${game.roster.length}/${game.maxPlayers}`}
+                    isFull={game.roster.length >= game.maxPlayers}
+                    variant={
+                      game.status === "proposal"
+                        ? "vote"
+                        : game.status === "confirmed"
+                        ? "confirmed"
+                        : "completed"
+                    }
+                  />
+                );
+              })}
             </div>
           </>
         ) : (

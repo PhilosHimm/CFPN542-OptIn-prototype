@@ -111,9 +111,9 @@ export const games: Game[] = [
     group: "Sunday Soccer",
     heroImage:
       "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Sun, Feb 22",
+    date: "Fri, Feb 27",
     time: "10:00 AM - 12:00 PM",
-    votingDeadline: "2026-02-21T23:59:59",
+    votingDeadline: "2026-02-26T23:59:59",
     createdBy: "p1",
     roster: [
       players[0],
@@ -128,7 +128,7 @@ export const games: Game[] = [
     timeOptions: [
       {
         id: "opt-1a",
-        date: "2026-02-22",
+        date: "2026-02-27",
         startTime: "10:00",
         endTime: "12:00",
         location: "Riverside Park, Field 3",
@@ -140,7 +140,7 @@ export const games: Game[] = [
       },
       {
         id: "opt-1b",
-        date: "2026-02-22",
+        date: "2026-02-28",
         startTime: "14:00",
         endTime: "16:00",
         location: "Riverside Park, Field 3",
@@ -152,9 +152,9 @@ export const games: Game[] = [
       },
       {
         id: "opt-1c",
-        date: "2026-02-23",
-        startTime: "09:00",
-        endTime: "11:00",
+        date: "2026-02-28",
+        startTime: "17:00",
+        endTime: "19:00",
         location: "Central Fields, Pitch 1",
         votes: {
           in: ["p2", "p8"],
@@ -178,16 +178,16 @@ export const games: Game[] = [
     group: "Pickup Hoops",
     heroImage:
       "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Fri, Feb 27",
+    date: "Sat, Feb 28",
     time: "7:00 PM - 9:00 PM",
-    votingDeadline: "2026-02-26T18:00:00",
+    votingDeadline: "2026-02-27T18:00:00",
     confirmedOptionId: "opt-2a",
     createdBy: "p3",
     roster: players.slice(0, 8),
     timeOptions: [
       {
         id: "opt-2a",
-        date: "2026-02-27",
+        date: "2026-02-28",
         startTime: "19:00",
         endTime: "21:00",
         location: "Downtown Rec Center",
@@ -199,7 +199,7 @@ export const games: Game[] = [
       },
       {
         id: "opt-2b",
-        date: "2026-02-28",
+        date: "2026-02-27",
         startTime: "18:00",
         endTime: "20:00",
         location: "Downtown Rec Center",

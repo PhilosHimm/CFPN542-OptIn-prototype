@@ -32,7 +32,7 @@ export function Calendar() {
   const navigate = useNavigate();
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(1);
-  const [selectedDate, setSelectedDate] = useState("2026-02-20");
+  const [selectedDate, setSelectedDate] = useState("2026-02-27");
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);

@@ -37,7 +37,7 @@
   --scrim: #000000;
 
   /* MD3 Typography */
-  --font-family: 'Roboto', system-ui, sans-serif;
+  --font-family: 'Roboto', sans-serif;
   --md3-size-display-lg: 57px;
   --md3-lh-display-lg: 64px;
   --md3-size-display-md: 45px;
@@ -218,7 +218,8 @@
   }
 
   body {
-    @apply bg-background text-on-background font-sans;
+    @apply bg-background text-on-background;
+    font-family: var(--font-family);
   }
 
   html {

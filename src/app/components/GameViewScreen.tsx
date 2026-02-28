@@ -288,7 +288,7 @@ function OptionCard({
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
           <span className="text-body-md text-on-surface leading-normal">
-            {formatTime(option.startTime)} \u2013 {formatTime(option.endTime)}
+            {formatTime(option.startTime)} – {formatTime(option.endTime)}
           </span>
         </div>
         <div className="flex items-center gap-2">

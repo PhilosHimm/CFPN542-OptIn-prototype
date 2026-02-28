@@ -1,7 +1,8 @@
+import { useNavigate } from "react-router";
 import { Bell, ChevronRight } from "lucide-react";
 import { GameCard } from "./GameCard";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { getUpcomingGames, getCompletedGames } from "./gameData";
+import { games, getUpcomingGames, getCompletedGames } from "./gameData";
 
 const groups = [
   {
@@ -24,19 +25,42 @@ const groups = [
   },
 ];
 
-const scheduleItems = [
-  { day: "Mon", date: "24", active: false },
-  { day: "Tue", date: "25", active: true },
-  { day: "Wed", date: "26", active: false },
-  { day: "Thu", date: "27", active: false },
-  { day: "Fri", date: "28", active: false },
-  { day: "Sat", date: "1", active: true },
-  { day: "Sun", date: "2", active: false },
-];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function buildSchedule() {
+  const upcoming = games.filter((g) => g.status === "proposal" || g.status === "confirmed");
+  // date → highest-priority status (confirmed beats proposal)
+  const dateStatusMap: Record<string, "proposal" | "confirmed"> = {};
+  for (const game of upcoming) {
+    for (const opt of game.timeOptions) {
+      const isConfirmedOpt = game.status === "confirmed" && game.confirmedOptionId === opt.id;
+      if (isConfirmedOpt) {
+        dateStatusMap[opt.date] = "confirmed";
+      } else if (!dateStatusMap[opt.date]) {
+        dateStatusMap[opt.date] = "proposal";
+      }
+    }
+  }
+  const today = new Date();
+  const start = new Date(2026, 1, 20); // Feb 20, 2026
+  return Array.from({ length: 9 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return {
+      day: DAY_NAMES[d.getDay()],
+      date: String(d.getDate()),
+      isToday: d.toDateString() === today.toDateString(),
+      status: dateStatusMap[dateStr] ?? null,
+    };
+  });
+}
 
 export function HomeScreen() {
+  const navigate = useNavigate();
   const upcomingGames = getUpcomingGames();
   const completedGames = getCompletedGames();
+  const scheduleItems = buildSchedule();
 
   return (
     <div className="flex flex-col">
@@ -59,7 +83,10 @@ export function HomeScreen() {
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-title-md font-medium text-on-surface">My Groups</h2>
-          <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
+          <button
+            onClick={() => navigate("/chats", { state: { tab: "groups" } })}
+            className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]"
+          >
             See all <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -93,7 +120,10 @@ export function HomeScreen() {
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-title-md font-medium text-on-surface">Schedule</h2>
-          <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
+          <button
+            onClick={() => navigate("/calendar")}
+            className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]"
+          >
             View all <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -102,15 +132,22 @@ export function HomeScreen() {
             <div
               key={`${item.day}-${item.date}`}
               className={`flex-shrink-0 w-[56px] h-[72px] rounded-md3-large flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                item.active
-                  ? "bg-primary text-on-primary"
+                item.status === "confirmed"
+                  ? "bg-emerald-500 text-white"
+                  : item.status === "proposal"
+                  ? "bg-tertiary-container text-on-tertiary-container"
+                  : item.isToday
+                  ? "bg-surface-container text-on-surface ring-2 ring-inset ring-primary/20"
                   : "bg-surface-container-low text-on-surface-variant"
               }`}
             >
-              <span className="text-label-sm font-medium opacity-80">
+              <span className="text-label-sm font-medium opacity-70">
                 {item.day}
               </span>
               <span className="text-title-lg font-medium">{item.date}</span>
+              {item.status && (
+                <span className="w-1 h-1 rounded-full bg-white/60 mt-0.5" />
+              )}
             </div>
           ))}
         </div>

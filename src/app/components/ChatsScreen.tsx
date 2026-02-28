@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router";
 import { Search } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
@@ -49,7 +50,9 @@ const groupMessages = [
 ];
 
 export function ChatsScreen() {
-  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: string } | null)?.tab === "groups" ? "groups" : "direct";
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">(initialTab);
   const messages = activeTab === "direct" ? directMessages : groupMessages;
 
   return (

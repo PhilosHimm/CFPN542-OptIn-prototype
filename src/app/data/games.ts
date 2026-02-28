@@ -83,9 +83,9 @@ export const players: Player[] = [
 
 // ─── Groups ──────────────────────────────────────────────────────────────────
 export const groups: Group[] = [
-  { id: "g1", name: "Tuesday Hoops",    sport: "Basketball", sportEmoji: "🏀", color: "#F97316", memberCount: 8,  nextGame: "Tue, Feb 20", initials: "TH" },
-  { id: "g2", name: "Weekend Warriors", sport: "Soccer",     sportEmoji: "⚽", color: "#22C55E", memberCount: 12, nextGame: "Sat, Feb 22", initials: "WW" },
-  { id: "g3", name: "Net Gang",         sport: "Volleyball", sportEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextGame: "Fri, Feb 21", initials: "NG" },
+  { id: "g1", name: "Tuesday Hoops",    sport: "Basketball", sportEmoji: "🏀", color: "#F97316", memberCount: 8,  nextGame: "Fri, Feb 27", initials: "TH" },
+  { id: "g2", name: "Weekend Warriors", sport: "Soccer",     sportEmoji: "⚽", color: "#22C55E", memberCount: 12, nextGame: "Sat, Feb 28", initials: "WW" },
+  { id: "g3", name: "Net Gang",         sport: "Volleyball", sportEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextGame: "Fri, Feb 27", initials: "NG" },
 ];
 
 // ─── Games ───────────────────────────────────────────────────────────────────
@@ -108,8 +108,8 @@ export const games: Game[] = [
     options: [
       {
         id: "o1",
-        date: "2026-02-20",
-        displayDate: "Thu, Feb 20",
+        date: "2026-02-27",
+        displayDate: "Fri, Feb 27",
         startTime: "7:00 PM",
         endTime: "9:00 PM",
         location: "Riverside Community Courts",
@@ -120,8 +120,8 @@ export const games: Game[] = [
       },
       {
         id: "o2",
-        date: "2026-02-21",
-        displayDate: "Fri, Feb 21",
+        date: "2026-02-27",
+        displayDate: "Fri, Feb 27",
         startTime: "6:30 PM",
         endTime: "8:30 PM",
         location: "City Gym — Court B",
@@ -132,8 +132,8 @@ export const games: Game[] = [
       },
       {
         id: "o3",
-        date: "2026-02-22",
-        displayDate: "Sat, Feb 22",
+        date: "2026-02-28",
+        displayDate: "Sat, Feb 28",
         startTime: "8:00 PM",
         endTime: "10:00 PM",
         location: "Riverside Community Courts",
@@ -164,8 +164,8 @@ export const games: Game[] = [
     options: [
       {
         id: "o4",
-        date: "2026-02-22",
-        displayDate: "Sat, Feb 22",
+        date: "2026-02-28",
+        displayDate: "Sat, Feb 28",
         startTime: "10:00 AM",
         endTime: "12:00 PM",
         location: "Greenfield Soccer Park — Pitch 3",
@@ -197,8 +197,8 @@ export const games: Game[] = [
     options: [
       {
         id: "o5",
-        date: "2026-02-21",
-        displayDate: "Fri, Feb 21",
+        date: "2026-02-27",
+        displayDate: "Fri, Feb 27",
         startTime: "5:30 PM",
         endTime: "7:30 PM",
         location: "Beach Volleyball Courts — Court 1",
@@ -209,8 +209,8 @@ export const games: Game[] = [
       },
       {
         id: "o6",
-        date: "2026-02-22",
-        displayDate: "Sat, Feb 22",
+        date: "2026-02-28",
+        displayDate: "Sat, Feb 28",
         startTime: "9:00 AM",
         endTime: "11:00 AM",
         location: "Rec Center — Gym 2",
@@ -275,9 +275,8 @@ export const groupMessages: Message[] = [
 
 // ─── Calendar event markers ───────────────────────────────────────────────────
 export const calendarMarkers: Record<string, { status: GameStatus; gameId: string }[]> = {
-  "2026-02-20": [{ status: "proposal",  gameId: "game1" }],
-  "2026-02-21": [{ status: "proposal",  gameId: "game3" }],
-  "2026-02-22": [{ status: "confirmed", gameId: "game2" }, { status: "proposal", gameId: "game1" }],
+  "2026-02-27": [{ status: "proposal",  gameId: "game1" }, { status: "proposal", gameId: "game3" }],
+  "2026-02-28": [{ status: "confirmed", gameId: "game2" }],
   "2026-02-15": [{ status: "completed", gameId: "game4" }],
 };
 
