@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X } from "lucide-react";
+import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -17,7 +17,7 @@ const settingsItems = [
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { profile, signOut, isDemo, updateProfile } = useAuth();
+  const { profile, signOut, isDemo, supabaseConfigured, toggleDemoMode, updateProfile } = useAuth();
   
   // Sheet/Dialog states
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
@@ -213,15 +213,50 @@ export function ProfileScreen() {
               </Button>
             </div>
             
-            <div className="mt-4 pt-4 border-t border-outline-variant/30 flex flex-col gap-3">
-              <Button 
-                variant="outline" 
+            {/* Demo / Live Mode Toggle */}
+            <div className="mt-2 pt-4 border-t border-outline-variant/30">
+              <div
+                className="flex items-center gap-4 py-2"
+                onClick={() => supabaseConfigured && toggleDemoMode(!isDemo)}
+                style={{ cursor: supabaseConfigured ? "pointer" : "not-allowed" }}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDemo ? "bg-amber-100" : "bg-green-100"}`}>
+                  <FlaskConical className="w-5 h-5" style={{ color: isDemo ? "#F59E0B" : "#22C55E" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-body-md font-medium text-on-surface">Demo Mode</p>
+                  <p className="text-label-sm text-on-surface-variant">
+                    {isDemo ? "Using pre-built sample data" : "Using live Supabase data"}
+                  </p>
+                  {!supabaseConfigured && (
+                    <p className="text-label-sm text-amber-500">No Supabase credentials</p>
+                  )}
+                </div>
+                <div
+                  role="switch"
+                  aria-checked={isDemo}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    isDemo ? "bg-amber-400" : "bg-green-500"
+                  } ${!supabaseConfigured ? "opacity-40" : ""}`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      isDemo ? "translate-x-1" : "translate-x-6"
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-outline-variant/30 flex flex-col gap-3">
+              <Button
+                variant="outline"
                 className="w-full justify-start rounded-xl border-outline-variant/50 text-on-surface"
               >
                 Change Password
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start rounded-xl border-error/50 text-error hover:bg-error-container hover:text-error"
               >
                 Delete Account

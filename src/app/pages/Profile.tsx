@@ -3,9 +3,7 @@ import { useNavigate } from "react-router";
 import {
   ChevronRight,
   Users,
-  Settings,
   Bell,
-  UserCircle,
   LogOut,
   Camera,
   Trophy,
@@ -16,14 +14,14 @@ import {
   Activity,
   Shield,
   CreditCard,
-  MessageSquare
+  FlaskConical,
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Profile() {
   const navigate = useNavigate();
-  const { profile, signOut, updateProfile } = useAuth();
+  const { profile, signOut, updateProfile, isDemo, supabaseConfigured, toggleDemoMode } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(profile?.name || "Marcus Johnson");
   const [bio, setBio] = useState(profile?.bio || "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer");
@@ -260,6 +258,35 @@ export function Profile() {
               <ChevronRight className="w-5 h-5 text-black/10" />
             </button>
           ))}
+          {/* Demo / Live Mode Toggle */}
+          <div
+            className="w-full flex items-center gap-4 p-4"
+            onClick={() => supabaseConfigured && toggleDemoMode(!isDemo)}
+            style={{ cursor: supabaseConfigured ? "pointer" : "not-allowed" }}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDemo ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
+              <FlaskConical className="w-5 h-5" style={{ color: isDemo ? "#FF9500" : "#34C759" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-black/80">Demo Mode</p>
+              <p className="text-[11px] font-medium text-black/30">
+                {isDemo ? "Pre-built sample data" : "Live Supabase data"}
+              </p>
+            </div>
+            <div
+              role="switch"
+              aria-checked={isDemo}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                isDemo ? "bg-amber-400" : "bg-emerald-500"
+              } ${!supabaseConfigured ? "opacity-40" : ""}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  isDemo ? "translate-x-1" : "translate-x-6"
+                }`}
+              />
+            </div>
+          </div>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-4 p-4 active:bg-rose-50 transition-colors text-left text-rose-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:outline-none"

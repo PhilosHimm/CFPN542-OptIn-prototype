@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isDemoMode } from "@/lib/supabase";
 import {
   directMessages as mockDirectMessages,
   groupMessages as mockGroupMessages,
@@ -18,7 +18,7 @@ export interface ChatMessage {
 }
 
 export async function getDirectMessages(): Promise<Message[]> {
-  if (!isSupabaseConfigured()) return mockDirectMessages;
+  if (isDemoMode()) return mockDirectMessages;
 
   // In production, query conversations + last message for each
   const { data, error } = await supabase!
@@ -32,7 +32,7 @@ export async function getDirectMessages(): Promise<Message[]> {
 }
 
 export async function getGroupMessages(): Promise<Message[]> {
-  if (!isSupabaseConfigured()) return mockGroupMessages;
+  if (isDemoMode()) return mockGroupMessages;
 
   const { data, error } = await supabase!
     .from("conversations")
@@ -45,7 +45,7 @@ export async function getGroupMessages(): Promise<Message[]> {
 }
 
 export async function getChatMessages(conversationId: string, currentUserId: string): Promise<ChatMessage[]> {
-  if (!isSupabaseConfigured()) {
+  if (isDemoMode()) {
     return [
       { id: "1", senderId: "p8", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#A06C00", content: "New game proposal posted! \u{1F3C0}", timestamp: "5m ago", isMe: false, isSystem: true },
       { id: "2", senderId: currentUserId, senderName: "You", senderInitials: "M", senderColor: "#007AFF", content: "Just voted In on Option 1 \u2014 Riverside Courts on Thursday works great!", timestamp: "4m ago", isMe: true, isSystem: false },
@@ -81,7 +81,7 @@ export async function sendMessage(
   senderId: string,
   content: string
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured()) return { error: null };
+  if (isDemoMode()) return { error: null };
 
   const { error } = await supabase!.from("messages").insert({
     conversation_id: conversationId,
@@ -103,7 +103,7 @@ export function subscribeToMessages(
   conversationId: string,
   onMessage: (message: any) => void
 ) {
-  if (!isSupabaseConfigured()) return { unsubscribe: () => {} };
+  if (isDemoMode()) return { unsubscribe: () => {} };
 
   const channel = supabase!
     .channel(`messages:${conversationId}`)

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isDemoMode } from "@/lib/supabase";
 import {
   games as mockGames,
   groups as mockGroups,
@@ -11,7 +11,7 @@ import {
 } from "../data/games";
 
 export async function getGames(): Promise<Game[]> {
-  if (!isSupabaseConfigured()) return mockGames;
+  if (isDemoMode()) return mockGames;
 
   const { data: gamesData, error } = await supabase!
     .from("games")
@@ -55,7 +55,7 @@ export async function getGames(): Promise<Game[]> {
 }
 
 export async function getGameById(id: string): Promise<Game | null> {
-  if (!isSupabaseConfigured()) {
+  if (isDemoMode()) {
     return mockGames.find((g) => g.id === id) || null;
   }
 
@@ -102,7 +102,7 @@ export async function getGameById(id: string): Promise<Game | null> {
 }
 
 export async function getGroups(): Promise<Group[]> {
-  if (!isSupabaseConfigured()) return mockGroups;
+  if (isDemoMode()) return mockGroups;
 
   const { data, error } = await supabase!
     .from("groups")
@@ -146,7 +146,7 @@ interface CreateGameInput {
 }
 
 export async function createGame(input: CreateGameInput): Promise<{ id: string; error: string | null }> {
-  if (!isSupabaseConfigured()) {
+  if (isDemoMode()) {
     return { id: `game-${Date.now()}`, error: null };
   }
 
@@ -223,7 +223,7 @@ export async function castVote(
   value: VoteValue,
   reason?: string
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured()) return { error: null };
+  if (isDemoMode()) return { error: null };
   if (!value) return { error: null };
 
   // Upsert vote
@@ -260,7 +260,7 @@ export async function castVote(
 }
 
 export async function joinGame(gameId: string, userId: string): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured()) return { error: null };
+  if (isDemoMode()) return { error: null };
 
   const { error } = await supabase!.from("game_players").upsert(
     { game_id: gameId, user_id: userId, status: "joined" },
@@ -284,7 +284,7 @@ export async function joinGame(gameId: string, userId: string): Promise<{ error:
 }
 
 export async function leaveGame(gameId: string, userId: string): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured()) return { error: null };
+  if (isDemoMode()) return { error: null };
 
   const { error } = await supabase!
     .from("game_players")

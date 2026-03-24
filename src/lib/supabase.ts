@@ -16,3 +16,22 @@ export const supabase = supabaseUrl && supabaseAnonKey
 export function isSupabaseConfigured(): boolean {
   return supabase !== null;
 }
+
+const DEMO_MODE_KEY = "optin_demo_mode";
+
+export function isDemoMode(): boolean {
+  if (!isSupabaseConfigured()) return true;
+  try {
+    return localStorage.getItem(DEMO_MODE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setDemoModePreference(enabled: boolean): void {
+  try {
+    localStorage.setItem(DEMO_MODE_KEY, String(enabled));
+  } catch {
+    // ignore
+  }
+}

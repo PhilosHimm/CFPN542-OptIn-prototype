@@ -1,5 +1,5 @@
 // ─── Shared game data — Supabase-backed ───
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isDemoMode } from "@/lib/supabase";
 
 export interface Player {
   id: string;
@@ -44,13 +44,339 @@ export interface Game {
   time: string;
 }
 
-// ─── Supabase-backed functions ───────────────────────────
+// ─── Demo game data ───────────────────────────────────────
 
 const SPORT_HERO_IMAGES: Record<string, string> = {
-  Soccer: "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+  Soccer:     "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
   Basketball: "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
   Volleyball: "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+  Tennis:     "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Pickleball: "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
 };
+
+function p(ids: string[]): Player[] {
+  const names: Record<string, string> = {
+    AR: "Alex Rivera", JK: "Jordan Kim", TS: "Taylor Smith",
+    ML: "Morgan Lee",  CT: "Casey Torres", RP: "Riley Park",
+    DC: "Drew Chen",   SW: "Sam Wilson",  MJ: "Marcus Johnson",
+  };
+  return ids.map((id) => ({ id, name: names[id] ?? id, avatar: "" }));
+}
+
+function votes(ins: string[], maybes: string[] = [], outs: string[] = []) {
+  return { in: ins, maybe: maybes, out: outs };
+}
+
+function deadline(hoursFromNow: number): string {
+  return new Date(Date.now() + hoursFromNow * 3600_000).toISOString();
+}
+
+export const DEMO_GAMES: Game[] = [
+  // ── PROPOSALS ─────────────────────────────────────────────────────────────
+  {
+    id: "game1",
+    title: "Tuesday Night Basketball",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "Riverside Community Courts",
+    gameType: "casual", status: "proposal",
+    maxPlayers: 10, totalCost: 40, splitCost: true,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Tue, Mar 25", time: "7:00 PM - 9:00 PM",
+    votingDeadline: deadline(14), createdBy: "Sam Wilson",
+    roster: p(["AR", "JK", "TS", "RP", "SW", "ML", "CT"]),
+    timeOptions: [
+      { id: "o1a", date: "2026-03-25", startTime: "7:00 PM", endTime: "9:00 PM",
+        location: "Riverside Community Courts",
+        votes: votes(["AR","JK","TS","RP","SW"], ["ML","CT"], ["DC"]) },
+      { id: "o1b", date: "2026-03-25", startTime: "6:30 PM", endTime: "8:30 PM",
+        location: "City Gym — Court B",
+        votes: votes(["ML","CT","DC"], ["AR","JK","TS"], ["RP","SW"]) },
+      { id: "o1c", date: "2026-03-26", startTime: "8:00 PM", endTime: "10:00 PM",
+        location: "Riverside Community Courts",
+        votes: votes(["AR","TS","RP","SW"], ["JK"], []) },
+    ],
+  },
+  {
+    id: "game3",
+    title: "Friday Volleyball Meetup",
+    sport: "Volleyball", sportEmoji: "🏐",
+    location: "Beach Volleyball Courts — Court 1",
+    gameType: "casual", status: "proposal",
+    maxPlayers: 8, totalCost: 20, splitCost: true,
+    group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
+    date: "Fri, Mar 28", time: "5:30 PM - 7:30 PM",
+    votingDeadline: deadline(6), createdBy: "Taylor Smith",
+    roster: p(["TS","AR","JK","DC","RP"]),
+    timeOptions: [
+      { id: "o3a", date: "2026-03-28", startTime: "5:30 PM", endTime: "7:30 PM",
+        location: "Beach Volleyball Courts — Court 1",
+        votes: votes(["TS","AR","JK","DC"], ["RP"], []) },
+      { id: "o3b", date: "2026-03-29", startTime: "9:00 AM", endTime: "11:00 AM",
+        location: "Rec Center — Gym 2",
+        votes: votes(["RP","ML"], ["CT","DC"], ["TS"]) },
+    ],
+  },
+  {
+    id: "game5",
+    title: "Thursday Pickleball Doubles",
+    sport: "Pickleball", sportEmoji: "🏓",
+    location: "Westside Pickleball Club — Courts 3 & 4",
+    gameType: "competitive", status: "proposal",
+    maxPlayers: 8, totalCost: 32, splitCost: true,
+    group: "g4", heroImage: SPORT_HERO_IMAGES.Pickleball,
+    date: "Thu, Mar 27", time: "6:00 PM - 8:00 PM",
+    votingDeadline: deadline(38), createdBy: "Alex Rivera",
+    roster: p(["AR","TS","RP","JK"]),
+    timeOptions: [
+      { id: "o5a", date: "2026-03-27", startTime: "6:00 PM", endTime: "8:00 PM",
+        location: "Westside Pickleball Club — Courts 3 & 4",
+        votes: votes(["AR","TS","RP"], ["JK"], []) },
+      { id: "o5b", date: "2026-03-28", startTime: "7:00 PM", endTime: "9:00 PM",
+        location: "Westside Pickleball Club — Courts 3 & 4",
+        votes: votes(["JK"], ["AR","TS"], ["RP"]) },
+    ],
+  },
+  {
+    id: "game6",
+    title: "Saturday Morning Tennis",
+    sport: "Tennis", sportEmoji: "🎾",
+    location: "Lakeside Tennis Center — Court 2",
+    gameType: "casual", status: "proposal",
+    maxPlayers: 4, totalCost: 24, splitCost: true,
+    group: "g4", heroImage: SPORT_HERO_IMAGES.Tennis,
+    date: "Sat, Mar 29", time: "8:00 AM - 10:00 AM",
+    votingDeadline: deadline(62), createdBy: "Riley Park",
+    roster: p(["RP","SW"]),
+    timeOptions: [
+      { id: "o6a", date: "2026-03-29", startTime: "8:00 AM", endTime: "10:00 AM",
+        location: "Lakeside Tennis Center — Court 2",
+        votes: votes(["RP","SW"], ["TS"], []) },
+      { id: "o6b", date: "2026-03-29", startTime: "10:30 AM", endTime: "12:30 PM",
+        location: "Lakeside Tennis Center — Court 2",
+        votes: votes([], ["RP","SW"], ["TS"]) },
+    ],
+  },
+
+  // ── CONFIRMED ─────────────────────────────────────────────────────────────
+  {
+    id: "game2",
+    title: "Weekend Soccer Match",
+    sport: "Soccer", sportEmoji: "⚽",
+    location: "Lakeside Park — Pitch 3",
+    gameType: "casual", status: "confirmed",
+    maxPlayers: 14, totalCost: 0, splitCost: false,
+    group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
+    date: "Sat, Mar 29", time: "10:00 AM - 12:00 PM",
+    votingDeadline: deadline(-2), createdBy: "Riley Park",
+    confirmedOptionId: "o2a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o2a", date: "2026-03-29", startTime: "10:00 AM", endTime: "12:00 PM",
+        location: "Lakeside Park — Pitch 3",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
+    ],
+  },
+  {
+    id: "game7",
+    title: "Wednesday Hoops Night",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "City Gym — Main Court",
+    gameType: "casual", status: "confirmed",
+    maxPlayers: 12, totalCost: 50, splitCost: true,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Wed, Mar 26", time: "7:30 PM - 9:30 PM",
+    votingDeadline: deadline(-1), createdBy: "Jordan Kim",
+    confirmedOptionId: "o7a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o7a", date: "2026-03-26", startTime: "7:30 PM", endTime: "9:30 PM",
+        location: "City Gym — Main Court",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
+    ],
+  },
+  {
+    id: "game8",
+    title: "Competitive Volleyball League Night",
+    sport: "Volleyball", sportEmoji: "🏐",
+    location: "Rec Center — Gym 1",
+    gameType: "competitive", status: "confirmed",
+    maxPlayers: 12, totalCost: 60, splitCost: true,
+    group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
+    date: "Thu, Mar 27", time: "8:00 PM - 10:00 PM",
+    votingDeadline: deadline(-3), createdBy: "Casey Torres",
+    confirmedOptionId: "o8a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o8a", date: "2026-03-27", startTime: "8:00 PM", endTime: "10:00 PM",
+        location: "Rec Center — Gym 1",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], []) },
+    ],
+  },
+
+  // ── COMPLETED ─────────────────────────────────────────────────────────────
+  {
+    id: "game4",
+    title: "Morning Pickup Basketball",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "Riverside Community Courts",
+    gameType: "casual", status: "completed",
+    maxPlayers: 10, totalCost: 0, splitCost: false,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Sun, Mar 16", time: "9:00 AM - 11:00 AM",
+    votingDeadline: deadline(-192), createdBy: "Jordan Kim",
+    confirmedOptionId: "o4a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o4a", date: "2026-03-16", startTime: "9:00 AM", endTime: "11:00 AM",
+        location: "Riverside Community Courts",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], ["DC"]) },
+    ],
+  },
+  {
+    id: "game9",
+    title: "Saturday Soccer Scrimmage",
+    sport: "Soccer", sportEmoji: "⚽",
+    location: "Lakeside Park — Pitch 1",
+    gameType: "casual", status: "completed",
+    maxPlayers: 14, totalCost: 0, splitCost: false,
+    group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
+    date: "Sat, Mar 15", time: "11:00 AM - 1:00 PM",
+    votingDeadline: deadline(-216), createdBy: "Alex Rivera",
+    confirmedOptionId: "o9a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o9a", date: "2026-03-15", startTime: "11:00 AM", endTime: "1:00 PM",
+        location: "Lakeside Park — Pitch 1",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
+    ],
+  },
+  {
+    id: "game10",
+    title: "Net Gang Volleyball",
+    sport: "Volleyball", sportEmoji: "🏐",
+    location: "Rec Center — Gym 2",
+    gameType: "casual", status: "completed",
+    maxPlayers: 8, totalCost: 24, splitCost: true,
+    group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
+    date: "Fri, Mar 14", time: "6:00 PM - 8:00 PM",
+    votingDeadline: deadline(-240), createdBy: "Taylor Smith",
+    confirmedOptionId: "o10a",
+    roster: p(["TS","AR","JK","ML","CT","RP","DC","SW"]),
+    timeOptions: [
+      { id: "o10a", date: "2026-03-14", startTime: "6:00 PM", endTime: "8:00 PM",
+        location: "Rec Center — Gym 2",
+        votes: votes(["TS","AR","JK","ML","CT","RP","DC","SW"], [], []) },
+    ],
+  },
+  {
+    id: "game11",
+    title: "Competitive Hoops — 5v5",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "Riverside Community Courts",
+    gameType: "competitive", status: "completed",
+    maxPlayers: 10, totalCost: 0, splitCost: false,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Tue, Mar 11", time: "7:00 PM - 9:00 PM",
+    votingDeadline: deadline(-312), createdBy: "Sam Wilson",
+    confirmedOptionId: "o11a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o11a", date: "2026-03-11", startTime: "7:00 PM", endTime: "9:00 PM",
+        location: "Riverside Community Courts",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], []) },
+    ],
+  },
+  {
+    id: "game12",
+    title: "Sunday Soccer Fun Run",
+    sport: "Soccer", sportEmoji: "⚽",
+    location: "Greenfield Soccer Park — Pitch 2",
+    gameType: "casual", status: "completed",
+    maxPlayers: 16, totalCost: 28, splitCost: true,
+    group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
+    date: "Sun, Mar 9", time: "2:00 PM - 4:30 PM",
+    votingDeadline: deadline(-360), createdBy: "Casey Torres",
+    confirmedOptionId: "o12a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
+    timeOptions: [
+      { id: "o12a", date: "2026-03-09", startTime: "2:00 PM", endTime: "4:30 PM",
+        location: "Greenfield Soccer Park — Pitch 2",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
+    ],
+  },
+  {
+    id: "game13",
+    title: "Tuesday Hoops — Weekly Run",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "Riverside Community Courts",
+    gameType: "casual", status: "completed",
+    maxPlayers: 10, totalCost: 0, splitCost: false,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Tue, Mar 4", time: "7:00 PM - 9:00 PM",
+    votingDeadline: deadline(-480), createdBy: "Marcus Johnson",
+    confirmedOptionId: "o13a",
+    roster: p(["AR","JK","TS","ML","CT","RP","DC","SW"]),
+    timeOptions: [
+      { id: "o13a", date: "2026-03-04", startTime: "7:00 PM", endTime: "9:00 PM",
+        location: "Riverside Community Courts",
+        votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW"], ["MJ"], ["CT"]) },
+    ],
+  },
+  {
+    id: "game14",
+    title: "Smash Club — Tennis Doubles",
+    sport: "Tennis", sportEmoji: "🎾",
+    location: "Lakeside Tennis Center — Court 1",
+    gameType: "competitive", status: "completed",
+    maxPlayers: 4, totalCost: 48, splitCost: true,
+    group: "g4", heroImage: SPORT_HERO_IMAGES.Tennis,
+    date: "Sun, Mar 1", time: "10:00 AM - 12:00 PM",
+    votingDeadline: deadline(-552), createdBy: "Riley Park",
+    confirmedOptionId: "o14a",
+    roster: p(["RP","AR","SW","TS"]),
+    timeOptions: [
+      { id: "o14a", date: "2026-03-01", startTime: "10:00 AM", endTime: "12:00 PM",
+        location: "Lakeside Tennis Center — Court 1",
+        votes: votes(["RP","AR","SW","TS"], [], []) },
+    ],
+  },
+
+  // ── CANCELLED ─────────────────────────────────────────────────────────────
+  {
+    id: "game15",
+    title: "Rainy Day Soccer",
+    sport: "Soccer", sportEmoji: "⚽",
+    location: "Greenfield Soccer Park — Pitch 1",
+    gameType: "casual", status: "cancelled",
+    maxPlayers: 14, totalCost: 0, splitCost: false,
+    group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
+    date: "Sun, Mar 22", time: "1:00 PM - 3:00 PM",
+    votingDeadline: deadline(-48), createdBy: "Morgan Lee",
+    roster: p(["ML","CT","DC","JK"]),
+    timeOptions: [
+      { id: "o15a", date: "2026-03-22", startTime: "1:00 PM", endTime: "3:00 PM",
+        location: "Greenfield Soccer Park — Pitch 1",
+        votes: votes(["ML","CT","DC","JK"], ["AR"], ["TS","RP","SW"]) },
+    ],
+  },
+  {
+    id: "game16",
+    title: "Late Night Basketball",
+    sport: "Basketball", sportEmoji: "🏀",
+    location: "City Gym — Court B",
+    gameType: "casual", status: "cancelled",
+    maxPlayers: 10, totalCost: 30, splitCost: true,
+    group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
+    date: "Thu, Mar 20", time: "9:00 PM - 11:00 PM",
+    votingDeadline: deadline(-96), createdBy: "Drew Chen",
+    roster: p(["DC","JK","ML"]),
+    timeOptions: [
+      { id: "o16a", date: "2026-03-20", startTime: "9:00 PM", endTime: "11:00 PM",
+        location: "City Gym — Court B",
+        votes: votes(["DC","JK","ML"], ["AR"], ["TS","RP","SW","CT","MJ"]) },
+    ],
+  },
+];
 
 function formatTime12h(t: string): string {
   if (!t) return "";
@@ -109,9 +435,9 @@ function mapDbGameToGame(g: any): Game {
   };
 }
 
-/** Fetch all games from Supabase */
+/** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (isDemoMode()) return DEMO_GAMES;
 
   const { data, error } = await supabase!
     .from("games")
@@ -120,15 +446,15 @@ export async function fetchAllGames(): Promise<Game[]> {
 
   if (error) {
     console.error("fetchAllGames error:", error.message);
-    return [];
+    return DEMO_GAMES;
   }
 
   return (data || []).map(mapDbGameToGame);
 }
 
-/** Fetch a single game by ID from Supabase */
+/** Fetch a single game by ID — returns demo game in demo mode */
 export async function fetchGameById(id: string): Promise<Game | undefined> {
-  if (!isSupabaseConfigured()) return undefined;
+  if (isDemoMode()) return DEMO_GAMES.find((g) => g.id === id);
 
   const { data, error } = await supabase!
     .from("games")
@@ -136,7 +462,7 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
     .eq("id", id)
     .single();
 
-  if (error || !data) return undefined;
+  if (error || !data) return DEMO_GAMES.find((g) => g.id === id);
 
   return mapDbGameToGame(data);
 }
@@ -161,7 +487,7 @@ export async function saveGame(input: {
   invitedPlayerIds: string[];
   votingPeriodHours?: number;
 }): Promise<{ id: string; error: string | null }> {
-  if (!isSupabaseConfigured()) {
+  if (isDemoMode()) {
     return { id: "", error: "Supabase is not configured." };
   }
 
@@ -259,7 +585,7 @@ export async function saveGame(input: {
 }
 
 export async function addGameOption(gameId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (isDemoMode()) return false;
   const { error } = await supabase!.from("game_options").insert({
     game_id: gameId,
     date: option.date,
@@ -272,7 +598,7 @@ export async function addGameOption(gameId: string, option: { date: string, star
 }
 
 export async function updateGameOption(optionId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (isDemoMode()) return false;
   const { error } = await supabase!.from("game_options").update({
     date: option.date,
     display_date: option.date,
@@ -284,19 +610,19 @@ export async function updateGameOption(optionId: string, option: { date: string,
 }
 
 export async function deleteGameOption(optionId: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (isDemoMode()) return false;
   const { error } = await supabase!.from("game_options").delete().eq("id", optionId);
   return !error;
 }
 
 export async function updateGameVotingDeadline(gameId: string, deadline: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (isDemoMode()) return false;
   const { error } = await supabase!.from("games").update({ voting_deadline: deadline }).eq("id", gameId);
   return !error;
 }
 
 export async function cancelGame(gameId: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (isDemoMode()) return false;
   const { error } = await supabase!.from("games").update({ status: "cancelled" }).eq("id", gameId);
   return !error;
 }

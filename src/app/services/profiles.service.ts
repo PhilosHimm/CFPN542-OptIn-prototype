@@ -1,8 +1,15 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isDemoMode } from "@/lib/supabase";
 import { players as mockPlayers, type Player } from "../data/games";
 
+export interface ProfileSearchResult {
+  id: string;
+  name: string;
+  email?: string;
+  avatar_url?: string | null;
+}
+
 export async function getPlayers(): Promise<Player[]> {
-  if (!isSupabaseConfigured()) return mockPlayers;
+  if (isDemoMode()) return mockPlayers;
 
   const { data, error } = await supabase!
     .from("profiles")
@@ -22,11 +29,46 @@ export async function getPlayers(): Promise<Player[]> {
   }));
 }
 
+export async function searchProfiles(
+  query: string,
+  excludeUserId?: string
+): Promise<ProfileSearchResult[]> {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return [];
+
+  if (isDemoMode()) {
+    return mockPlayers
+      .filter((player) => player.name.toLowerCase().includes(normalizedQuery))
+      .filter((player) => player.id !== excludeUserId)
+      .map((player) => ({
+        id: player.id,
+        name: player.name,
+      }));
+  }
+
+  const { data, error } = await supabase!
+    .from("profiles")
+    .select("id, name, email, avatar_url")
+    .ilike("name", `%${normalizedQuery}%`)
+    .limit(20);
+
+  if (error || !data) return [];
+
+  return data
+    .filter((profile: any) => profile.id !== excludeUserId)
+    .map((profile: any) => ({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      avatar_url: profile.avatar_url,
+    }));
+}
+
 export async function updatePlayerProfile(
   userId: string,
   updates: { name?: string; bio?: string; avatar_url?: string | null }
 ): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured()) return { error: null };
+  if (isDemoMode()) return { error: null };
 
   const updateData: any = { ...updates };
   if (updates.name) {

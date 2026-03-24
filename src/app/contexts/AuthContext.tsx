@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured, isDemoMode, setDemoModePreference } from "@/lib/supabase";
 import type { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
 
 interface UserProfile {
@@ -21,6 +21,8 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isDemo: boolean;
+  supabaseConfigured: boolean;
+  toggleDemoMode: (enabled: boolean) => void;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -58,7 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const isDemo = !isSupabaseConfigured();
+  const [isDemo, setIsDemo] = useState(() => isDemoMode());
+  const supabaseConfigured = isSupabaseConfigured();
 
   useEffect(() => {
     if (isDemo) {
@@ -105,6 +108,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }
+
+  const toggleDemoMode = (enabled: boolean) => {
+    setDemoModePreference(enabled);
+    setIsDemo(enabled);
+    if (enabled) {
+      setProfile(DEMO_PROFILE);
+      setLoading(false);
+    }
+  };
 
   const signUp = async (email: string, password: string, name: string) => {
     if (isDemo) return { error: "Running in demo mode" };
@@ -154,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, signUp, signIn, signOut, updateProfile }}
+      value={{ user, profile, session, loading, isDemo, supabaseConfigured, toggleDemoMode, signUp, signIn, signOut, updateProfile }}
     >
       {children}
     </AuthContext.Provider>
