@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { ChevronLeft, ChevronRight, CalendarDays, Plus } from "lucide-react";
+import { useNavigate } from "react-router";
 import { GameCard } from "./GameCard";
-import { games } from "./gameData";
+import { fetchAllGames, type Game } from "./gameData";
 
 const MONTH_NAMES = [
   "January",
@@ -35,13 +36,23 @@ function formatOptionDate(isoDate: string): string {
 }
 
 export function CalendarScreen() {
-  const [currentMonth, setCurrentMonth] = useState(1); // February (0-indexed)
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [selectedDate, setSelectedDate] = useState(20);
+  const navigate = useNavigate();
+  const now = new Date();
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth());
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [selectedDate, setSelectedDate] = useState(now.getDate());
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAllGames().then((g) => {
+      setGames(g);
+      setLoading(false);
+    });
+  }, []);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const today = 20; // Feb 20, 2026
 
   const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -65,23 +76,21 @@ export function CalendarScreen() {
       });
     });
     return map;
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, games]);
 
   // Find games for selected date
   const gamesForDate = useMemo(() => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
     return games.filter((g) => {
-      // For confirmed games, only match against the confirmed time option's date
       if (g.confirmedOptionId) {
         const confirmedOption = g.timeOptions.find(
           (opt) => opt.id === g.confirmedOptionId
         );
         return confirmedOption?.date === dateStr;
       }
-      // For proposal/voting games, match any time option
       return g.timeOptions.some((opt) => opt.date === dateStr);
     });
-  }, [selectedDate, currentMonth, currentYear]);
+  }, [selectedDate, currentMonth, currentYear, games]);
 
   const goToPrevMonth = () => {
     if (currentMonth === 0) {
@@ -102,6 +111,11 @@ export function CalendarScreen() {
     }
     setSelectedDate(1);
   };
+
+  const isToday = (day: number) =>
+    day === now.getDate() &&
+    currentMonth === now.getMonth() &&
+    currentYear === now.getFullYear();
 
   return (
     <div className="flex flex-col">
@@ -152,10 +166,7 @@ export function CalendarScreen() {
               <div key={`blank-${blank}`} className="h-[44px]" />
             ))}
             {days.map((day) => {
-              const isToday =
-                day === today &&
-                currentMonth === 1 &&
-                currentYear === 2026;
+              const todayFlag = isToday(day);
               const isSelected = day === selectedDate;
               const eventInfo = eventDatesMap[day];
 
@@ -169,7 +180,7 @@ export function CalendarScreen() {
                     className={`w-[36px] h-[36px] rounded-md3-full flex items-center justify-center transition-colors ${
                       isSelected
                         ? "bg-primary text-on-primary"
-                        : isToday
+                        : todayFlag
                         ? "border-2 border-primary text-primary"
                         : "text-on-surface hover:bg-on-surface/8"
                     }`}
@@ -195,7 +206,13 @@ export function CalendarScreen() {
 
       {/* Games for selected date */}
       <div className="px-4">
-        {gamesForDate.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-8 h-8 rounded-md3-full bg-primary-container flex items-center justify-center animate-pulse">
+              <span className="text-label-lg font-medium text-on-primary-container">O</span>
+            </div>
+          </div>
+        ) : gamesForDate.length > 0 ? (
           <>
             <h2 className="text-title-md font-medium text-on-surface mb-3">
               {MONTH_NAMES[currentMonth]} {selectedDate} Games
@@ -207,7 +224,6 @@ export function CalendarScreen() {
                 let displayLocation = game.location;
 
                 if (!game.confirmedOptionId) {
-                  // Proposal: use the matching time option(s) for the selected date
                   const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
                   const matchingOpts = game.timeOptions.filter((opt) => opt.date === dateStr);
                   if (matchingOpts.length === 1) {
@@ -250,12 +266,19 @@ export function CalendarScreen() {
               Scheduled Games
             </h2>
             <div className="flex flex-col items-center py-8">
+              <div className="w-12 h-12 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
+                <CalendarDays className="w-6 h-6 text-on-surface-variant" />
+              </div>
               <p className="text-body-md text-on-surface-variant text-center">
                 No games on {MONTH_NAMES[currentMonth]} {selectedDate}.
               </p>
-              <p className="text-label-md text-on-surface-variant/60 mt-1 text-center">
-                Tap a date with a dot to see games.
-              </p>
+              <button
+                onClick={() => navigate("/create")}
+                className="mt-3 flex items-center gap-2 px-4 h-[36px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Create Game
+              </button>
             </div>
           </>
         )}

@@ -1,59 +1,11 @@
 import { useState } from "react";
 import { useLocation } from "react-router";
-import { Search } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-
-const directMessages = [
-  {
-    id: 1,
-    name: "Marcus Johnson",
-    avatar: "https://images.unsplash.com/photo-1590156552211-69280532a54a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMGF0aGxldGljJTIwbWFuJTIwcG9ydHJhaXQlMjBzbWlsaW5nfGVufDF8fHx8MTc3MTYyODEyNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    message: "Hey, are you coming to the game this Sunday?",
-    time: "2m ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    name: "Sarah Chen",
-    avatar: "https://images.unsplash.com/photo-1759476531403-b1f88092f992?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwYXRobGV0ZSUyMHBvcnRyYWl0JTIwb3V0ZG9vcnxlbnwxfHx8fDE3NzE2MjgxMjd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    message: "I reserved the court for 7pm 🏐",
-    time: "15m ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    name: "David Okafor",
-    avatar: "https://images.unsplash.com/photo-1595956936239-4cad0fa009e6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmllbmRseSUyMG1hbiUyMGhlYWRzaG90JTIwcG9ydHJhaXQlMjBkaXZlcnNlfGVufDF8fHx8MTc3MTYyODEzMXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    message: "Good game yesterday! Same time next week?",
-    time: "1h ago",
-    unread: false,
-  },
-];
-
-const groupMessages = [
-  {
-    id: 1,
-    name: "Sunday Soccer Crew",
-    avatar: "https://images.unsplash.com/photo-1546957221-37816b007052?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWNyZWF0aW9uYWwlMjBzb2NjZXIlMjB0ZWFtJTIwZ3JvdXAlMjBwaG90b3xlbnwxfHx8fDE3NzE2MjgxMjh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    message: "Marcus: I'll bring the extra jerseys",
-    time: "5m ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    name: "Pickup Hoops",
-    avatar: "https://images.unsplash.com/photo-1765605898805-86923208c52b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBvdXRkb29yJTIwcmVjcmVhdGlvbnxlbnwxfHx8fDE3NzE2MjgxMjh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    message: "Sarah: Who needs a ride to the court?",
-    time: "30m ago",
-    unread: false,
-  },
-];
+import { Search, MessageCircle } from "lucide-react";
 
 export function ChatsScreen() {
   const location = useLocation();
   const initialTab = (location.state as { tab?: string } | null)?.tab === "groups" ? "groups" : "direct";
   const [activeTab, setActiveTab] = useState<"direct" | "groups">(initialTab);
-  const messages = activeTab === "direct" ? directMessages : groupMessages;
 
   return (
     <div className="flex flex-col">
@@ -93,39 +45,19 @@ export function ChatsScreen() {
         </div>
       </div>
 
-      {/* Message List */}
-      <div className="flex flex-col">
-        {messages.map((msg) => (
-          <button
-            key={msg.id}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors text-left"
-          >
-            {/* Avatar */}
-            <div className="w-[48px] h-[48px] rounded-md3-full overflow-hidden flex-shrink-0">
-              <ImageWithFallback
-                src={msg.avatar}
-                alt={msg.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-body-md font-medium text-on-surface truncate">
-                  {msg.name}
-                </span>
-                <span className="text-label-md text-on-surface-variant flex-shrink-0 ml-2">{msg.time}</span>
-              </div>
-              <p className="text-body-sm text-on-surface-variant truncate mt-0.5">{msg.message}</p>
-            </div>
-
-            {/* Unread dot */}
-            {msg.unread && (
-              <div className="w-[10px] h-[10px] rounded-md3-full bg-primary flex-shrink-0" />
-            )}
-          </button>
-        ))}
+      {/* Empty State */}
+      <div className="flex flex-col items-center justify-center py-16 px-6">
+        <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
+          <MessageCircle className="w-7 h-7 text-on-surface-variant" />
+        </div>
+        <p className="text-body-lg font-medium text-on-surface mb-1">
+          No {activeTab === "direct" ? "messages" : "group chats"} yet
+        </p>
+        <p className="text-body-md text-on-surface-variant text-center">
+          {activeTab === "direct"
+            ? "Messages with other players will appear here."
+            : "Join or create a group to start chatting."}
+        </p>
       </div>
     </div>
   );

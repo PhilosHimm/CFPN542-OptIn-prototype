@@ -19,6 +19,8 @@ import {
 import { useNavigate, useSearchParams } from "react-router";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
+import { saveGame } from "./gameData";
+import { useAuth } from "../contexts/AuthContext";
 
 // ─── Constants ─────────────────────────────────────────────
 const TOTAL_STEPS = 5;
@@ -235,6 +237,7 @@ function NextButton({
 // ─── Main Component ────────────────────────────────────────
 export function CreateGameScreen() {
   const navigate = useNavigate();
+  const { profile, user } = useAuth();
   const [searchParams] = useSearchParams();
   const mock = searchParams.get("mock") === "true";
   const initialStep = Math.min(Math.max(parseInt(searchParams.get("step") || "1"), 1), 5);
@@ -252,13 +255,14 @@ export function CreateGameScreen() {
   const [maxPlayers, setMaxPlayers] = useState(mock ? "12" : "12");
 
   // Step 2 state
+  const defaultDate = new Date().toISOString().split("T")[0];
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>(
     mock
       ? [
-          { id: "1", date: "2026-02-25", startTime: "10:00", endTime: "12:00", address: "" },
-          { id: "2", date: "2026-02-25", startTime: "12:00", endTime: "14:00", address: "" },
+          { id: "1", date: defaultDate, startTime: "10:00", endTime: "12:00", address: "" },
+          { id: "2", date: defaultDate, startTime: "12:00", endTime: "14:00", address: "" },
         ]
-      : [{ id: "1", date: "2026-02-28", startTime: "10:00", endTime: "12:00", address: "" }]
+      : [{ id: "1", date: defaultDate, startTime: "10:00", endTime: "12:00", address: "" }]
   );
 
   // Step 3 state
@@ -356,12 +360,40 @@ export function CreateGameScreen() {
     setTimeout(() => setLinkCopied(false), 2000);
   }, []);
 
-  const handleCreateGame = useCallback(() => {
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreateGame = useCallback(async () => {
+    setCreateError(null);
+    const result = await saveGame({
+      title: gameTitle,
+      sport: selectedSport,
+      gameType: gameType as "casual" | "competitive",
+      maxPlayers: parseInt(maxPlayers) || 12,
+      totalCost: parseFloat(totalCost) || 0,
+      location: address,
+      groupId: assignedGroup,
+      visibility: visibility,
+      createdBy: profile?.id || user?.id || "",
+      timeOptions: timeOptions.map((o) => ({
+        date: o.date,
+        startTime: o.startTime,
+        endTime: o.endTime,
+        location: o.address || address,
+      })),
+      invitedPlayerIds: selectedPlayers,
+    });
+
+    if (result.error) {
+      console.error("Failed to create game:", result.error);
+      setCreateError(result.error);
+      return;
+    }
+
     setShowSuccess(true);
     setTimeout(() => {
       navigate("/");
     }, 2000);
-  }, [navigate]);
+  }, [navigate, gameTitle, selectedSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
@@ -529,6 +561,7 @@ export function CreateGameScreen() {
                 assignedGroup={assignedGroup}
                 setAssignedGroup={setAssignedGroup}
                 onSubmit={handleCreateGame}
+                error={createError}
               />
             )}
           </motion.div>
@@ -1214,6 +1247,7 @@ function StepReview({
   assignedGroup,
   setAssignedGroup,
   onSubmit,
+  error,
 }: {
   selectedSport: string;
   gameTitle: string;
@@ -1230,6 +1264,7 @@ function StepReview({
   assignedGroup: string;
   setAssignedGroup: (v: string) => void;
   onSubmit: () => void;
+  error: string | null;
 }) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
@@ -1427,6 +1462,13 @@ function StepReview({
           })}
         </div>
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="w-full px-3 py-2 rounded-md3-medium bg-error-container text-on-error-container text-body-sm">
+          {error}
+        </div>
+      )}
 
       {/* Create Game CTA */}
       <button

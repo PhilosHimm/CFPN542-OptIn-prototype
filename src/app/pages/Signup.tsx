@@ -1,39 +1,41 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Activity, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
+import { useNavigate, Navigate } from "react-router";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Signup() {
   const navigate = useNavigate();
-  const { signUp, isDemo } = useAuth();
+  const { signUp, isDemo, user, loading: authLoading } = useAuth();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  if (!authLoading && !success && (isDemo || user)) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
+    setSubmitting(true);
 
     if (isDemo) {
       setSuccess(true);
-      setLoading(false);
+      setSubmitting(false);
       return;
     }
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
-      setLoading(false);
+      setSubmitting(false);
       return;
     }
 
     const result = await signUp(email, password, name);
-    setLoading(false);
+    setSubmitting(false);
 
     if (result.error) {
       setError(result.error);
@@ -46,12 +48,12 @@ export function Signup() {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-[430px] text-center space-y-8">
-          <div className="w-24 h-24 rounded-[32px] bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-200 mx-auto">
-            <CheckCircle className="w-12 h-12" />
+          <div className="w-24 h-24 rounded-md3-extra-large bg-primary-container flex items-center justify-center mx-auto">
+            <CheckCircle className="w-12 h-12 text-on-primary-container" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Account Created!</h2>
-            <p className="text-black/40 font-medium">
+            <h2 className="text-headline-md font-medium text-on-surface">Account Created!</h2>
+            <p className="text-body-md text-on-surface-variant">
               {isDemo
                 ? "Demo mode active. Click below to start exploring."
                 : "Check your email to verify your account, then sign in."}
@@ -59,7 +61,7 @@ export function Signup() {
           </div>
           <button
             onClick={() => navigate("/login")}
-            className="w-full ios-btn-primary py-4 text-lg font-bold"
+            className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
           >
             Go to Sign In
           </button>
@@ -73,98 +75,98 @@ export function Signup() {
       <div className="w-full max-w-[430px] space-y-10">
         {/* Logo */}
         <div className="text-center space-y-3">
-          <div className="flex justify-center items-center gap-3">
-            <div className="w-16 h-16 rounded-[20px] bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30">
-              <Activity className="w-9 h-9" />
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-md3-extra-large bg-primary-container flex items-center justify-center">
+              <span className="text-display-sm font-medium text-on-primary-container">O</span>
             </div>
           </div>
-          <h1 className="text-4xl font-black italic tracking-tighter text-black/90">OptIn</h1>
-          <p className="text-black/40 font-medium text-sm">Create your account</p>
+          <h1 className="text-headline-lg font-medium text-on-surface">OptIn</h1>
+          <p className="text-body-md text-on-surface-variant">Create your account</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm text-rose-600 font-medium">
+            <div className="bg-error-container rounded-md3-medium p-4 text-body-md text-on-error-container">
               {error}
             </div>
           )}
 
           {isDemo && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-700 font-medium">
+            <div className="bg-tertiary-container rounded-md3-medium p-4 text-body-md text-on-tertiary-container">
               Demo mode: No Supabase configured. Sign up is simulated.
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label htmlFor="name" className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
-              Full Name
-            </label>
-            <div className="relative group">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 group-focus-within:text-primary transition-colors" />
+          <div className="md3-outlined-field">
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none z-10" />
               <input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Marcus Johnson"
-                className="w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl pl-11 pr-4 py-3.5 text-[15px] font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                placeholder=" "
+                className="!pl-12"
                 required
               />
+              <label htmlFor="name" className="md3-floating-label !left-12">
+                Full Name
+              </label>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
-              Email
-            </label>
-            <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 group-focus-within:text-primary transition-colors" />
+          <div className="md3-outlined-field">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none z-10" />
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl pl-11 pr-4 py-3.5 text-[15px] font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                placeholder=" "
+                className="!pl-12"
                 required={!isDemo}
               />
+              <label htmlFor="email" className="md3-floating-label !left-12">
+                Email
+              </label>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
-              Password
-            </label>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 group-focus-within:text-primary transition-colors" />
+          <div className="md3-outlined-field">
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none z-10" />
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                className="w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl pl-11 pr-12 py-3.5 text-[15px] font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                placeholder=" "
+                className="!pl-12 !pr-12"
                 required={!isDemo}
                 minLength={6}
               />
+              <label htmlFor="password" className="md3-floating-label !left-12">
+                Password (min 6 characters)
+              </label>
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-md3-full text-on-surface-variant hover:bg-on-surface/8 transition-colors z-10"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full ios-btn-primary py-4 text-lg font-bold flex items-center justify-center gap-3 disabled:opacity-50"
+            disabled={submitting}
+            className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-2 hover:shadow-md3-1 active:bg-primary/90 transition-all disabled:opacity-50 md3-state-primary"
           >
-            {loading ? "Creating Account..." : "Create Account"}
-            {!loading && <ArrowRight className="w-5 h-5" />}
+            {submitting ? "Creating Account..." : "Create Account"}
+            {!submitting && <ArrowRight className="w-5 h-5" />}
           </button>
         </form>
 
@@ -172,9 +174,9 @@ export function Signup() {
         <div className="text-center">
           <button
             onClick={() => navigate("/login")}
-            className="text-sm font-semibold text-primary"
+            className="text-label-lg text-primary font-medium hover:text-primary/80 transition-colors"
           >
-            Already have an account? <span className="font-bold">Sign In</span>
+            Already have an account? Sign In
           </button>
         </div>
       </div>

@@ -19,8 +19,7 @@ import {
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  getGameById,
-  getPlayerById,
+  fetchGameById,
   type Game,
   type VoteOption,
   type Player,
@@ -192,23 +191,17 @@ function AvatarStack({
 
   return (
     <div className="flex items-center">
-      {visible.map((pid, i) => {
-        const player = getPlayerById(pid);
-        if (!player) return null;
-        return (
-          <div
-            key={pid}
-            className="w-[28px] h-[28px] rounded-md3-full border-2 border-surface overflow-hidden flex-shrink-0"
-            style={{ marginLeft: i > 0 ? -8 : 0, zIndex: visible.length - i }}
-          >
-            <ImageWithFallback
-              src={player.avatar}
-              alt={player.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        );
-      })}
+      {visible.map((pid, i) => (
+        <div
+          key={pid}
+          className="w-[28px] h-[28px] rounded-md3-full border-2 border-surface bg-primary-container flex items-center justify-center flex-shrink-0"
+          style={{ marginLeft: i > 0 ? -8 : 0, zIndex: visible.length - i }}
+        >
+          <span className="text-[10px] font-medium text-on-primary-container leading-none">
+            {i + 1}
+          </span>
+        </div>
+      ))}
       {extra > 0 && (
         <div
           className="w-[28px] h-[28px] rounded-md3-full bg-surface-variant flex items-center justify-center border-2 border-surface flex-shrink-0"
@@ -441,22 +434,19 @@ function RosterSection({
 export function GameViewScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const game = getGameById(id || "");
+  const [game, setGame] = useState<Game | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchGameById(id).then((g) => {
+      if (g) setGame(g);
+      setLoading(false);
+    });
+  }, [id]);
 
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
-
-  // Pre-populate votes for the current user (simulate as p1)
-  useEffect(() => {
-    if (!game) return;
-    const userVotes: Record<string, "in" | "maybe" | "out"> = {};
-    game.timeOptions.forEach((opt) => {
-      if (opt.votes.in.includes("p1")) userVotes[opt.id] = "in";
-      else if (opt.votes.maybe.includes("p1")) userVotes[opt.id] = "maybe";
-      else if (opt.votes.out.includes("p1")) userVotes[opt.id] = "out";
-    });
-    setVotes(userVotes);
-  }, [game]);
 
   const handleVote = useCallback(
     (optionId: string, vote: "in" | "maybe" | "out") => {
@@ -498,7 +488,17 @@ export function GameViewScreen() {
     return `$${(game.totalCost / confirmed).toFixed(2)}`;
   }, [game]);
 
-  // ─── 404 ────────────────────────────────────────────────
+  // ─── Loading / 404 ──────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div className="w-10 h-10 rounded-md3-full bg-primary-container flex items-center justify-center animate-pulse">
+          <span className="text-title-md font-medium text-on-primary-container">O</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!game) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
@@ -514,7 +514,7 @@ export function GameViewScreen() {
   }
 
   const statusConfig = getStatusConfig(game.status);
-  const createdByPlayer = getPlayerById(game.createdBy);
+  const createdByPlayer = null as { avatar: string; name: string } | null;
 
   return (
     <div className="flex flex-col min-h-screen bg-surface">

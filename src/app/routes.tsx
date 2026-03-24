@@ -1,11 +1,11 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
-import { Home } from "./pages/Home";
-import { Calendar } from "./pages/Calendar";
-import { CreateGame } from "./pages/CreateGame";
-import { Messages } from "./pages/Messages";
-import { Profile } from "./pages/Profile";
-import { GamePage } from "./pages/GamePage";
+import { HomeScreen } from "./components/HomeScreen";
+import { CalendarScreen } from "./components/CalendarScreen";
+import { CreateGameScreen } from "./components/CreateGameScreen";
+import { ChatsScreen } from "./components/ChatsScreen";
+import { ProfileScreen } from "./components/ProfileScreen";
+import { GameViewScreen } from "./components/GameViewScreen";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 
@@ -22,12 +22,12 @@ export const router = createBrowserRouter([
     path: "/",
     Component: Layout,
     children: [
-      { index: true, Component: Home },
-      { path: "calendar", Component: Calendar },
-      { path: "create", Component: CreateGame },
-      { path: "messages", Component: Messages },
-      { path: "profile", Component: Profile },
-      { path: "game/:id", Component: GamePage },
+      { index: true, Component: HomeScreen },
+      { path: "calendar", Component: CalendarScreen },
+      { path: "create", Component: CreateGameScreen },
+      { path: "chats", Component: ChatsScreen },
+      { path: "profile", Component: ProfileScreen },
+      { path: "game/:id", Component: GameViewScreen },
     ],
   },
 ]);

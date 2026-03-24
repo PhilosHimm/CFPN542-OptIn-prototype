@@ -1,4 +1,5 @@
-// ─── Shared game mock data used across Home, Calendar, and Game View ───
+// ─── Shared game data — Supabase-backed ───
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export interface Player {
   id: string;
@@ -43,258 +44,214 @@ export interface Game {
   time: string;
 }
 
-// ─── Player Pool ──────────────────────────────────────────
-export const players: Player[] = [
-  {
-    id: "p1",
-    name: "Marcus Johnson",
-    avatar:
-      "https://images.unsplash.com/photo-1751730739769-00b6e0807d65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbGUlMjBhdGhsZXRlJTIwcG9ydHJhaXQlMjBoZWFkc2hvdHxlbnwxfHx8fDE3NzE2MzA5OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p2",
-    name: "Sarah Chen",
-    avatar:
-      "https://images.unsplash.com/photo-1650066579657-ae92847b1482?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMGZlbWFsZSUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMHNtaWxlfGVufDF8fHx8MTc3MTYzMDk5Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p3",
-    name: "DeAndre Williams",
-    avatar:
-      "https://images.unsplash.com/photo-1590156552211-69280532a54a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYWxlJTIwYmFza2V0YmFsbCUyMHBsYXllciUyMHBvcnRyYWl0JTIwY2FzdWFsfGVufDF8fHx8MTc3MTYzMDk5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p4",
-    name: "Priya Patel",
-    avatar:
-      "https://images.unsplash.com/photo-1762170318123-616b97727044?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmZW1hbGUlMjBzb2NjZXIlMjBwbGF5ZXIlMjBwb3J0cmFpdCUyMG91dGRvb3J8ZW58MXx8fHwxNzcxNjMwOTk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p5",
-    name: "Jake Torres",
-    avatar:
-      "https://images.unsplash.com/photo-1649440100794-0776df1177b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHNwb3J0eSUyMHBvcnRyYWl0JTIwZml0bmVzc3xlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p6",
-    name: "Aisha Robinson",
-    avatar:
-      "https://images.unsplash.com/photo-1695774361378-a8a8695c408e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwYXRobGV0aWMlMjBwb3J0cmFpdCUyMGd5bXxlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p7",
-    name: "Ryan Kim",
-    avatar:
-      "https://images.unsplash.com/photo-1758915214590-fa0cc9ea70ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMGF0aGxldGljJTIwcG9ydHJhaXQlMjBjb25maWRlbnR8ZW58MXx8fHwxNzcxNTM4NDc1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-  {
-    id: "p8",
-    name: "Mia Lopez",
-    avatar:
-      "https://images.unsplash.com/photo-1759476530203-b11cc8c87d43?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwZml0bmVzcyUyMHBvcnRyYWl0JTIwZW5lcmdldGljfGVufDF8fHx8MTc3MTYzMTQyNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-  },
-];
+// ─── Supabase-backed functions ───────────────────────────
 
-// ─── Games ────────────────────────────────────────────────
-export const games: Game[] = [
-  {
-    id: "game-1",
-    title: "Sunday Soccer Showdown",
-    sport: "Soccer",
-    sportEmoji: "\u26BD",
-    location: "Riverside Park, Field 3",
-    gameType: "casual",
-    status: "proposal",
-    maxPlayers: 12,
-    totalCost: 30,
-    splitCost: true,
-    group: "Sunday Soccer",
-    heroImage:
-      "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Fri, Feb 27",
-    time: "10:00 AM - 12:00 PM",
-    votingDeadline: "2026-02-26T23:59:59",
-    createdBy: "p1",
-    roster: [
-      players[0],
-      players[1],
-      players[2],
-      players[3],
-      players[4],
-      players[5],
-      players[6],
-      players[7],
-    ],
-    timeOptions: [
-      {
-        id: "opt-1a",
-        date: "2026-02-27",
-        startTime: "10:00",
-        endTime: "12:00",
-        location: "Riverside Park, Field 3",
-        votes: {
-          in: ["p1", "p2", "p3", "p5", "p7"],
-          maybe: ["p4"],
-          out: ["p6"],
-        },
-      },
-      {
-        id: "opt-1b",
-        date: "2026-02-28",
-        startTime: "14:00",
-        endTime: "16:00",
-        location: "Riverside Park, Field 3",
-        votes: {
-          in: ["p1", "p4", "p6"],
-          maybe: ["p2", "p7"],
-          out: ["p3"],
-        },
-      },
-      {
-        id: "opt-1c",
-        date: "2026-02-28",
-        startTime: "17:00",
-        endTime: "19:00",
-        location: "Central Fields, Pitch 1",
-        votes: {
-          in: ["p2", "p8"],
-          maybe: ["p5"],
-          out: ["p1"],
-        },
-      },
-    ],
-  },
-  {
-    id: "game-2",
-    title: "Friday Night Basketball",
-    sport: "Basketball",
-    sportEmoji: "\uD83C\uDFC0",
-    location: "Downtown Rec Center",
-    gameType: "competitive",
-    status: "confirmed",
-    maxPlayers: 12,
-    totalCost: 60,
-    splitCost: true,
-    group: "Pickup Hoops",
-    heroImage:
-      "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Sat, Feb 28",
-    time: "7:00 PM - 9:00 PM",
-    votingDeadline: "2026-02-27T18:00:00",
-    confirmedOptionId: "opt-2a",
-    createdBy: "p3",
-    roster: players.slice(0, 8),
-    timeOptions: [
-      {
-        id: "opt-2a",
-        date: "2026-02-28",
-        startTime: "19:00",
-        endTime: "21:00",
-        location: "Downtown Rec Center",
-        votes: {
-          in: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"],
-          maybe: [],
-          out: [],
-        },
-      },
-      {
-        id: "opt-2b",
-        date: "2026-02-27",
-        startTime: "18:00",
-        endTime: "20:00",
-        location: "Downtown Rec Center",
-        votes: {
-          in: ["p1", "p3", "p5"],
-          maybe: ["p2", "p4"],
-          out: ["p6", "p7", "p8"],
-        },
-      },
-    ],
-  },
-  {
-    id: "game-3",
-    title: "Beach Volleyball Classic",
-    sport: "Volleyball",
-    sportEmoji: "\uD83C\uDFD0",
-    location: "Sunset Beach Courts",
-    gameType: "casual",
-    status: "completed",
-    maxPlayers: 8,
-    totalCost: 0,
-    splitCost: false,
-    group: "Beach Volley",
-    heroImage:
-      "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Sun, Feb 16",
-    time: "3:00 PM - 5:00 PM",
-    votingDeadline: "2026-02-15T12:00:00",
-    confirmedOptionId: "opt-3a",
-    createdBy: "p4",
-    roster: [players[1], players[3], players[5], players[7], players[0], players[6]],
-    timeOptions: [
-      {
-        id: "opt-3a",
-        date: "2026-02-16",
-        startTime: "15:00",
-        endTime: "17:00",
-        location: "Sunset Beach Courts",
-        votes: {
-          in: ["p2", "p4", "p6", "p8", "p1", "p7"],
-          maybe: [],
-          out: [],
-        },
-      },
-    ],
-  },
-  {
-    id: "game-4",
-    title: "Wednesday Pickup Soccer",
-    sport: "Soccer",
-    sportEmoji: "\u26BD",
-    location: "Memorial Park, North Field",
-    gameType: "casual",
-    status: "completed",
-    maxPlayers: 14,
-    totalCost: 20,
-    splitCost: true,
-    group: "Sunday Soccer",
-    heroImage:
-      "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    date: "Wed, Feb 12",
-    time: "6:00 PM - 8:00 PM",
-    votingDeadline: "2026-02-11T23:59:59",
-    confirmedOptionId: "opt-4a",
-    createdBy: "p2",
-    roster: [players[0], players[1], players[2], players[4], players[6], players[7]],
-    timeOptions: [
-      {
-        id: "opt-4a",
-        date: "2026-02-12",
-        startTime: "18:00",
-        endTime: "20:00",
-        location: "Memorial Park, North Field",
-        votes: {
-          in: ["p1", "p2", "p3", "p5", "p7", "p8"],
-          maybe: [],
-          out: [],
-        },
-      },
-    ],
-  },
-];
+const SPORT_HERO_IMAGES: Record<string, string> = {
+  Soccer: "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+  Basketball: "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+  Volleyball: "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+};
 
-export function getGameById(id: string): Game | undefined {
-  return games.find((g) => g.id === id);
+function formatTime12h(t: string): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
 
-export function getUpcomingGames(): Game[] {
-  return games.filter((g) => g.status === "proposal" || g.status === "confirmed");
+function mapDbGameToGame(g: any): Game {
+  const opts = (g.game_options || []) as any[];
+  const first = opts[0];
+  const confirmedOpt = g.confirmed_option_id
+    ? opts.find((o: any) => o.id === g.confirmed_option_id) || first
+    : first;
+
+  const displayOpt = confirmedOpt || first;
+  const displayDate = displayOpt?.display_date || displayOpt?.date || "";
+  const timeStr = displayOpt
+    ? `${formatTime12h(displayOpt.start_time)} - ${formatTime12h(displayOpt.end_time)}`
+    : "";
+
+  return {
+    id: g.id,
+    title: g.title,
+    sport: g.sport,
+    sportEmoji: g.sport_emoji || "",
+    location: displayOpt?.location || "",
+    gameType: (g.game_type || "casual").toLowerCase() as "casual" | "competitive",
+    status: g.status as GameStatus,
+    maxPlayers: g.max_players,
+    totalCost: g.total_cost || 0,
+    splitCost: (g.total_cost || 0) > 0,
+    group: g.group_id || "",
+    heroImage: SPORT_HERO_IMAGES[g.sport] || SPORT_HERO_IMAGES.Soccer,
+    date: displayDate,
+    time: timeStr,
+    votingDeadline: g.voting_deadline || "",
+    confirmedOptionId: g.confirmed_option_id || undefined,
+    createdBy: g.created_by || "",
+    roster: Array.from({ length: g.current_players || 0 }, (_, i) => ({
+      id: `player-${i}`,
+      name: `Player ${i + 1}`,
+      avatar: "",
+    })),
+    timeOptions: opts.map((o: any) => ({
+      id: o.id,
+      date: o.date,
+      startTime: o.start_time,
+      endTime: o.end_time,
+      location: o.location,
+      votes: {
+        in: Array.from({ length: o.in_votes || 0 }, (_, i) => `voter-${i}`),
+        maybe: Array.from({ length: o.maybe_votes || 0 }, (_, i) => `maybe-${i}`),
+        out: Array.from({ length: o.out_votes || 0 }, (_, i) => `out-${i}`),
+      },
+    })),
+  };
 }
 
-export function getCompletedGames(): Game[] {
-  return games.filter((g) => g.status === "completed");
+/** Fetch all games from Supabase */
+export async function fetchAllGames(): Promise<Game[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const { data, error } = await supabase!
+    .from("games")
+    .select("*, game_options(*)")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("fetchAllGames error:", error.message);
+    return [];
+  }
+
+  return (data || []).map(mapDbGameToGame);
 }
 
-export function getPlayerById(id: string): Player | undefined {
-  return players.find((p) => p.id === id);
+/** Fetch a single game by ID from Supabase */
+export async function fetchGameById(id: string): Promise<Game | undefined> {
+  if (!isSupabaseConfigured()) return undefined;
+
+  const { data, error } = await supabase!
+    .from("games")
+    .select("*, game_options(*)")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return undefined;
+
+  return mapDbGameToGame(data);
+}
+
+// Check if a string looks like a valid UUID
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+/** Save a new game to Supabase */
+export async function saveGame(input: {
+  title: string;
+  sport: string;
+  gameType: "casual" | "competitive";
+  maxPlayers: number;
+  totalCost: number;
+  location: string;
+  groupId: string;
+  visibility: string;
+  createdBy: string;
+  timeOptions: { date: string; startTime: string; endTime: string; location: string }[];
+  invitedPlayerIds: string[];
+}): Promise<{ id: string; error: string | null }> {
+  if (!isSupabaseConfigured()) {
+    return { id: "", error: "Supabase is not configured." };
+  }
+
+  // Validate createdBy is a real UUID (auth user id)
+  if (!input.createdBy || !isValidUUID(input.createdBy)) {
+    return { id: "", error: "No authenticated user. Please log in." };
+  }
+
+  const sportEmojis: Record<string, string> = {
+    Soccer: "\u26BD", Basketball: "\uD83C\uDFC0", Volleyball: "\uD83C\uDFD0",
+    Tennis: "\uD83C\uDFBE", "Flag Football": "\uD83C\uDFC8", Softball: "\u26BE",
+  };
+
+  // Only use group_id if it's a valid UUID (mock IDs like "g1" are not valid)
+  const groupId = input.groupId && isValidUUID(input.groupId) ? input.groupId : null;
+
+  // Only count real (UUID) player IDs for cost splitting
+  const realPlayerIds = input.invitedPlayerIds.filter(isValidUUID);
+
+  const perPersonCost = input.totalCost > 0 && realPlayerIds.length > 0
+    ? input.totalCost / realPlayerIds.length
+    : 0;
+
+  const votingDeadline = new Date();
+  votingDeadline.setHours(votingDeadline.getHours() + 24);
+
+  const gameId = crypto.randomUUID();
+
+  console.log("saveGame: inserting game", gameId, "by user", input.createdBy);
+
+  const { error } = await supabase!
+    .from("games")
+    .insert({
+      id: gameId,
+      title: input.title,
+      sport: input.sport,
+      sport_emoji: sportEmojis[input.sport] || "",
+      sport_color: "#2D7A3A",
+      status: "proposal",
+      game_type: input.gameType === "casual" ? "Casual" : "Competitive",
+      max_players: input.maxPlayers,
+      created_by: input.createdBy,
+      group_id: groupId,
+      voting_deadline: votingDeadline.toISOString(),
+      total_cost: input.totalCost,
+      per_person_cost: perPersonCost,
+      confirmed_option_id: null,
+      description: null,
+      visibility: input.visibility === "public" ? "Public" : input.visibility === "private" ? "Private" : "Group Only",
+    });
+
+  if (error) {
+    console.error("saveGame: insert error:", error.message);
+    return { id: "", error: error.message };
+  }
+
+  console.log("saveGame: game inserted, adding time options");
+
+  // Insert time options
+  const optionInserts = input.timeOptions
+    .filter((o) => o.date && o.startTime)
+    .map((o) => {
+      const d = new Date(o.date + "T00:00:00");
+      const displayDate = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      return {
+        id: crypto.randomUUID(),
+        game_id: gameId,
+        date: o.date,
+        display_date: displayDate,
+        start_time: o.startTime,
+        end_time: o.endTime || o.startTime,
+        location: o.location || input.location || "",
+      };
+    });
+
+  if (optionInserts.length > 0) {
+    const { error: optError } = await supabase!.from("game_options").insert(optionInserts);
+    if (optError) console.error("saveGame: game_options insert error:", optError.message);
+  }
+
+  // Invite players (only real UUIDs)
+  if (realPlayerIds.length > 0) {
+    const playerInserts = realPlayerIds.map((pid) => ({
+      game_id: gameId,
+      user_id: pid,
+      status: "invited" as const,
+    }));
+    const { error: playerError } = await supabase!.from("game_players").insert(playerInserts);
+    if (playerError) console.error("saveGame: game_players insert error:", playerError.message);
+  }
+
+  console.log("saveGame: complete, game id:", gameId);
+  return { id: gameId, error: null };
 }

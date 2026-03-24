@@ -109,25 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     if (isDemo) return { error: "Running in demo mode" };
 
-    const { data, error } = await supabase!.auth.signUp({ email, password });
+    const { error } = await supabase!.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
     if (error) return { error: error.message };
-
-    if (data.user) {
-      const initials = getInitials(name);
-      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-
-      const { error: profileError } = await supabase!.from("profiles").insert({
-        id: data.user.id,
-        email,
-        name,
-        initials,
-        color,
-        bio: "",
-        avatar_url: null,
-      });
-
-      if (profileError) return { error: profileError.message };
-    }
 
     return { error: null };
   };

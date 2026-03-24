@@ -1,5 +1,7 @@
+import { useNavigate } from "react-router";
 import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useAuth } from "../contexts/AuthContext";
 
 const settingsItems = [
   { icon: Users, label: "Manage my groups" },
@@ -9,6 +11,14 @@ const settingsItems = [
 ];
 
 export function ProfileScreen() {
+  const navigate = useNavigate();
+  const { profile, signOut, isDemo } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
   return (
     <div className="flex flex-col">
       {/* Top App Bar */}
@@ -21,24 +31,32 @@ export function ProfileScreen() {
         {/* Avatar */}
         <div className="w-[100px] h-[100px] rounded-md3-full overflow-hidden mb-3 ring-3 ring-primary-container">
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1756699495345-6877309eb20b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMGd5bSUyMGNvbmZpZGVudHxlbnwxfHx8fDE3NzE2MjgxMzZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            src={profile?.avatar_url || "https://images.unsplash.com/photo-1756699495345-6877309eb20b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMGd5bSUyMGNvbmZpZGVudHxlbnwxfHx8fDE3NzE2MjgxMzZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"}
             alt="Player avatar"
             className="w-full h-full object-cover"
           />
         </div>
-        <h2 className="text-headline-sm font-medium text-on-surface mb-1">Alex Rivera</h2>
-        <p className="text-label-lg text-on-surface-variant">@alexrivera</p>
+        <h2 className="text-headline-sm font-medium text-on-surface mb-1">
+          {profile?.name || "Alex Rivera"}
+        </h2>
+        <p className="text-label-lg text-on-surface-variant">
+          {profile?.email ? `@${profile.email.split("@")[0]}` : "@alexrivera"}
+        </p>
       </div>
 
       {/* Stats Row */}
       <div className="flex items-center justify-center gap-8 px-4 mb-6">
         <div className="flex flex-col items-center">
-          <span className="text-headline-md font-medium text-primary">47</span>
+          <span className="text-headline-md font-medium text-primary">
+            {profile?.games_played ?? 47}
+          </span>
           <span className="text-label-lg text-on-surface-variant">Games played</span>
         </div>
         <div className="w-px h-[40px] bg-on-surface/8" />
         <div className="flex flex-col items-center">
-          <span className="text-headline-md font-medium text-primary">23</span>
+          <span className="text-headline-md font-medium text-primary">
+            {profile?.weeks_played ?? 23}
+          </span>
           <span className="text-label-lg text-on-surface-variant">Weeks active</span>
         </div>
       </div>
@@ -66,7 +84,10 @@ export function ProfileScreen() {
 
       {/* Log Out Button */}
       <div className="px-4 pb-8 flex justify-center">
-        <button className="px-8 py-2.5 rounded-md3-full border-2 border-error text-error text-label-lg font-medium hover:bg-error-container transition-colors flex items-center gap-2">
+        <button
+          onClick={handleSignOut}
+          className="px-8 py-2.5 rounded-md3-full border-2 border-error text-error text-label-lg font-medium hover:bg-error-container transition-colors flex items-center gap-2"
+        >
           <LogOut className="w-4 h-4" />
           Log Out
         </button>

@@ -1,35 +1,14 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell, ChevronRight, Plus, CalendarDays } from "lucide-react";
 import { GameCard } from "./GameCard";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { games, getUpcomingGames, getCompletedGames } from "./gameData";
-
-const groups = [
-  {
-    name: "Sunday Soccer",
-    image:
-      "https://images.unsplash.com/photo-1546957221-37816b007052?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWNyZWF0aW9uYWwlMjBzb2NjZXIlMjB0ZWFtJTIwZ3JvdXAlMjBwaG90b3xlbnwxfHx8fDE3NzE2MjgxMjh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    members: 24,
-  },
-  {
-    name: "Pickup Hoops",
-    image:
-      "https://images.unsplash.com/photo-1765605898805-86923208c52b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBvdXRkb29yJTIwcmVjcmVhdGlvbnxlbnwxfHx8fDE3NzE2MjgxMjh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    members: 18,
-  },
-  {
-    name: "Beach Volley",
-    image:
-      "https://images.unsplash.com/photo-1754737375935-36bc0c8652db?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwYmVhY2glMjBzcG9ydHMlMjBncm91cHxlbnwxfHx8fDE3NzE2MjgxMjh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    members: 12,
-  },
-];
+import { fetchAllGames, type Game } from "./gameData";
+import { useAuth } from "../contexts/AuthContext";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function buildSchedule() {
-  const upcoming = games.filter((g) => g.status === "proposal" || g.status === "confirmed");
-  // date → highest-priority status (confirmed beats proposal)
+function buildSchedule(allGames: Game[]) {
+  const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed");
   const dateStatusMap: Record<string, "proposal" | "confirmed"> = {};
   for (const game of upcoming) {
     for (const opt of game.timeOptions) {
@@ -42,7 +21,8 @@ function buildSchedule() {
     }
   }
   const today = new Date();
-  const start = new Date(2026, 1, 20); // Feb 20, 2026
+  const start = new Date(today);
+  start.setDate(start.getDate() - start.getDay()); // start of current week
   return Array.from({ length: 9 }, (_, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
@@ -56,11 +36,30 @@ function buildSchedule() {
   });
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export function HomeScreen() {
   const navigate = useNavigate();
-  const upcomingGames = getUpcomingGames();
-  const completedGames = getCompletedGames();
-  const scheduleItems = buildSchedule();
+  const { profile } = useAuth();
+  const [allGames, setAllGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAllGames().then((g) => {
+      setAllGames(g);
+      setLoading(false);
+    });
+  }, []);
+
+  const upcomingGames = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed");
+  const completedGames = allGames.filter((g) => g.status === "completed");
+  const scheduleItems = buildSchedule(allGames);
+  const firstName = profile?.name?.split(" ")[0] || "there";
 
   return (
     <div className="flex flex-col">
@@ -68,51 +67,14 @@ export function HomeScreen() {
       <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-body-md text-on-surface-variant">Good morning</p>
+            <p className="text-body-md text-on-surface-variant">{getGreeting()}</p>
             <h1 className="text-title-lg font-medium text-on-surface leading-tight">
-              Hello User, Ready to play?
+              Hello {firstName}, Ready to play?
             </h1>
           </div>
           <button className="w-10 h-10 rounded-md3-full flex items-center justify-center bg-surface-container-low hover:bg-on-surface/8 transition-colors min-w-[48px] min-h-[48px]">
             <Bell className="w-5 h-5 text-on-surface-variant" />
           </button>
-        </div>
-      </div>
-
-      {/* My Groups - Horizontal scroll */}
-      <div className="px-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-title-md font-medium text-on-surface">My Groups</h2>
-          <button
-            onClick={() => navigate("/chats", { state: { tab: "groups" } })}
-            className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]"
-          >
-            See all <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-          {groups.map((group) => (
-            <div
-              key={group.name}
-              className="flex-shrink-0 w-[140px] rounded-md3-large overflow-hidden bg-surface-container-lowest shadow-md3-1"
-            >
-              <div className="h-[80px] overflow-hidden">
-                <ImageWithFallback
-                  src={group.image}
-                  alt={group.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="p-2.5">
-                <p className="text-label-lg font-medium text-on-surface truncate">
-                  {group.name}
-                </p>
-                <p className="text-label-sm text-on-surface-variant">
-                  {group.members} members
-                </p>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -158,21 +120,46 @@ export function HomeScreen() {
         <h2 className="text-title-md font-medium text-on-surface mb-3">
           Upcoming Games
         </h2>
-        <div className="flex flex-col gap-3">
-          {upcomingGames.map((game) => (
-            <GameCard
-              key={game.id}
-              id={game.id}
-              title={game.title}
-              date={game.date}
-              time={game.time}
-              location={game.location}
-              players={`${game.roster.length}/${game.maxPlayers}`}
-              isFull={game.roster.length >= game.maxPlayers}
-              variant={game.status === "proposal" ? "vote" : "confirmed"}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 rounded-md3-full bg-primary-container flex items-center justify-center animate-pulse">
+              <span className="text-label-lg font-medium text-on-primary-container">O</span>
+            </div>
+          </div>
+        ) : upcomingGames.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {upcomingGames.map((game) => (
+              <GameCard
+                key={game.id}
+                id={game.id}
+                title={game.title}
+                date={game.date}
+                time={game.time}
+                location={game.location}
+                players={`${game.roster.length}/${game.maxPlayers}`}
+                isFull={game.roster.length >= game.maxPlayers}
+                variant={game.status === "proposal" ? "vote" : "confirmed"}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-10 px-4">
+            <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
+              <CalendarDays className="w-7 h-7 text-on-surface-variant" />
+            </div>
+            <p className="text-body-lg font-medium text-on-surface mb-1">No upcoming games</p>
+            <p className="text-body-md text-on-surface-variant text-center mb-4">
+              Create a game to get started
+            </p>
+            <button
+              onClick={() => navigate("/create")}
+              className="flex items-center gap-2 px-5 h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1"
+            >
+              <Plus className="w-4 h-4" />
+              Create Game
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Completed Games */}
