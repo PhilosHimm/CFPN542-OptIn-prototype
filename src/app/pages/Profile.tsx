@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   ChevronRight,
@@ -27,6 +27,51 @@ export function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(profile?.name || "Marcus Johnson");
   const [bio, setBio] = useState(profile?.bio || "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Resize image to max 400x400 to keep base64 string size reasonable
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        await updateProfile({ avatar_url: dataUrl });
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     if (editMode) {
@@ -103,8 +148,11 @@ export function Profile() {
 
       {/* Profile Info */}
       <section className="px-6 flex flex-col items-center">
-        <div className="relative mb-6">
-          <div className="w-28 h-28 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-primary to-indigo-600 p-0.5">
+        <div 
+          className="relative mb-6 cursor-pointer group"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="w-28 h-28 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-primary to-indigo-600 p-0.5 transition-transform group-active:scale-95">
             <img
               src={profile?.avatar_url || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop"}
               alt="Profile" 
@@ -112,10 +160,17 @@ export function Profile() {
             />
           </div>
           {editMode && (
-            <button className="absolute bottom-1 right-1 w-9 h-9 bg-primary text-white rounded-full border-4 border-white flex items-center justify-center shadow-lg active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none" aria-label="Change profile photo">
+            <button className="absolute bottom-1 right-1 w-9 h-9 bg-primary text-white rounded-full border-4 border-white flex items-center justify-center shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none pointer-events-none" aria-label="Change profile photo">
               <Camera className="w-4 h-4" />
             </button>
           )}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleAvatarChange} 
+            accept="image/*" 
+            className="hidden" 
+          />
         </div>
 
         {editMode ? (

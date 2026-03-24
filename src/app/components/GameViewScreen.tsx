@@ -15,11 +15,22 @@ import {
   Trophy,
   ChevronDown,
   ChevronUp,
+  Settings,
+  Edit3,
+  Ban,
+  X,
+  Calendar
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
 import {
   fetchGameById,
+  addGameOption,
+  updateGameOption,
+  deleteGameOption,
+  updateGameVotingDeadline,
+  cancelGame,
   type Game,
   type VoteOption,
   type Player,
@@ -225,6 +236,8 @@ function OptionCard({
   isReadOnly,
   userVote,
   onVote,
+  isHost,
+  onEdit,
 }: {
   option: VoteOption;
   index: number;
@@ -233,6 +246,8 @@ function OptionCard({
   isReadOnly: boolean;
   userVote: "in" | "maybe" | "out" | null;
   onVote: (optionId: string, vote: "in" | "maybe" | "out") => void;
+  isHost?: boolean;
+  onEdit?: (option: VoteOption) => void;
 }) {
   const totalIn = option.votes.in.length;
   const totalMaybe = option.votes.maybe.length;
@@ -244,7 +259,7 @@ function OptionCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
-      className={`rounded-md3-large border-2 p-4 mb-3 transition-colors ${
+      className={`rounded-md3-large border-2 p-4 mb-3 transition-colors relative ${
         isWinner
           ? "border-primary bg-primary/5"
           : isConfirmed && !isWinner
@@ -265,9 +280,19 @@ function OptionCard({
             {isWinner ? " \u2014 Winner" : ""}
           </span>
         </div>
-        <span className="text-label-md text-on-surface-variant leading-none font-medium">
-          {totalIn} In
-        </span>
+        <div className="flex items-center gap-2">
+          {isHost && onEdit && (
+            <button 
+              onClick={() => onEdit(option)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant bg-surface-container bg-opacity-50 hover:bg-opacity-100"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+          )}
+          <span className="text-label-md text-on-surface-variant leading-none font-medium">
+            {totalIn} In
+          </span>
+        </div>
       </div>
 
       {/* Date & Time */}
@@ -436,6 +461,29 @@ export function GameViewScreen() {
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [showHostMenu, setShowHostMenu] = useState(false);
+  const isHost = true; // Hardcoded mock for UI demonstration
+
+  // Form states
+  const [showProposeTime, setShowProposeTime] = useState(false);
+  const [showEditTime, setShowEditTime] = useState<{ id: string } | null>(null);
+  const [showDeadline, setShowDeadline] = useState(false);
+  
+  // Propose/Edit form values
+  const [formDate, setFormDate] = useState("");
+  const [formStart, setFormStart] = useState("");
+  const [formEnd, setFormEnd] = useState("");
+  const [formLocation, setFormLocation] = useState("");
+  
+  // Deadline form
+  const [deadlineDate, setDeadlineDate] = useState("");
+
+  const refreshGame = useCallback(() => {
+    if (!id) return;
+    fetchGameById(id).then((g) => {
+      if (g) setGame(g);
+    });
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -444,6 +492,78 @@ export function GameViewScreen() {
       setLoading(false);
     });
   }, [id]);
+
+  // Handlers for advanced game operations
+  const handleProposeSubmit = async () => {
+    if (!game || !formDate || !formStart || !formEnd) return;
+    try {
+      await addGameOption(game.id, {
+        date: formDate,
+        start_time: formStart,
+        end_time: formEnd,
+        location: formLocation || undefined,
+      });
+      setShowProposeTime(false);
+      refreshGame();
+      toast.success("New time option proposed!");
+    } catch (e: any) {
+      toast.error("Failed to propose time option: " + e.message);
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!showEditTime || !formDate || !formStart || !formEnd) return;
+    try {
+      await updateGameOption(showEditTime.id, {
+        date: formDate,
+        start_time: formStart,
+        end_time: formEnd,
+        location: formLocation || undefined,
+      });
+      setShowEditTime(null);
+      refreshGame();
+      toast.success("Option updated successfully!");
+    } catch (e: any) {
+      toast.error("Failed to update option: " + e.message);
+    }
+  };
+
+  const handleDeleteOption = async (optionId: string) => {
+    try {
+      await deleteGameOption(optionId);
+      if (showEditTime?.id === optionId) setShowEditTime(null);
+      refreshGame();
+      toast.success("Option deleted!");
+    } catch (e: any) {
+      toast.error("Failed to delete option: " + e.message);
+    }
+  };
+
+  const handleDeadlineSubmit = async () => {
+    if (!game || !deadlineDate) return;
+    try {
+      await updateGameVotingDeadline(game.id, deadlineDate);
+      setShowDeadline(false);
+      refreshGame();
+      toast.success("Voting deadline updated!");
+    } catch (e: any) {
+      toast.error("Failed to update deadline: " + e.message);
+    }
+  };
+
+  const handleCancelGame = async () => {
+    if (!game) return;
+    if (confirm("Are you sure you want to cancel the game? All attendees will be notified.")) {
+      try {
+        await cancelGame(game.id);
+        setShowHostMenu(false);
+        refreshGame();
+        toast.success("Game cancelled.");
+      } catch (e: any) {
+        toast.error("Failed to cancel game: " + e.message);
+      }
+    }
+  };
 
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
@@ -536,10 +656,22 @@ export function GameViewScreen() {
           <ArrowLeft className="w-5 h-5 text-on-surface" />
         </button>
 
-        {/* Share button */}
-        <button className="absolute top-[48px] right-4 w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md">
-          <Share2 className="w-5 h-5 text-on-surface" />
-        </button>
+        <div className="absolute top-[48px] right-4 flex gap-2">
+          {/* Settings / Host button */}
+          {isHost && (
+            <button 
+              onClick={() => setShowHostMenu(true)}
+              className="w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
+            >
+              <Settings className="w-5 h-5 text-on-surface" />
+            </button>
+          )}
+
+          {/* Share button */}
+          <button className="w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md">
+            <Share2 className="w-5 h-5 text-on-surface" />
+          </button>
+        </div>
 
         {/* Title on hero */}
         <div className="absolute bottom-4 left-4 right-4">
@@ -674,13 +806,27 @@ export function GameViewScreen() {
                 isReadOnly={isReadOnly || isConfirmed}
                 userVote={votes[option.id] || null}
                 onVote={handleVote}
+                isHost={isHost}
+                onEdit={(opt) => {
+                  setShowEditTime(opt);
+                  setFormDate(opt.date);
+                  setFormStart(opt.startTime);
+                  setFormEnd(opt.endTime);
+                  setFormLocation(""); // We didn't enforce a location field on VoteOption UI yet
+                }}
               />
             ))}
           </AnimatePresence>
 
           {/* Propose new time */}
           {game.status === "proposal" && (
-            <button className="w-full text-center py-3 text-label-lg text-primary font-medium min-h-[48px]">
+            <button 
+              onClick={() => {
+                setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
+                setShowProposeTime(true);
+              }}
+              className="w-full text-center py-3 text-label-lg text-primary font-medium min-h-[48px]"
+            >
               + Propose a new time
             </button>
           )}
@@ -761,6 +907,240 @@ export function GameViewScreen() {
           </div>
         )}
       </div>
+
+      {/* Host Settings Menu Bottom Sheet */}
+      <AnimatePresence>
+        {showHostMenu && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHostMenu(false)}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+            >
+              <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
+              <h2 className="text-title-lg font-semibold text-on-surface mb-6">Host Options</h2>
+              
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={() => {
+                    setShowHostMenu(false);
+                    setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
+                    setShowProposeTime(true);
+                  }}
+                  className="w-full flex items-center justify-between p-4 bg-surface rounded-xl shadow-sm text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <span className="text-body-lg font-medium text-on-surface">Propose New Time</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowHostMenu(false);
+                    setShowDeadline(true);
+                    setDeadlineDate(game.votingDeadline ? new Date(game.votingDeadline).toISOString().slice(0, 16) : "");
+                  }}
+                  className="w-full flex items-center justify-between p-4 bg-surface rounded-xl shadow-sm text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <span className="text-body-lg font-medium text-on-surface">Set/Change Voting Deadline</span>
+                  </div>
+                </button>
+
+                <div className="h-px w-full bg-outline-variant my-2" />
+
+                <button
+                  onClick={handleCancelGame}
+                  className="w-full flex items-center justify-between p-4 bg-error-container rounded-xl shadow-sm text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <Ban className="w-5 h-5 text-error" />
+                    <span className="text-body-lg font-medium text-on-error-container">Cancel Game</span>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Propose a Time Modal */}
+      <AnimatePresence>
+        {showProposeTime && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowProposeTime(false)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-title-lg font-semibold text-on-surface">Propose New Time</h2>
+                <button onClick={() => setShowProposeTime(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-label-md text-on-surface-variant mb-1 block">Date</label>
+                  <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-label-md text-on-surface-variant mb-1 block">Start Time</label>
+                    <input type="time" value={formStart} onChange={(e) => setFormStart(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-label-md text-on-surface-variant mb-1 block">End Time</label>
+                    <input type="time" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-label-md text-on-surface-variant mb-1 block">Location / Note (Optional)</label>
+                  <input type="text" placeholder="e.g. Court 2" value={formLocation} onChange={(e) => setFormLocation(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                </div>
+                
+                <button
+                  onClick={handleProposeSubmit}
+                  className="w-full h-12 bg-primary text-on-primary rounded-full font-medium mt-2"
+                >
+                  Add Option
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit a Time Modal */}
+      <AnimatePresence>
+        {showEditTime && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEditTime(null)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-title-lg font-semibold text-on-surface">Edit Time Option</h2>
+                <button onClick={() => setShowEditTime(null)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-label-md text-on-surface-variant mb-1 block">Date</label>
+                  <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-label-md text-on-surface-variant mb-1 block">Start Time</label>
+                    <input type="time" value={formStart} onChange={(e) => setFormStart(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-label-md text-on-surface-variant mb-1 block">End Time</label>
+                    <input type="time" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-label-md text-on-surface-variant mb-1 block">Location / Note</label>
+                  <input type="text" placeholder="e.g. Court 2" value={formLocation} onChange={(e) => setFormLocation(e.target.value)} className="w-full p-3 bg-surface-container rounded-xl text-on-surface" />
+                </div>
+                
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => handleDeleteOption(showEditTime.id)}
+                    className="flex-1 h-12 bg-error-container text-on-error-container rounded-full font-medium"
+                  >
+                    Delete Option
+                  </button>
+                  <button
+                    onClick={handleEditSubmit}
+                    className="flex-1 h-12 bg-primary text-on-primary rounded-full font-medium"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Set Voting Deadline Modal */}
+      <AnimatePresence>
+        {showDeadline && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeadline(false)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-title-lg font-semibold text-on-surface">Update Voting Deadline</h2>
+                <button onClick={() => setShowDeadline(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-label-md text-on-surface-variant mb-1 block">Deadline (Date & Time)</label>
+                  <input
+                    type="datetime-local"
+                    value={deadlineDate}
+                    onChange={(e) => setDeadlineDate(e.target.value)}
+                    className="w-full p-3 bg-surface-container rounded-xl text-on-surface"
+                  />
+                </div>
+                
+                <button
+                  onClick={handleDeadlineSubmit}
+                  className="w-full h-12 bg-primary text-on-primary rounded-full font-medium mt-2"
+                >
+                  Save Deadline
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

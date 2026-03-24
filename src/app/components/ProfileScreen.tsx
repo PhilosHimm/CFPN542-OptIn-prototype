@@ -1,22 +1,62 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut } from "lucide-react";
+import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useAuth } from "../contexts/AuthContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 
 const settingsItems = [
-  { icon: Users, label: "Manage my groups" },
-  { icon: Gamepad2, label: "Game preferences" },
-  { icon: Bell, label: "Notifications" },
-  { icon: Settings, label: "Account settings" },
+  { id: "groups", icon: Users, label: "Manage my groups" },
+  { id: "preferences", icon: Gamepad2, label: "Game preferences" },
+  { id: "notifications", icon: Bell, label: "Notifications" },
+  { id: "account", icon: Settings, label: "Account settings" },
 ];
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { profile, signOut, isDemo } = useAuth();
+  const { profile, signOut, isDemo, updateProfile } = useAuth();
+  
+  // Sheet/Dialog states
+  const [activeDialog, setActiveDialog] = useState<string | null>(null);
+
+  // Account Settings state
+  const [accountName, setAccountName] = useState(profile?.name || "Alex Rivera");
+  const [accountEmail, setAccountEmail] = useState(profile?.email || "alex@example.com");
+
+  // Group Management mock data
+  const [myGroups, setMyGroups] = useState([
+    { id: "1", name: "Weekend Warriors", members: 12 },
+    { id: "2", name: "Thursday Night Soccer", members: 18 },
+    { id: "3", name: "Uptown Hoops", members: 8 },
+  ]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/login");
+  };
+
+  const handleActionClick = (id: string) => {
+    if (id === "groups") {
+      setActiveDialog("groups");
+    } else if (id === "account") {
+      setActiveDialog("account");
+    } else {
+      console.log(`Action not implemented: ${id}`);
+    }
+  };
+
+  const removeGroup = (groupId: string) => {
+    setMyGroups(prev => prev.filter(g => g.id !== groupId));
+  };
+
+  const handleSaveAccount = async () => {
+    if (updateProfile) {
+      await updateProfile({ name: accountName, email: accountEmail });
+    }
+    setActiveDialog(null);
   };
 
   return (
@@ -68,6 +108,7 @@ export function ProfileScreen() {
           return (
             <button
               key={item.label}
+              onClick={() => handleActionClick(item.id)}
               className={`w-full flex items-center gap-4 px-4 py-4 hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors text-left ${
                 index < settingsItems.length - 1 ? "border-b border-outline-variant/50" : ""
               }`}
@@ -92,6 +133,103 @@ export function ProfileScreen() {
           Log Out
         </button>
       </div>
+
+      {/* Manage Groups Dialog */}
+      <Dialog open={activeDialog === "groups"} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
+          <DialogHeader className="mb-4 text-left">
+            <DialogTitle className="text-title-lg text-on-surface">Manage Groups</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto hidden-scrollbar">
+            {myGroups.length > 0 ? (
+              myGroups.map(group => (
+                <div key={group.id} className="flex items-center justify-between p-3 bg-surface-container-low rounded-xl border border-outline-variant/50">
+                  <div className="flex flex-col">
+                    <span className="text-body-lg font-medium text-on-surface">{group.name}</span>
+                    <span className="text-label-sm text-on-surface-variant">{group.members} members</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => removeGroup(group.id)}
+                    className="h-10 w-10 text-error hover:bg-error/10 hover:text-error rounded-full"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center text-on-surface-variant text-body-md">
+                You are not in any groups yet.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Settings Dialog */}
+      <Dialog open={activeDialog === "account"} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
+          <DialogHeader className="mb-4 text-left">
+            <DialogTitle className="text-title-lg text-on-surface">Account Settings</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="accountName">Display Name</Label>
+              <Input 
+                id="accountName" 
+                value={accountName} 
+                onChange={(e) => setAccountName(e.target.value)} 
+                className="rounded-xl border-outline-variant/50 focus-visible:ring-primary/50"
+              />
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="accountEmail">Email Address</Label>
+              <Input 
+                id="accountEmail" 
+                type="email" 
+                value={accountEmail} 
+                onChange={(e) => setAccountEmail(e.target.value)} 
+                className="rounded-xl border-outline-variant/50 focus-visible:ring-primary/50"
+              />
+            </div>
+
+            <div className="pt-2 flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setActiveDialog(null)}
+                className="rounded-full border-outline-variant text-on-surface-variant hover:bg-on-surface/5"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveAccount}
+                className="rounded-full bg-primary text-on-primary hover:bg-primary/90"
+              >
+                Save Changes
+              </Button>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-outline-variant/30 flex flex-col gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start rounded-xl border-outline-variant/50 text-on-surface"
+              >
+                Change Password
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start rounded-xl border-error/50 text-error hover:bg-error-container hover:text-error"
+              >
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

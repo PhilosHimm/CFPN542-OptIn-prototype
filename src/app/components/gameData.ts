@@ -159,6 +159,7 @@ export async function saveGame(input: {
   createdBy: string;
   timeOptions: { date: string; startTime: string; endTime: string; location: string }[];
   invitedPlayerIds: string[];
+  votingPeriodHours?: number;
 }): Promise<{ id: string; error: string | null }> {
   if (!isSupabaseConfigured()) {
     return { id: "", error: "Supabase is not configured." };
@@ -185,7 +186,8 @@ export async function saveGame(input: {
     : 0;
 
   const votingDeadline = new Date();
-  votingDeadline.setHours(votingDeadline.getHours() + 24);
+  const hoursToAdd = input.votingPeriodHours || 24;
+  votingDeadline.setHours(votingDeadline.getHours() + hoursToAdd);
 
   const gameId = crypto.randomUUID();
 
@@ -254,4 +256,47 @@ export async function saveGame(input: {
 
   console.log("saveGame: complete, game id:", gameId);
   return { id: gameId, error: null };
+}
+
+export async function addGameOption(gameId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!.from("game_options").insert({
+    game_id: gameId,
+    date: option.date,
+    display_date: option.date, // simple fallback
+    start_time: option.start_time,
+    end_time: option.end_time,
+    location: option.location || "",
+  });
+  return !error;
+}
+
+export async function updateGameOption(optionId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!.from("game_options").update({
+    date: option.date,
+    display_date: option.date,
+    start_time: option.start_time,
+    end_time: option.end_time,
+    location: option.location || "",
+  }).eq("id", optionId);
+  return !error;
+}
+
+export async function deleteGameOption(optionId: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!.from("game_options").delete().eq("id", optionId);
+  return !error;
+}
+
+export async function updateGameVotingDeadline(gameId: string, deadline: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!.from("games").update({ voting_deadline: deadline }).eq("id", gameId);
+  return !error;
+}
+
+export async function cancelGame(gameId: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!.from("games").update({ status: "cancelled" }).eq("id", gameId);
+  return !error;
 }

@@ -275,10 +275,12 @@ export function CreateGameScreen() {
   const [linkCopied, setLinkCopied] = useState(false);
 
   // Step 5 state
-  const [visibility, setVisibility] = useState<"public" | "group" | "private">(
-    "group"
+  const [visibility, setVisibility] = useState<"public" | "group" | "private" | "">(
+    ""
   );
   const [assignedGroup, setAssignedGroup] = useState("g1");
+  const [votingPeriodType, setVotingPeriodType] = useState<number | "custom">(24);
+  const [customVotingHours, setCustomVotingHours] = useState<string>("");
 
   // ─── Derived ──────────────────────────────────────────
   const perPersonCost = useMemo(() => {
@@ -374,6 +376,7 @@ export function CreateGameScreen() {
       groupId: assignedGroup,
       visibility: visibility,
       createdBy: profile?.id || user?.id || "",
+      votingPeriodHours: votingPeriodType === "custom" ? parseInt(customVotingHours) || 24 : votingPeriodType,
       timeOptions: timeOptions.map((o) => ({
         date: o.date,
         startTime: o.startTime,
@@ -393,7 +396,7 @@ export function CreateGameScreen() {
     setTimeout(() => {
       navigate("/");
     }, 2000);
-  }, [navigate, gameTitle, selectedSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers]);
+  }, [navigate, gameTitle, selectedSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
@@ -560,6 +563,10 @@ export function CreateGameScreen() {
                 setVisibility={setVisibility}
                 assignedGroup={assignedGroup}
                 setAssignedGroup={setAssignedGroup}
+                votingPeriodType={votingPeriodType}
+                setVotingPeriodType={setVotingPeriodType}
+                customVotingHours={customVotingHours}
+                setCustomVotingHours={setCustomVotingHours}
                 onSubmit={handleCreateGame}
                 error={createError}
               />
@@ -1246,6 +1253,10 @@ function StepReview({
   setVisibility,
   assignedGroup,
   setAssignedGroup,
+  votingPeriodType,
+  setVotingPeriodType,
+  customVotingHours,
+  setCustomVotingHours,
   onSubmit,
   error,
 }: {
@@ -1259,10 +1270,14 @@ function StepReview({
   splitCost: boolean;
   perPersonCost: string;
   selectedPlayers: string[];
-  visibility: "public" | "group" | "private";
-  setVisibility: (v: "public" | "group" | "private") => void;
+  visibility: "public" | "group" | "private" | "";
+  setVisibility: (v: "public" | "group" | "private" | "") => void;
   assignedGroup: string;
   setAssignedGroup: (v: string) => void;
+  votingPeriodType: number | "custom";
+  setVotingPeriodType: (v: number | "custom") => void;
+  customVotingHours: string;
+  setCustomVotingHours: (v: string) => void;
   onSubmit: () => void;
   error: string | null;
 }) {
@@ -1395,11 +1410,65 @@ function StepReview({
         )}
       </div>
 
-      {/* Visibility */}
+      {/* Voting Period */}
       <div className="bg-surface rounded-md3-large p-4 mb-3 shadow-md3-1">
         <h3 className="text-title-sm font-medium text-primary mb-3 leading-none">
-          Visibility
+          Voting Period
         </h3>
+        <p className="text-label-md text-on-surface-variant mb-4 leading-normal">
+          How long before the first proposed time should voting close?
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-2">
+            {(
+              [
+                { value: 12, label: "12h" },
+                { value: 24, label: "24h" },
+                { value: 48, label: "48h" },
+                { value: "custom", label: "Custom" },
+              ] as const
+            ).map((item) => {
+              const isActive = votingPeriodType === item.value;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => setVotingPeriodType(item.value)}
+                  className={`flex-1 flex justify-center py-2 rounded-md3-medium text-label-lg font-medium transition-colors border ${
+                    isActive
+                      ? "bg-secondary-container text-on-secondary-container border-transparent"
+                      : "bg-transparent text-on-surface-variant border-outline"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+          {votingPeriodType === "custom" && (
+            <div className="flex items-center gap-3 mt-1">
+              <input
+                type="number"
+                value={customVotingHours}
+                onChange={(e) => setCustomVotingHours(e.target.value)}
+                placeholder="Hours"
+                className="w-24 h-[48px] px-3 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface focus:border-primary focus:outline-none"
+              />
+              <span className="text-body-md text-on-surface-variant">
+                hours before first game
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Visibility (Optional) */}
+      <div className="bg-surface rounded-md3-large p-4 mb-3 shadow-md3-1">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-title-sm font-medium text-primary leading-none">
+            Visibility
+          </h3>
+          <span className="text-label-sm text-on-surface-variant">Optional</span>
+        </div>
         <div className="flex gap-2">
           {(
             [
@@ -1412,7 +1481,7 @@ function StepReview({
             return (
               <button
                 key={item.key}
-                onClick={() => setVisibility(item.key)}
+                onClick={() => setVisibility(isActive ? "" : item.key)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-md3-full text-label-lg font-medium transition-colors min-h-[40px] ${
                   isActive
                     ? "bg-secondary-container text-on-secondary-container"
@@ -1428,22 +1497,23 @@ function StepReview({
       </div>
 
       {/* Group Assignment */}
-      <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-6 shadow-md3-1">
-        <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
-          Assign to Group
-        </h3>
-        <div className="flex flex-col gap-0">
-          {groups.map((group) => {
-            const isSelected = assignedGroup === group.id;
-            return (
-              <button
-                key={group.id}
-                onClick={() => setAssignedGroup(group.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[48px] ${
-                  isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
-                }`}
-              >
-                <div
+      {visibility === "group" && (
+        <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-6 shadow-md3-1">
+          <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
+            Assign to Group
+          </h3>
+          <div className="flex flex-col gap-0">
+            {groups.map((group) => {
+              const isSelected = assignedGroup === group.id;
+              return (
+                <button
+                  key={group.id}
+                  onClick={() => setAssignedGroup(group.id)}
+                  className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[48px] ${
+                    isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
+                  }`}
+                >
+                  <div
                   className={`w-5 h-5 rounded-md3-full border-2 flex items-center justify-center flex-shrink-0 ${
                     isSelected
                       ? "border-primary"
@@ -1462,6 +1532,7 @@ function StepReview({
           })}
         </div>
       </div>
+      )}
 
       {/* Error display */}
       {error && (

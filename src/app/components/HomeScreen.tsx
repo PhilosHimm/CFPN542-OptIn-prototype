@@ -30,6 +30,7 @@ function buildSchedule(allGames: Game[]) {
     return {
       day: DAY_NAMES[d.getDay()],
       date: String(d.getDate()),
+      fullDate: dateStr,
       isToday: d.toDateString() === today.toDateString(),
       status: dateStatusMap[dateStr] ?? null,
     };
@@ -49,6 +50,10 @@ export function HomeScreen() {
   const [allGames, setAllGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const todayObj = new Date();
+  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
+
   useEffect(() => {
     fetchAllGames().then((g) => {
       setAllGames(g);
@@ -56,10 +61,52 @@ export function HomeScreen() {
     });
   }, []);
 
-  const upcomingGames = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed");
+  const getGamesForDate = (dateStr: string) => {
+    return allGames.filter((g) => {
+      if (g.status === "completed" || g.status === "cancelled") return false;
+      return g.timeOptions.some((opt) => {
+        if (g.status === "confirmed") {
+          return g.confirmedOptionId === opt.id && opt.date === dateStr;
+        }
+        return opt.date === dateStr;
+      });
+    });
+  };
+
+  const isDefaultView = selectedDateStr === todayStr;
+  const gamesToday = getGamesForDate(todayStr);
+  const gamesForSelectedDate = getGamesForDate(selectedDateStr);
+
+  const upcomingGames = allGames.filter((g) => {
+    if (g.status === "completed" || g.status === "cancelled") return false;
+    if (isDefaultView) {
+      return !gamesToday.some((tg) => tg.id === g.id);
+    }
+    return true;
+  });
+
   const completedGames = allGames.filter((g) => g.status === "completed");
   const scheduleItems = buildSchedule(allGames);
   const firstName = profile?.name?.split(" ")[0] || "there";
+
+  const renderEmptyState = () => (
+    <div className="flex flex-col items-center py-10 px-4">
+      <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
+        <CalendarDays className="w-7 h-7 text-on-surface-variant" />
+      </div>
+      <p className="text-body-lg font-medium text-on-surface mb-1">No upcoming games</p>
+      <p className="text-body-md text-on-surface-variant text-center mb-4">
+        Create a game to get started
+      </p>
+      <button
+        onClick={() => navigate("/create")}
+        className="flex items-center gap-2 px-5 h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1"
+      >
+        <Plus className="w-4 h-4" />
+        Create Game
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col">
@@ -90,74 +137,117 @@ export function HomeScreen() {
           </button>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-          {scheduleItems.map((item) => (
-            <div
-              key={`${item.day}-${item.date}`}
-              className={`flex-shrink-0 w-[56px] h-[72px] rounded-md3-large flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                item.status === "confirmed"
-                  ? "bg-emerald-500 text-white"
-                  : item.status === "proposal"
-                  ? "bg-tertiary-container text-on-tertiary-container"
-                  : item.isToday
-                  ? "bg-surface-container text-on-surface ring-2 ring-inset ring-primary/20"
-                  : "bg-surface-container-low text-on-surface-variant"
-              }`}
-            >
-              <span className="text-label-sm font-medium opacity-70">
-                {item.day}
-              </span>
-              <span className="text-title-lg font-medium">{item.date}</span>
-              {item.status && (
-                <span className="w-1 h-1 rounded-full bg-white/60 mt-0.5" />
-              )}
-            </div>
-          ))}
+          {scheduleItems.map((item) => {
+            const isSelected = selectedDateStr === item.fullDate;
+            return (
+              <div
+                key={`${item.day}-${item.date}`}
+                onClick={() => setSelectedDateStr(item.fullDate)}
+                className={`flex-shrink-0 w-[56px] h-[72px] cursor-pointer rounded-md3-large flex flex-col items-center justify-center gap-0.5 transition-all ${
+                  isSelected ? "ring-2 ring-primary ring-inset" : ""
+                } ${
+                  item.status === "confirmed"
+                    ? "bg-emerald-500 text-white"
+                    : item.status === "proposal"
+                    ? "bg-tertiary-container text-on-tertiary-container"
+                    : item.isToday
+                    ? "bg-surface-container text-on-surface"
+                    : "bg-surface-container-low text-on-surface-variant"
+                }`}
+              >
+                <span className="text-label-sm font-medium opacity-70">
+                  {item.day}
+                </span>
+                <span className="text-title-lg font-medium">{item.date}</span>
+                {item.status && (
+                  <span className="w-1 h-1 rounded-full bg-current opacity-60 mt-0.5" />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Upcoming Games */}
+      {/* Games List Sections */}
       <div className="px-4 mb-6">
-        <h2 className="text-title-md font-medium text-on-surface mb-3">
-          Upcoming Games
-        </h2>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 rounded-md3-full bg-primary-container flex items-center justify-center animate-pulse">
               <span className="text-label-lg font-medium text-on-primary-container">O</span>
             </div>
           </div>
-        ) : upcomingGames.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {upcomingGames.map((game) => (
-              <GameCard
-                key={game.id}
-                id={game.id}
-                title={game.title}
-                date={game.date}
-                time={game.time}
-                location={game.location}
-                players={`${game.roster.length}/${game.maxPlayers}`}
-                isFull={game.roster.length >= game.maxPlayers}
-                variant={game.status === "proposal" ? "vote" : "confirmed"}
-              />
-            ))}
+        ) : isDefaultView ? (
+          <div className="flex flex-col gap-6">
+            {gamesToday.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <h2 className="text-title-md font-medium text-on-surface">
+                  Games Today
+                </h2>
+                {gamesToday.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    id={game.id}
+                    title={game.title}
+                    date={game.date}
+                    time={game.time}
+                    location={game.location}
+                    players={`${game.roster.length}/${game.maxPlayers}`}
+                    isFull={game.roster.length >= game.maxPlayers}
+                    variant={game.status === "proposal" ? "vote" : "confirmed"}
+                  />
+                ))}
+              </div>
+            )}
+            
+            <div className="flex flex-col gap-3">
+              <h2 className="text-title-md font-medium text-on-surface">
+                Upcoming Games
+              </h2>
+              {upcomingGames.length > 0 ? (
+                upcomingGames.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    id={game.id}
+                    title={game.title}
+                    date={game.date}
+                    time={game.time}
+                    location={game.location}
+                    players={`${game.roster.length}/${game.maxPlayers}`}
+                    isFull={game.roster.length >= game.maxPlayers}
+                    variant={game.status === "proposal" ? "vote" : "confirmed"}
+                  />
+                ))
+              ) : (
+                renderEmptyState()
+              )}
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center py-10 px-4">
-            <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
-              <CalendarDays className="w-7 h-7 text-on-surface-variant" />
-            </div>
-            <p className="text-body-lg font-medium text-on-surface mb-1">No upcoming games</p>
-            <p className="text-body-md text-on-surface-variant text-center mb-4">
-              Create a game to get started
-            </p>
-            <button
-              onClick={() => navigate("/create")}
-              className="flex items-center gap-2 px-5 h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1"
-            >
-              <Plus className="w-4 h-4" />
-              Create Game
-            </button>
+          <div className="flex flex-col gap-3">
+            <h2 className="text-title-md font-medium text-on-surface">
+              Games for {new Date(selectedDateStr) && !isNaN(new Date(selectedDateStr).getTime()) ? new Date(selectedDateStr.replace(/-/g, '\/')).toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' }) : selectedDateStr}
+            </h2>
+            {gamesForSelectedDate.length > 0 ? (
+              gamesForSelectedDate.map((game) => (
+                <GameCard
+                  key={game.id}
+                  id={game.id}
+                  title={game.title}
+                  date={game.date}
+                  time={game.time}
+                  location={game.location}
+                  players={`${game.roster.length}/${game.maxPlayers}`}
+                  isFull={game.roster.length >= game.maxPlayers}
+                  variant={game.status === "proposal" ? "vote" : "confirmed"}
+                />
+              ))
+            ) : (
+              <div className="flex flex-col items-center py-10 px-4">
+                <p className="text-body-md text-on-surface-variant text-center">
+                  No games scheduled for this date
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
