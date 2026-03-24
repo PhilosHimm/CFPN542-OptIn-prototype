@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { 
-  ChevronRight, 
-  Users, 
-  Settings, 
-  Bell, 
-  UserCircle, 
-  LogOut, 
-  Camera, 
-  Trophy, 
-  Calendar, 
-  Percent, 
-  Edit3, 
+import {
+  ChevronRight,
+  Users,
+  Settings,
+  Bell,
+  UserCircle,
+  LogOut,
+  Camera,
+  Trophy,
+  Calendar,
+  Percent,
+  Edit3,
   Check,
   Activity,
   Shield,
@@ -19,17 +19,31 @@ import {
   MessageSquare
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
+import { useAuth } from "../contexts/AuthContext";
 
 export function Profile() {
   const navigate = useNavigate();
+  const { profile, signOut, updateProfile } = useAuth();
   const [editMode, setEditMode] = useState(false);
-  const [name, setName] = useState("Marcus Johnson");
-  const [bio, setBio] = useState("Pickup basketball fanatic 🏀 · Tuesday Hoops organizer");
+  const [name, setName] = useState(profile?.name || "Marcus Johnson");
+  const [bio, setBio] = useState(profile?.bio || "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer");
+
+  const handleSave = async () => {
+    if (editMode) {
+      await updateProfile({ name, bio });
+    }
+    setEditMode(!editMode);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   const stats = [
-    { label: "Games\nPlayed",    value: "47",  Icon: Trophy, color: "#FF9500", bg: "bg-amber-100/50" },
-    { label: "Weeks\nPlayed",    value: "31",  Icon: Calendar, color: "#007AFF", bg: "bg-blue-100/50" },
-    { label: "Attendance\nRate", value: "89%", Icon: Percent,  color: "#34C759", bg: "bg-emerald-100/50" },
+    { label: "Games\nPlayed",    value: String(profile?.games_played ?? 47),  Icon: Trophy, color: "#FF9500", bg: "bg-amber-100/50" },
+    { label: "Weeks\nPlayed",    value: String(profile?.weeks_played ?? 31),  Icon: Calendar, color: "#007AFF", bg: "bg-blue-100/50" },
+    { label: "Attendance\nRate", value: `${profile?.attendance_rate ?? 89}%`, Icon: Percent,  color: "#34C759", bg: "bg-emerald-100/50" },
   ];
 
   const settingsItems = [
@@ -76,7 +90,7 @@ export function Profile() {
       <header className="px-6 pt-6 flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight text-black/90">Profile</h1>
         <button
-          onClick={() => setEditMode(!editMode)}
+          onClick={handleSave}
           aria-label={editMode ? "Save profile changes" : "Edit profile"}
           className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm transition-all active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
             editMode ? "bg-primary text-white shadow-lg" : "glass text-primary"
@@ -91,8 +105,8 @@ export function Profile() {
       <section className="px-6 flex flex-col items-center">
         <div className="relative mb-6">
           <div className="w-28 h-28 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-primary to-indigo-600 p-0.5">
-            <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop" 
+            <img
+              src={profile?.avatar_url || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop"}
               alt="Profile" 
               className="w-full h-full object-cover rounded-full"
             />
@@ -192,7 +206,7 @@ export function Profile() {
             </button>
           ))}
           <button
-            onClick={() => navigate("/")}
+            onClick={handleSignOut}
             className="w-full flex items-center gap-4 p-4 active:bg-rose-50 transition-colors text-left text-rose-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:outline-none"
           >
             <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">

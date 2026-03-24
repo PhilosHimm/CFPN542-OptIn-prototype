@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { 
   ArrowLeft, 
@@ -21,7 +21,10 @@ import {
   Trophy,
   Smile
 } from "lucide-react";
-import { sports, players } from "../data/games";
+import { useAuth } from "../contexts/AuthContext";
+import { createGame, sports } from "../services/games.service";
+import { getPlayers } from "../services/profiles.service";
+import type { Player } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -76,7 +79,14 @@ function TextField({
 
 export function CreateGame() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [step, setStep] = useState<Step>(1);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getPlayers().then(setPlayers);
+  }, []);
 
   const [selectedSport, setSelectedSport] = useState("");
   const [gameTitle, setGameTitle] = useState("");
@@ -110,9 +120,33 @@ export function CreateGame() {
     if (step === 1) navigate(-1);
     else setStep((s) => (s - 1) as Step);
   };
-  const handleNext = () => {
-    if (step < 5) setStep((s) => (s + 1) as Step);
-    else setCreated(true);
+  const handleNext = async () => {
+    if (step < 5) {
+      setStep((s) => (s + 1) as Step);
+    } else {
+      setSubmitting(true);
+      const result = await createGame({
+        title: gameTitle,
+        sport: selectedSport,
+        gameType,
+        maxPlayers: parseInt(maxPlayers) || 10,
+        groupId: "g1",
+        totalCost: parseFloat(totalCost) || 0,
+        visibility,
+        createdBy: profile?.id || "demo-user",
+        timeOptions: timeOptions.map((o) => ({
+          date: o.date,
+          startTime: o.startTime,
+          endTime: o.endTime,
+          location: o.location || address,
+        })),
+        invitedPlayerIds: Array.from(selectedPlayers),
+      });
+      setSubmitting(false);
+      if (!result.error) {
+        setCreated(true);
+      }
+    }
   };
 
   const addTimeOption = () => {

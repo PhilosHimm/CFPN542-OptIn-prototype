@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  Search, 
-  SquarePen, 
-  ArrowLeft, 
-  Send, 
+import {
+  Search,
+  SquarePen,
+  ArrowLeft,
+  Send,
   MoreHorizontal,
   MessageCircle,
   Users2,
@@ -12,30 +12,61 @@ import {
   Bell,
   ArrowRight
 } from "lucide-react";
-import { directMessages, groupMessages } from "../data/games";
+import { useAuth } from "../contexts/AuthContext";
+import { getDirectMessages, getGroupMessages, getChatMessages, sendMessage as sendChatMessage, type ChatMessage } from "../services/messages.service";
+import type { Message } from "../data/games";
 
 type Tab = "groups" | "direct";
 
 export function Messages() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("groups");
   const [searchQuery, setSearchQuery] = useState("");
   const [openConvo, setOpenConvo] = useState<string | null>(null);
+  const [directMsgs, setDirectMsgs] = useState<Message[]>([]);
+  const [groupMsgs, setGroupMsgs] = useState<Message[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
 
-  const messages = activeTab === "groups" ? groupMessages : directMessages;
+  useEffect(() => {
+    getDirectMessages().then(setDirectMsgs);
+    getGroupMessages().then(setGroupMsgs);
+  }, []);
+
+  useEffect(() => {
+    if (openConvo && profile) {
+      getChatMessages(openConvo, profile.id).then(setChatMessages);
+    }
+  }, [openConvo, profile]);
+
+  const messages = activeTab === "groups" ? groupMsgs : directMsgs;
   const filtered = messages.filter(
     (m) =>
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const mockChat = [
-    { id: 1, sender: "Sam Wilson",    initials: "SW", color: "#A06C00", content: "New game proposal posted! 🏀",                                           time: "5m ago",  isMe: false, isSystem: true  },
-    { id: 2, sender: "You",           initials: "M",  color: "#007AFF", content: "Just voted In on Option 1 — Riverside Courts on Thursday works great!", time: "4m ago",  isMe: true,  isSystem: false },
-    { id: 3, sender: "Alex Rivera",   initials: "AR", color: "#34C759", content: "Same! Thursday 7pm is perfect 🙌",                                      time: "3m ago",  isMe: false, isSystem: false },
-    { id: 4, sender: "Jordan Kim",    initials: "JK", color: "#007AFF", content: "I'm a maybe on Thursday, might have to work late 😅",                   time: "2m ago",  isMe: false, isSystem: false },
-    { id: 5, sender: "Taylor Smith",  initials: "TS", color: "#5856D6", content: "Saturday option also works if not Thursday",                             time: "1m ago",  isMe: false, isSystem: false },
-  ];
+  const handleSend = async () => {
+    if (!newMessage.trim() || !profile || !openConvo) return;
+
+    const tempMsg: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      senderId: profile.id,
+      senderName: "You",
+      senderInitials: profile.initials,
+      senderColor: profile.color,
+      content: newMessage,
+      timestamp: "Just now",
+      isMe: true,
+      isSystem: false,
+    };
+
+    setChatMessages((prev) => [...prev, tempMsg]);
+    setNewMessage("");
+
+    await sendChatMessage(openConvo, profile.id, newMessage);
+  };
 
   if (openConvo) {
     const convo = messages.find((m) => m.id === openConvo)!;
@@ -76,7 +107,7 @@ export function Messages() {
             </span>
           </div>
 
-          {mockChat.map((msg) => (
+          {chatMessages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
               {msg.isSystem ? (
                 <div className="w-full flex justify-center py-2">
@@ -86,7 +117,7 @@ export function Messages() {
                       <span className="text-[10px] font-bold uppercase tracking-widest">Game Proposal</span>
                     </div>
                     <p className="text-sm font-bold">{msg.content}</p>
-                    <button 
+                    <button
                       onClick={() => navigate("/game/game1")}
                       className="w-full bg-white text-primary py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
                     >
@@ -99,22 +130,22 @@ export function Messages() {
                   <div className="bg-primary text-white px-4 py-2.5 rounded-[20px] rounded-br-[4px] shadow-lg shadow-primary/10">
                     <p className="text-[15px] font-medium leading-tight">{msg.content}</p>
                   </div>
-                  <p className="text-[9px] font-bold text-black/20 text-right uppercase tracking-wider">{msg.time}</p>
+                  <p className="text-[9px] font-bold text-black/20 text-right uppercase tracking-wider">{msg.timestamp}</p>
                 </div>
               ) : (
                 <>
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mb-4 shadow-sm"
-                    style={{ backgroundColor: msg.color }}
+                    style={{ backgroundColor: msg.senderColor }}
                   >
-                    {msg.initials}
+                    {msg.senderInitials}
                   </div>
                   <div className="max-w-[75%] space-y-1">
-                    <p className="text-[10px] font-bold text-black/30 ml-1 uppercase tracking-wider">{msg.sender}</p>
+                    <p className="text-[10px] font-bold text-black/30 ml-1 uppercase tracking-wider">{msg.senderName}</p>
                     <div className="glass px-4 py-2.5 rounded-[20px] rounded-bl-[4px]">
                       <p className="text-[15px] font-medium text-black/80 leading-tight">{msg.content}</p>
                     </div>
-                    <p className="text-[9px] font-bold text-black/20 uppercase tracking-wider">{msg.time}</p>
+                    <p className="text-[9px] font-bold text-black/20 uppercase tracking-wider">{msg.timestamp}</p>
                   </div>
                 </>
               )}
@@ -129,9 +160,12 @@ export function Messages() {
               type="text"
               placeholder="Type a message..."
               aria-label="Message input"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
               className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-[15px] font-medium"
             />
-            <button aria-label="Send message" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none">
+            <button onClick={handleSend} aria-label="Send message" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none">
               <Send className="w-5 h-5" />
             </button>
           </div>
@@ -158,8 +192,8 @@ export function Messages() {
         <div className="p-1 glass rounded-2xl flex gap-1">
           {(["groups", "direct"] as Tab[]).map((tab) => {
             const isActive = activeTab === tab;
-            const groupUnread = groupMessages.reduce((s, m) => s + m.unread, 0);
-            const directUnread = directMessages.reduce((s, m) => s + m.unread, 0);
+            const groupUnread = groupMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
+            const directUnread = directMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
             const unreadCount = tab === "groups" ? groupUnread : directUnread;
             
             return (

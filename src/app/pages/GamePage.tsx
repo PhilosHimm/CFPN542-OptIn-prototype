@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { 
-  ArrowLeft, 
-  Share2, 
-  Clock, 
-  MapPin, 
-  Users, 
-  CircleDollarSign, 
-  Plus, 
-  Check, 
-  ChevronDown, 
+import {
+  ArrowLeft,
+  Share2,
+  Clock,
+  MapPin,
+  Users,
+  CircleDollarSign,
+  Plus,
+  Check,
+  ChevronDown,
   Info,
   Trophy,
   AlertCircle,
@@ -17,8 +17,9 @@ import {
   X,
   HelpCircle
 } from "lucide-react";
-import { games, groups } from "../data/games";
-import type { VoteValue } from "../data/games";
+import { useAuth } from "../contexts/AuthContext";
+import { getGameById, getGroups, castVote } from "../services/games.service";
+import type { Game, Group, VoteValue } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
 function pad(n: number) {
@@ -28,20 +29,36 @@ function pad(n: number) {
 export function GamePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const game = games.find((g) => g.id === id) || games[0];
-  const group = groups.find((g) => g.id === game.groupId);
+  const { profile } = useAuth();
+  const [game, setGame] = useState<Game | null>(null);
+  const [groups, setGroupsList] = useState<Group[]>([]);
 
-  const [hours, setHours] = useState(game.countdownH);
-  const [minutes, setMinutes] = useState(game.countdownM);
-  const [seconds, setSeconds] = useState(game.countdownS);
+  useEffect(() => {
+    if (id) getGameById(id).then(setGame);
+    getGroups().then(setGroupsList);
+  }, [id]);
+
+  const group = game ? groups.find((g) => g.id === game.groupId) : null;
+
+  const [hours, setHours] = useState(0);
+  const [minutes, setMinutes] = useState(0);
+  const [seconds, setSeconds] = useState(0);
   const [votes, setVotes] = useState<Record<string, VoteValue>>({});
   const [showMaybeSheet, setShowMaybeSheet] = useState<string | null>(null);
   const [maybeReason, setMaybeReason] = useState("");
 
+  useEffect(() => {
+    if (game) {
+      setHours(game.countdownH);
+      setMinutes(game.countdownM);
+      setSeconds(game.countdownS);
+    }
+  }, [game]);
+
   const maybeReasons = ["Work schedule", "Family plans", "Transport issues", "Might be late", "Other"];
 
   useEffect(() => {
-    if (game.status !== "proposal") return;
+    if (!game || game.status !== "proposal") return;
     const interval = setInterval(() => {
       setSeconds((s) => {
         if (s > 0) return s - 1;
@@ -54,25 +71,42 @@ export function GamePage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [game.status]);
+  }, [game?.status]);
 
-  const sortedOptions = [...game.options].sort((a, b) => b.inVotes - a.inVotes);
+  const sortedOptions = game ? [...game.options].sort((a, b) => b.inVotes - a.inVotes) : [];
 
-  const handleVote = (optionId: string, vote: VoteValue) => {
+  const handleVote = async (optionId: string, vote: VoteValue) => {
     if (vote === "maybe") {
       setShowMaybeSheet(optionId);
       return;
     }
     setVotes((prev) => ({ ...prev, [optionId]: vote }));
+    if (profile) {
+      await castVote(optionId, profile.id, vote);
+    }
   };
 
-  const handleMaybeConfirm = () => {
+  const handleMaybeConfirm = async () => {
     if (showMaybeSheet) {
       setVotes((prev) => ({ ...prev, [showMaybeSheet]: "maybe" }));
+      if (profile) {
+        await castVote(showMaybeSheet, profile.id, "maybe", maybeReason);
+      }
     }
     setShowMaybeSheet(null);
     setMaybeReason("");
   };
+
+  if (!game) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-2">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-black/40 font-medium">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-20">

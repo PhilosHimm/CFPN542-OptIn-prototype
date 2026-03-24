@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Clock, 
-  MapPin, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
   Plus,
   Calendar as CalendarIcon,
 } from "lucide-react";
-import { games, calendarMarkers, groups } from "../data/games";
-import type { GameStatus } from "../data/games";
+import { getGames, getGroups, getCalendarMarkers } from "../services/games.service";
+import type { Game, Group, GameStatus } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -30,6 +30,15 @@ function toDateStr(year: number, month: number, day: number) {
 
 export function Calendar() {
   const navigate = useNavigate();
+  const [games, setGames] = useState<Game[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const calendarMarkers = getCalendarMarkers();
+
+  useEffect(() => {
+    getGames().then(setGames);
+    getGroups().then(setGroups);
+  }, []);
+
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(1);
   const [selectedDate, setSelectedDate] = useState("2026-02-27");

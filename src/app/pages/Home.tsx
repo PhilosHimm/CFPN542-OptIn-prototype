@@ -1,17 +1,19 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  Bell, 
-  ChevronRight, 
-  Clock, 
-  MapPin, 
-  Users, 
-  Trophy, 
-  Plus, 
+import {
+  Bell,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Users,
+  Trophy,
+  Plus,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
-import { games, groups } from "../data/games";
-import type { GameStatus } from "../data/games";
+import { useAuth } from "../contexts/AuthContext";
+import { getGames, getGroups } from "../services/games.service";
+import type { Game, Group, GameStatus } from "../data/games";
 
 function StatusBadge({ status }: { status: GameStatus }) {
   const config = {
@@ -31,6 +33,15 @@ function StatusBadge({ status }: { status: GameStatus }) {
 
 export function Home() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const [games, setGames] = useState<Game[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+
+  useEffect(() => {
+    getGames().then(setGames);
+    getGroups().then(setGroups);
+  }, []);
+
   const upcomingGames = games.filter((g) => g.status !== "completed" && g.status !== "cancelled");
   const completedGames = games.filter((g) => g.status === "completed");
 
@@ -42,7 +53,7 @@ export function Home() {
           <p className="text-black/40 text-sm font-medium">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-black/90">Hey, Marcus</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-black/90">Hey, {profile?.name.split(" ")[0] || "there"}</h1>
         </div>
         <div className="flex gap-3">
           <button
@@ -57,9 +68,9 @@ export function Home() {
             aria-label="View profile"
             className="w-11 h-11 rounded-full border-2 border-white shadow-lg overflow-hidden active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
-            <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=100&auto=format&fit=crop" 
-              alt="Marcus Johnson's profile photo"
+            <img
+              src={profile?.avatar_url || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=100&auto=format&fit=crop"}
+              alt={`${profile?.name || "User"}'s profile photo`}
               className="w-full h-full object-cover"
             />
           </button>
