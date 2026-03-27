@@ -19,29 +19,62 @@ export interface ChatMessage {
 
 export async function getDirectMessages(): Promise<Message[]> {
   if (isDemoMode()) return mockDirectMessages;
-
-  // In production, query conversations + last message for each
-  const { data, error } = await supabase!
-    .from("conversations")
-    .select("*, conversation_members(*), messages(content, created_at, is_system)")
-    .eq("type", "direct")
-    .order("updated_at", { ascending: false });
-
-  if (error || !data) return mockDirectMessages;
-  return mockDirectMessages; // fallback until full implementation
+  return fetchConversations("direct");
 }
 
 export async function getGroupMessages(): Promise<Message[]> {
   if (isDemoMode()) return mockGroupMessages;
+  return fetchConversations("group");
+}
 
+async function fetchConversations(type: "direct" | "group"): Promise<Message[]> {
   const { data, error } = await supabase!
     .from("conversations")
-    .select("*, conversation_members(*), messages(content, created_at, is_system)")
-    .eq("type", "group")
+    .select("*, conversation_members(user_id, unread_count, profiles:user_id(name, initials, color)), messages(content, created_at, is_system)")
+    .eq("type", type)
     .order("updated_at", { ascending: false });
 
-  if (error || !data) return mockGroupMessages;
-  return mockGroupMessages; // fallback until full implementation
+  if (error || !data || data.length === 0) return [];
+
+  return data.map((conv: any) => {
+    const members = conv.conversation_members || [];
+    const messages = conv.messages || [];
+
+    // Sort messages to get the latest one
+    const sorted = [...messages].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const lastMsg = sorted[0];
+
+    // For direct chats, show the other user's info; for groups, use the conversation name
+    let name = conv.name || "Chat";
+    let initials = name.slice(0, 2).toUpperCase();
+    let color = "#007AFF";
+
+    if (type === "direct" && members.length > 0) {
+      // Pick the first member whose profile exists (ideally the other person)
+      const memberWithProfile = members.find((m: any) => m.profiles);
+      if (memberWithProfile?.profiles) {
+        name = memberWithProfile.profiles.name || name;
+        initials = memberWithProfile.profiles.initials || initials;
+        color = memberWithProfile.profiles.color || color;
+      }
+    }
+
+    const totalUnread = members.reduce((sum: number, m: any) => sum + (m.unread_count || 0), 0);
+
+    return {
+      id: conv.id,
+      type,
+      name,
+      initials,
+      color,
+      lastMessage: lastMsg?.content || "No messages yet",
+      timestamp: lastMsg ? formatTimestamp(lastMsg.created_at) : "",
+      unread: totalUnread,
+      isSystemMessage: lastMsg?.is_system || false,
+    };
+  });
 }
 
 export async function getChatMessages(conversationId: string, currentUserId: string): Promise<ChatMessage[]> {

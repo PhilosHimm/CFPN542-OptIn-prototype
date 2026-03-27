@@ -1,3 +1,4 @@
+// @refresh reset
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase, isSupabaseConfigured, isDemoMode, setDemoModePreference } from "@/lib/supabase";
 import type { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
@@ -6,6 +7,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string;
+  username: string | null;
   initials: string;
   color: string;
   bio: string;
@@ -27,16 +29,18 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: string | null }>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
 }
 
 const DEMO_PROFILE: UserProfile = {
   id: "demo-user",
   email: "marcus@optin.app",
   name: "Marcus Johnson",
+  username: "marcus_j",
   initials: "MJ",
   color: "#007AFF",
   bio: "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer",
-  avatar_url: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop",
+  avatar_url: null,
   games_played: 47,
   weeks_played: 31,
   attendance_rate: 89,
@@ -82,18 +86,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase!.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    } = supabase!.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+
+      if (event === "TOKEN_REFRESHED") {
+        // Token was automatically refreshed — session is still valid
+      }
+
+      if (event === "SIGNED_OUT" || !session) {
         setProfile(null);
         setLoading(false);
+        return;
+      }
+
+      if (session?.user) {
+        fetchProfile(session.user.id);
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Set up periodic session refresh check
+    const refreshInterval = setInterval(async () => {
+      const { data: { session: currentSession } } = await supabase!.auth.getSession();
+      if (!currentSession && user) {
+        // Session expired — sign out gracefully
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+      }
+    }, 60_000); // Check every minute
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(refreshInterval);
+    };
   }, [isDemo]);
 
   async function fetchProfile(userId: string) {
@@ -144,6 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const resetPassword = async (email: string) => {
+    if (isDemo) return { error: "Running in demo mode" };
+    const { error } = await supabase!.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    return { error: error?.message ?? null };
+  };
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (isDemo) {
       setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
@@ -166,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, supabaseConfigured, toggleDemoMode, signUp, signIn, signOut, updateProfile }}
+      value={{ user, profile, session, loading, isDemo, supabaseConfigured, toggleDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
     >
       {children}
     </AuthContext.Provider>

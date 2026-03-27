@@ -4,6 +4,8 @@ import { players as mockPlayers, type Player } from "../data/games";
 export interface ProfileSearchResult {
   id: string;
   name: string;
+  username?: string | null;
+  color?: string;
   email?: string;
   avatar_url?: string | null;
 }
@@ -43,13 +45,14 @@ export async function searchProfiles(
       .map((player) => ({
         id: player.id,
         name: player.name,
+        color: player.color,
       }));
   }
 
   const { data, error } = await supabase!
     .from("profiles")
-    .select("id, name, email, avatar_url")
-    .ilike("name", `%${normalizedQuery}%`)
+    .select("id, name, username, color, email, avatar_url")
+    .or(`name.ilike.%${normalizedQuery}%,username.ilike.%${normalizedQuery}%`)
     .limit(20);
 
   if (error || !data) return [];
@@ -59,6 +62,8 @@ export async function searchProfiles(
     .map((profile: any) => ({
       id: profile.id,
       name: profile.name,
+      username: profile.username,
+      color: profile.color,
       email: profile.email,
       avatar_url: profile.avatar_url,
     }));

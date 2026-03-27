@@ -17,6 +17,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
+import { UserAvatar } from "../components/UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Profile() {
@@ -151,10 +152,12 @@ export function Profile() {
           onClick={() => fileInputRef.current?.click()}
         >
           <div className="w-28 h-28 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-primary to-indigo-600 p-0.5 transition-transform group-active:scale-95">
-            <img
-              src={profile?.avatar_url || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop"}
-              alt="Profile" 
-              className="w-full h-full object-cover rounded-full"
+            <UserAvatar
+              name={profile?.name || "User"}
+              color={profile?.color}
+              avatarUrl={profile?.avatar_url}
+              textClassName="text-headline-lg"
+              className="rounded-full"
             />
           </div>
           {editMode && (

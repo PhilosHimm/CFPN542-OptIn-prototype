@@ -5,13 +5,16 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function Login() {
   const navigate = useNavigate();
-  const { signIn, isDemo, user, loading: authLoading } = useAuth();
+  const { signIn, resetPassword, isDemo, user, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
 
   if (!authLoading && (isDemo || user)) return <Navigate to="/" replace />;
 
@@ -25,7 +28,20 @@ export function Login() {
       return;
     }
 
-    const result = await signIn(email, password);
+    const trimmedEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password");
+      setSubmitting(false);
+      return;
+    }
+
+    const result = await signIn(trimmedEmail, password);
     setSubmitting(false);
 
     if (result.error) {
@@ -115,6 +131,56 @@ export function Login() {
             {!submitting && <LogIn className="w-5 h-5" />}
           </button>
         </form>
+
+        {/* Forgot Password */}
+        {!isDemo && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => { setShowResetForm(!showResetForm); setResetMessage(""); }}
+              className="text-body-md text-on-surface-variant hover:text-primary transition-colors"
+            >
+              Forgot your password?
+            </button>
+          </div>
+        )}
+
+        {showResetForm && (
+          <div className="bg-surface-container rounded-md3-large p-4 space-y-3">
+            <p className="text-body-md text-on-surface-variant">
+              Enter your email and we'll send you a password reset link.
+            </p>
+            <div className="md3-outlined-field">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none z-10" />
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder=" "
+                  className="!pl-12"
+                />
+                <label className="md3-floating-label !left-12">Email</label>
+              </div>
+            </div>
+            {resetMessage && (
+              <p className={`text-body-sm ${resetMessage.includes("sent") ? "text-primary" : "text-error"}`}>
+                {resetMessage}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!resetEmail.trim()) { setResetMessage("Please enter your email."); return; }
+                const result = await resetPassword(resetEmail.trim());
+                setResetMessage(result.error || "Reset link sent! Check your email.");
+              }}
+              className="w-full h-10 bg-primary/10 text-primary text-label-lg font-medium rounded-md3-full hover:bg-primary/20 transition-colors"
+            >
+              Send Reset Link
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center">

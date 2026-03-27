@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "../contexts/AuthContext";
+import { ONBOARDING_KEY } from "../pages/Onboarding";
 
 export function Layout() {
   const { user, loading, isDemo } = useAuth();
@@ -17,6 +18,10 @@ export function Layout() {
 
   if (!isDemo && !user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!localStorage.getItem(ONBOARDING_KEY)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (

@@ -44,6 +44,19 @@ export interface Game {
   time: string;
 }
 
+// ─── Helpers ──────────────────────────────────────────────
+
+/** Returns true if the game has at least one option whose date is today or in the future. */
+export function isGameVotable(game: Game): boolean {
+  if (game.status !== "proposal") return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return game.timeOptions.some((opt) => {
+    const optDate = new Date(opt.date + "T00:00:00");
+    return optDate >= today;
+  });
+}
+
 // ─── Demo game data ───────────────────────────────────────
 
 const SPORT_HERO_IMAGES: Record<string, string> = {
@@ -624,5 +637,14 @@ export async function updateGameVotingDeadline(gameId: string, deadline: string)
 export async function cancelGame(gameId: string): Promise<boolean> {
   if (isDemoMode()) return false;
   const { error } = await supabase!.from("games").update({ status: "cancelled" }).eq("id", gameId);
+  return !error;
+}
+
+export async function confirmGame(gameId: string, optionId: string): Promise<boolean> {
+  if (isDemoMode()) return false;
+  const { error } = await supabase!
+    .from("games")
+    .update({ status: "confirmed", confirmed_option_id: optionId })
+    .eq("id", gameId);
   return !error;
 }

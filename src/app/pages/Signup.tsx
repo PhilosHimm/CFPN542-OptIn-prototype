@@ -28,13 +28,28 @@ export function Signup() {
       return;
     }
 
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      setError("Please enter your full name (at least 2 characters)");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address");
+      setSubmitting(false);
+      return;
+    }
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       setSubmitting(false);
       return;
     }
 
-    const result = await signUp(email, password, name);
+    const result = await signUp(trimmedEmail, password, trimmedName);
     setSubmitting(false);
 
     if (result.error) {
@@ -55,16 +70,25 @@ export function Signup() {
             <h2 className="text-headline-md font-medium text-on-surface">Account Created!</h2>
             <p className="text-body-md text-on-surface-variant">
               {isDemo
-                ? "Demo mode active. Click below to start exploring."
-                : "Check your email to verify your account, then sign in."}
+                ? "Demo mode active. Let's set up your profile."
+                : "Check your email to verify your account, then sign in to complete your profile."}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/login")}
-            className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
-          >
-            Go to Sign In
-          </button>
+          {isDemo ? (
+            <button
+              onClick={() => navigate("/onboarding")}
+              className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
+            >
+              Set Up My Profile
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
+            >
+              Go to Sign In
+            </button>
+          )}
         </div>
       </div>
     );

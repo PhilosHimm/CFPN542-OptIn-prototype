@@ -31,6 +31,8 @@ import {
   deleteGameOption,
   updateGameVotingDeadline,
   cancelGame,
+  confirmGame,
+  isGameVotable,
   type Game,
   type VoteOption,
   type Player,
@@ -565,6 +567,19 @@ export function GameViewScreen() {
     }
   };
 
+  const handleConfirmGame = async (optionId: string) => {
+    if (!game) return;
+    if (confirm("Confirm this time option? This will lock in the game.")) {
+      try {
+        await confirmGame(game.id, optionId);
+        refreshGame();
+        toast.success("Game confirmed!");
+      } catch (e: any) {
+        toast.error("Failed to confirm game: " + e.message);
+      }
+    }
+  };
+
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
 
@@ -595,6 +610,7 @@ export function GameViewScreen() {
 
   const isReadOnly = game?.status === "completed" || game?.status === "cancelled";
   const isConfirmed = game?.status === "confirmed";
+  const isVotingClosed = game ? !isGameVotable(game) && game.status === "proposal" : false;
 
   const perPersonCost = useMemo(() => {
     if (!game || game.totalCost === 0) return "Free";
@@ -786,11 +802,21 @@ export function GameViewScreen() {
         <div className="mb-4">
           <h2 className="text-title-md font-medium text-on-surface mb-3 leading-none">
             {game.status === "proposal"
-              ? "Vote on a Time"
+              ? isVotingClosed ? "Voting Closed" : "Vote on a Time"
               : game.status === "confirmed"
               ? "Game Time Options"
               : "Final Results"}
           </h2>
+
+          {/* Voting closed banner */}
+          {isVotingClosed && (
+            <div className="flex items-center gap-2 bg-error-container rounded-md3-medium px-4 py-3 mb-3">
+              <Ban className="w-4 h-4 text-on-error-container shrink-0" />
+              <p className="text-body-sm text-on-error-container">
+                All proposed dates have passed — voting is closed.
+              </p>
+            </div>
+          )}
 
           <AnimatePresence>
             {sortedOptions.map((option, index) => (
@@ -803,7 +829,7 @@ export function GameViewScreen() {
                   option.id === game.confirmedOptionId
                 }
                 isConfirmed={isConfirmed}
-                isReadOnly={isReadOnly || isConfirmed}
+                isReadOnly={isReadOnly || isConfirmed || isVotingClosed}
                 userVote={votes[option.id] || null}
                 onVote={handleVote}
                 isHost={isHost}
@@ -819,8 +845,8 @@ export function GameViewScreen() {
           </AnimatePresence>
 
           {/* Propose new time */}
-          {game.status === "proposal" && (
-            <button 
+          {game.status === "proposal" && !isVotingClosed && (
+            <button
               onClick={() => {
                 setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
                 setShowProposeTime(true);
@@ -828,6 +854,17 @@ export function GameViewScreen() {
               className="w-full text-center py-3 text-label-lg text-primary font-medium min-h-[48px]"
             >
               + Propose a new time
+            </button>
+          )}
+
+          {/* Confirm Game — host only, proposal with at least one option with votes, voting still open */}
+          {isHost && game.status === "proposal" && !isVotingClosed && sortedOptions.length > 0 && sortedOptions[0].votes.in.length > 0 && (
+            <button
+              onClick={() => handleConfirmGame(sortedOptions[0].id)}
+              className="w-full h-12 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-2 mt-2 hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              Confirm Top Option
             </button>
           )}
         </div>

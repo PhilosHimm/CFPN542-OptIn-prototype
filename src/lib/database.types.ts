@@ -6,6 +6,7 @@ export interface Database {
           id: string;
           email: string;
           name: string;
+          username: string | null;
           initials: string;
           color: string;
           bio: string;

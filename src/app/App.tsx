@@ -1,11 +1,13 @@
 import { RouterProvider } from "react-router";
+import { Toaster } from "sonner";
 import { router } from "./routes";
-import { AuthProvider } from "./contexts/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function App() {
   return (
-    <AuthProvider>
+    <ErrorBoundary>
       <RouterProvider router={router} />
-    </AuthProvider>
+      <Toaster position="top-center" richColors />
+    </ErrorBoundary>
   );
 }

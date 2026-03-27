@@ -32,11 +32,12 @@ export function Calendar() {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const calendarMarkers = getCalendarMarkers();
+  const [calendarMarkers, setCalendarMarkers] = useState<Record<string, { status: GameStatus; gameId: string }[]>>({});
 
   useEffect(() => {
     getGames().then(setGames);
     getGroups().then(setGroups);
+    getCalendarMarkers().then(setCalendarMarkers);
   }, []);
 
   const [year, setYear] = useState(2026);

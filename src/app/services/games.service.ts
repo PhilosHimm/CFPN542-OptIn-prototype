@@ -15,7 +15,7 @@ export async function getGames(): Promise<Game[]> {
 
   const { data: gamesData, error } = await supabase!
     .from("games")
-    .select("*, game_options(*)")
+    .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
     .order("created_at", { ascending: false });
 
   if (error || !gamesData) return mockGames;
@@ -35,18 +35,22 @@ export async function getGames(): Promise<Game[]> {
     countdownH: 0,
     countdownM: 0,
     countdownS: 0,
-    options: (g.game_options || []).map((o: any) => ({
-      id: o.id,
-      date: o.date,
-      displayDate: o.display_date,
-      startTime: o.start_time,
-      endTime: o.end_time,
-      location: o.location,
-      inVotes: o.in_votes,
-      maybeVotes: o.maybe_votes,
-      outVotes: o.out_votes,
-      voterInitials: [],
-    })),
+    options: (g.game_options || []).map((o: any) => {
+      const votes = o.votes || [];
+      const inVoters = votes.filter((v: any) => v.value === "in").map((v: any) => v.profiles?.initials || "?");
+      return {
+        id: o.id,
+        date: o.date,
+        displayDate: o.display_date,
+        startTime: o.start_time,
+        endTime: o.end_time,
+        location: o.location,
+        inVotes: o.in_votes,
+        maybeVotes: o.maybe_votes,
+        outVotes: o.out_votes,
+        voterInitials: inVoters,
+      };
+    }),
     totalCost: g.total_cost,
     perPersonCost: g.per_person_cost,
     confirmedOptionId: g.confirmed_option_id,
@@ -61,7 +65,7 @@ export async function getGameById(id: string): Promise<Game | null> {
 
   const { data, error } = await supabase!
     .from("games")
-    .select("*, game_options(*)")
+    .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
     .eq("id", id)
     .single();
 
@@ -82,18 +86,22 @@ export async function getGameById(id: string): Promise<Game | null> {
     countdownH: 0,
     countdownM: 0,
     countdownS: 0,
-    options: ((data as any).game_options || []).map((o: any) => ({
-      id: o.id,
-      date: o.date,
-      displayDate: o.display_date,
-      startTime: o.start_time,
-      endTime: o.end_time,
-      location: o.location,
-      inVotes: o.in_votes,
-      maybeVotes: o.maybe_votes,
-      outVotes: o.out_votes,
-      voterInitials: [],
-    })),
+    options: ((data as any).game_options || []).map((o: any) => {
+      const votes = o.votes || [];
+      const inVoters = votes.filter((v: any) => v.value === "in").map((v: any) => v.profiles?.initials || "?");
+      return {
+        id: o.id,
+        date: o.date,
+        displayDate: o.display_date,
+        startTime: o.start_time,
+        endTime: o.end_time,
+        location: o.location,
+        inVotes: o.in_votes,
+        maybeVotes: o.maybe_votes,
+        outVotes: o.out_votes,
+        voterInitials: inVoters,
+      };
+    }),
     totalCost: data.total_cost,
     perPersonCost: data.per_person_cost,
     confirmedOptionId: data.confirmed_option_id,
@@ -123,8 +131,27 @@ export async function getGroups(): Promise<Group[]> {
   }));
 }
 
-export function getCalendarMarkers() {
-  return mockCalendarMarkers;
+export async function getCalendarMarkers(): Promise<Record<string, { status: GameStatus; gameId: string }[]>> {
+  if (isDemoMode()) return mockCalendarMarkers;
+
+  const { data, error } = await supabase!
+    .from("game_options")
+    .select("date, game_id, games!inner(id, status)")
+    .order("date");
+
+  if (error || !data) return mockCalendarMarkers;
+
+  const markers: Record<string, { status: GameStatus; gameId: string }[]> = {};
+  for (const row of data as any[]) {
+    const date = row.date;
+    const status = row.games?.status as GameStatus;
+    const gameId = row.game_id;
+    if (!markers[date]) markers[date] = [];
+    if (!markers[date].some((m: any) => m.gameId === gameId)) {
+      markers[date].push({ status, gameId });
+    }
+  }
+  return markers;
 }
 
 interface CreateGameInput {
@@ -301,6 +328,98 @@ export async function leaveGame(gameId: string, userId: string): Promise<{ error
 
     if (count !== null) {
       await supabase!.from("games").update({ current_players: count }).eq("id", gameId);
+    }
+  }
+
+  return { error: error?.message ?? null };
+}
+
+export async function createGroup(input: {
+  name: string;
+  sport: string;
+  createdBy: string;
+}): Promise<{ id: string; error: string | null }> {
+  if (isDemoMode()) return { id: `group-${Date.now()}`, error: null };
+
+  const sportData = sports.find((s) => s.name === input.sport);
+  const initials = input.name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const groupId = crypto.randomUUID();
+
+  const { error } = await supabase!.from("groups").insert({
+    id: groupId,
+    name: input.name,
+    sport: input.sport,
+    sport_emoji: sportData?.emoji || "",
+    color: sportData?.color || "#007AFF",
+    initials,
+    created_by: input.createdBy,
+  });
+
+  if (error) return { id: "", error: error.message };
+
+  // Add creator as admin member
+  await supabase!.from("group_members").insert({
+    group_id: groupId,
+    user_id: input.createdBy,
+    role: "admin",
+  });
+
+  return { id: groupId, error: null };
+}
+
+export async function joinGroup(
+  groupId: string,
+  userId: string
+): Promise<{ error: string | null }> {
+  if (isDemoMode()) return { error: null };
+
+  const { error } = await supabase!.from("group_members").insert({
+    group_id: groupId,
+    user_id: userId,
+    role: "member",
+  });
+
+  if (!error) {
+    // Update member count
+    const { count } = await supabase!
+      .from("group_members")
+      .select("*", { count: "exact", head: true })
+      .eq("group_id", groupId);
+
+    if (count !== null) {
+      await supabase!.from("groups").update({ member_count: count }).eq("id", groupId);
+    }
+  }
+
+  return { error: error?.message ?? null };
+}
+
+export async function leaveGroup(
+  groupId: string,
+  userId: string
+): Promise<{ error: string | null }> {
+  if (isDemoMode()) return { error: null };
+
+  const { error } = await supabase!
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+
+  if (!error) {
+    const { count } = await supabase!
+      .from("group_members")
+      .select("*", { count: "exact", head: true })
+      .eq("group_id", groupId);
+
+    if (count !== null) {
+      await supabase!.from("groups").update({ member_count: count }).eq("id", groupId);
     }
   }
 

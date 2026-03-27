@@ -11,6 +11,7 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
+import { UserAvatar } from "../components/UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
 import { getGames, getGroups } from "../services/games.service";
 import type { Game, Group, GameStatus } from "../data/games";
@@ -68,10 +69,11 @@ export function Home() {
             aria-label="View profile"
             className="w-11 h-11 rounded-full border-2 border-white shadow-lg overflow-hidden active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
-            <img
-              src={profile?.avatar_url || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=100&auto=format&fit=crop"}
-              alt={`${profile?.name || "User"}'s profile photo`}
-              className="w-full h-full object-cover"
+            <UserAvatar
+              name={profile?.name || "User"}
+              color={profile?.color}
+              avatarUrl={profile?.avatar_url}
+              textClassName="text-label-md"
             />
           </button>
         </div>

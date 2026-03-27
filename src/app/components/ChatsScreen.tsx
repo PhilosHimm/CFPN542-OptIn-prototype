@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router";
-import { Plus, MessageCircle, Search as SearchIcon, Check, Users, ChevronRight, Clock3 } from "lucide-react";
+import { Plus, MessageCircle, Search as SearchIcon, Check, Users, ChevronRight, Clock3, MoreVertical, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,10 +10,17 @@ import {
 } from "./ui/sheet";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "../contexts/AuthContext";
 import { searchProfiles } from "../services/profiles.service";
+import { players as mockPlayers } from "../data/games";
 import {
   acceptMessageRequest,
   declineMessageRequest,
@@ -26,19 +33,12 @@ import {
 import { demoConversations, type DemoConversation } from "../data/games";
 import { ChatView } from "./ChatView";
 
-const MOCK_USERS = [
-  { id: "1", name: "Alex Johnson", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026024d", username: "@alexj" },
-  { id: "2", name: "Sarah Smith", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d", username: "@sarahs" },
-  { id: "3", name: "Mike Davis", avatar: "https://i.pravatar.cc/150?u=a04258114e29026702d", username: "@miked" },
-  { id: "4", name: "Emily Chen", avatar: "https://i.pravatar.cc/150?u=a048581f4e29026701d", username: "@emilyc" },
-  { id: "5", name: "David Wilson", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026703d", username: "@davidw" },
-];
-
 type UserOption = {
   id: string;
   name: string;
   avatar?: string;
   username: string;
+  color?: string;
 };
 
 type RelationshipStatus = "friend" | "incoming" | "outgoing" | "none" | "self";
@@ -77,10 +77,9 @@ export function ChatsScreen() {
 
   // Create chat sheet state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedUsersList, setSelectedUsersList] = useState<UserOption[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchedUsers, setSearchedUsers] = useState<UserOption[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<MessageRequestItem[]>([]);
@@ -89,16 +88,46 @@ export function ChatsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestActionId, setRequestActionId] = useState<string | null>(null);
 
-  const filteredUsers = MOCK_USERS.filter((user) =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Load friend profiles as suggested users in live mode
+  const [suggestedUsers, setSuggestedUsers] = useState<UserOption[]>([]);
 
-  const allUsers: UserOption[] = [...MOCK_USERS, ...searchedUsers].filter(
-    (user, index, arr) => arr.findIndex((u) => u.id === user.id) === index
-  );
+  useEffect(() => {
+    if (isDemo || !profile?.id || friendIds.length === 0) return;
+    // Fetch friend profiles for suggestions when no search query
+    Promise.all(
+      friendIds.slice(0, 10).map((fid) =>
+        searchProfiles(fid, profile.id).then((results) => results[0])
+      )
+    ).then((results) => {
+      setSuggestedUsers(
+        results.filter(Boolean).map((r) => ({
+          id: r.id,
+          name: r.name,
+          avatar: r.avatar_url ?? undefined,
+          color: r.color,
+          username: r.username ? `@${r.username}` : `@${r.name.toLowerCase().replace(/\s+/g, "")}`,
+        }))
+      );
+    });
+  }, [friendIds, isDemo, profile?.id]);
 
-  const usersToDisplay = filteredUsers.length > 0 ? filteredUsers : searchedUsers;
+  // Demo mode: filter mock players by query. Live mode: use Supabase results or suggested friends.
+  const usersToDisplay: UserOption[] = isDemo
+    ? mockPlayers
+        .filter((p) => p.id !== profile?.id)
+        .filter(
+          (p) =>
+            !searchQuery ||
+            p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 10)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          color: p.color,
+          username: `@${p.name.toLowerCase().replace(/\s+/g, "_")}`,
+        }))
+    : searchQuery.trim() ? searchedUsers : suggestedUsers;
 
   const getRelationshipStatus = (userId: string): RelationshipStatus => {
     if (!profile) return "none";
@@ -127,46 +156,64 @@ export function ChatsScreen() {
     loadRelationships();
   }, [profile?.id]);
 
+  // Auto-search Supabase in live mode with debounce
   useEffect(() => {
-    setSearchedUsers([]);
-    setHasSearched(false);
+    if (isDemo) return;
     setComposerFeedback(null);
-  }, [searchQuery]);
-
-  const handleSearchAllUsers = async () => {
-    const query = searchQuery.trim();
-    if (!query || isSearchingUsers) return;
+    if (!searchQuery.trim()) {
+      setSearchedUsers([]);
+            return;
+    }
     setIsSearchingUsers(true);
-    const results = await searchProfiles(query, profile?.id);
-    const mappedUsers: UserOption[] = results
-      .map((user) => ({
-        id: user.id,
-        name: user.name,
-        avatar: user.avatar_url ?? undefined,
-        username: user.email?.includes("@") ? `@${user.email.split("@")[0]}` : `@${user.name.toLowerCase().replace(/\s+/g, "")}`,
-      }))
-      .filter((user) => !MOCK_USERS.some((mockUser) => mockUser.id === user.id));
-    setSearchedUsers(mappedUsers);
-    setHasSearched(true);
-    setIsSearchingUsers(false);
-  };
+    const timer = setTimeout(async () => {
+      const results = await searchProfiles(searchQuery.trim(), profile?.id);
+      setSearchedUsers(
+        results.map((r) => ({
+          id: r.id,
+          name: r.name,
+          avatar: r.avatar_url ?? undefined,
+          color: r.color,
+          username: r.username
+            ? `@${r.username}`
+            : r.email?.includes("@")
+            ? `@${r.email.split("@")[0]}`
+            : `@${r.name.toLowerCase().replace(/\s+/g, "")}`,
+        }))
+      );
 
-  const toggleUserSelection = (userId: string) => {
-    const status = getRelationshipStatus(userId);
+      setIsSearchingUsers(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, isDemo, profile?.id]);
+
+  // Reset sheet state on close
+  useEffect(() => {
+    if (!isSheetOpen) {
+      setSelectedUsersList([]);
+      setSearchQuery("");
+      setSearchedUsers([]);
+            setComposerFeedback(null);
+    }
+  }, [isSheetOpen]);
+
+  const toggleUserSelection = (user: UserOption) => {
+    const status = getRelationshipStatus(user.id);
     if (status === "self" || status === "incoming" || status === "outgoing") return;
     setComposerFeedback(null);
-    setSelectedUsers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    setSelectedUsersList((prev) =>
+      prev.some((u) => u.id === user.id)
+        ? prev.filter((u) => u.id !== user.id)
+        : [...prev, user]
     );
   };
 
   const startChat = async () => {
-    if (selectedUsers.length === 0 || !profile || isSubmitting) return;
+    if (selectedUsersList.length === 0 || !profile || isSubmitting) return;
     setIsSubmitting(true);
     setComposerFeedback(null);
 
-    const isGroup = selectedUsers.length > 1;
-    const selectedChatUsers = allUsers.filter((u) => selectedUsers.includes(u.id));
+    const isGroup = selectedUsersList.length > 1;
+    const selectedChatUsers = selectedUsersList;
     if (selectedChatUsers.length === 0) { setIsSubmitting(false); return; }
 
     const hasNonFriendInSelection = selectedChatUsers.some((user) => !isFriend(user.id));
@@ -184,7 +231,7 @@ export function ChatsScreen() {
       else if (result.status === "invalid") setComposerFeedback("Select a valid user.");
       else setComposerFeedback(result.error ?? "Unable to send message request.");
       await loadRelationships();
-      setSelectedUsers([]);
+      setSelectedUsersList([]);
       setIsSubmitting(false);
       return;
     }
@@ -217,13 +264,13 @@ export function ChatsScreen() {
         avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""),
         lastMessage: "Chat created",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        participants: selectedUsers,
+        participants: selectedChatUsers.map((u) => u.id),
       };
       setChats((prev) => [newSession, ...prev]);
     }
 
     setIsSheetOpen(false);
-    setSelectedUsers([]);
+    setSelectedUsersList([]);
     setSearchQuery("");
     setComposerFeedback(null);
     setActiveTab(isGroup ? "groups" : "direct");
@@ -340,23 +387,19 @@ export function ChatsScreen() {
               </div>
 
               <ScrollArea className="flex-1 px-4">
-                {selectedUsers.length > 0 && (
+                {selectedUsersList.length > 0 && (
                   <div className="flex gap-2 pb-4 overflow-x-auto scrollbar-hide flex-nowrap mb-2">
-                    {selectedUsers.map((id) => {
-                      const u = allUsers.find((x) => x.id === id);
-                      if (!u) return null;
-                      return (
-                        <div key={id} className="relative inline-block" onClick={() => toggleUserSelection(id)}>
-                          <Avatar className="w-14 h-14 border-2 border-surface">
-                            <AvatarImage src={u.avatar} />
-                            <AvatarFallback className="bg-primary/10 text-primary">{u.name[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="absolute top-0 right-0 bg-error rounded-full p-0.5 w-5 h-5 flex items-center justify-center cursor-pointer border-2 border-surface">
-                            <Plus className="w-3 h-3 text-white rotate-45" />
-                          </div>
+                    {selectedUsersList.map((u) => (
+                      <div key={u.id} className="relative inline-block" onClick={() => toggleUserSelection(u)}>
+                        <Avatar className="w-14 h-14 border-2 border-surface">
+                          <AvatarImage src={u.avatar} />
+                          <AvatarFallback className="bg-primary/10 text-primary">{u.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute top-0 right-0 bg-error rounded-full p-0.5 w-5 h-5 flex items-center justify-center cursor-pointer border-2 border-surface">
+                          <Plus className="w-3 h-3 text-white rotate-45" />
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -372,7 +415,7 @@ export function ChatsScreen() {
                   </span>
                   {usersToDisplay.length > 0 ? (
                     usersToDisplay.map((user) => {
-                      const isSelected = selectedUsers.includes(user.id);
+                      const isSelected = selectedUsersList.some((u) => u.id === user.id);
                       const relationship = getRelationshipStatus(user.id);
                       const isBlocked = relationship === "incoming" || relationship === "outgoing" || relationship === "self";
                       return (
@@ -381,7 +424,7 @@ export function ChatsScreen() {
                           className={`flex items-center justify-between p-3 rounded-md3-large transition-colors ${
                             isBlocked ? "opacity-80" : "hover:bg-surface-container-low cursor-pointer active:bg-surface-container"
                           }`}
-                          onClick={() => toggleUserSelection(user.id)}
+                          onClick={() => toggleUserSelection(user)}
                         >
                           <div className="flex items-center gap-3">
                             <Avatar className="w-12 h-12">
@@ -414,24 +457,25 @@ export function ChatsScreen() {
                   ) : (
                     <div className="py-10 flex flex-col items-center gap-3">
                       <p className="text-body-md text-on-surface-variant">
-                        {searchQuery ? (hasSearched ? "No users found" : "No users found locally") : "No users found"}
+                        {isSearchingUsers
+                          ? "Searching..."
+                          : searchQuery
+                          ? "No users found"
+                          : isDemo
+                          ? "No users found"
+                          : "Search to find users"}
                       </p>
-                      {searchQuery && !hasSearched && (
-                        <Button type="button" variant="outline" className="rounded-md3-full" onClick={handleSearchAllUsers} disabled={isSearchingUsers}>
-                          {isSearchingUsers ? "Searching..." : "Search all users"}
-                        </Button>
-                      )}
                     </div>
                   )}
                 </div>
               </ScrollArea>
 
-              {selectedUsers.length > 0 && (
+              {selectedUsersList.length > 0 && (
                 <div className="p-4 bg-surface border-t border-outline-variant flex-shrink-0">
                   <Button className="w-full h-12 rounded-md3-full text-label-lg font-medium shadow-md3-1" onClick={startChat} disabled={isSubmitting}>
-                    {selectedUsers.length > 1 ? (
+                    {selectedUsersList.length > 1 ? (
                       <><Users className="w-5 h-5 mr-2" />{isSubmitting ? "Creating Group Chat..." : "Create Group Chat"}</>
-                    ) : selectedUsers.length === 1 && !isFriend(selectedUsers[0]) ? (
+                    ) : selectedUsersList.length === 1 && !isFriend(selectedUsersList[0].id) ? (
                       <><MessageCircle className="w-5 h-5 mr-2" />{isSubmitting ? "Sending Request..." : "Send Message Request"}</>
                     ) : (
                       <><MessageCircle className="w-5 h-5 mr-2" />{isSubmitting ? "Starting Chat..." : "Start Chat"}</>
@@ -542,7 +586,25 @@ export function ChatsScreen() {
                     {convo.lastMessage}
                   </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-on-surface-variant/40 flex-shrink-0" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-on-surface/8 text-on-surface-variant flex-shrink-0">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-error focus:text-error focus:bg-error/8 gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDemoConvos((prev) => prev.filter((c) => c.id !== convo.id));
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>
@@ -573,7 +635,25 @@ export function ChatsScreen() {
                   </div>
                   <p className="text-body-md text-on-surface-variant truncate">{chat.lastMessage}</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-on-surface-variant/40" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-on-surface/8 text-on-surface-variant flex-shrink-0">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-error focus:text-error focus:bg-error/8 gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChats((prev) => prev.filter((c) => c.id !== chat.id));
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>

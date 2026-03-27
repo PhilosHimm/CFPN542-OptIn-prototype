@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -25,6 +25,10 @@ export function ProfileScreen() {
   // Account Settings state
   const [accountName, setAccountName] = useState(profile?.name || "Alex Rivera");
   const [accountEmail, setAccountEmail] = useState(profile?.email || "alex@example.com");
+  const [accountUsername, setAccountUsername] = useState(
+    profile?.username || profile?.email?.split("@")[0] || ""
+  );
+  const [usernameError, setUsernameError] = useState("");
 
   // Group Management mock data
   const [myGroups, setMyGroups] = useState([
@@ -53,8 +57,13 @@ export function ProfileScreen() {
   };
 
   const handleSaveAccount = async () => {
+    const trimmed = accountUsername.trim().toLowerCase();
+    if (trimmed && !/^[a-z0-9_]{3,20}$/.test(trimmed)) {
+      setUsernameError("3–20 characters: letters, numbers, underscores only");
+      return;
+    }
     if (updateProfile) {
-      await updateProfile({ name: accountName, email: accountEmail });
+      await updateProfile({ name: accountName, email: accountEmail, username: trimmed || null });
     }
     setActiveDialog(null);
   };
@@ -70,17 +79,18 @@ export function ProfileScreen() {
       <div className="flex flex-col items-center px-4 pt-4 pb-6">
         {/* Avatar */}
         <div className="w-[100px] h-[100px] rounded-md3-full overflow-hidden mb-3 ring-3 ring-primary-container">
-          <ImageWithFallback
-            src={profile?.avatar_url || "https://images.unsplash.com/photo-1756699495345-6877309eb20b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMGd5bSUyMGNvbmZpZGVudHxlbnwxfHx8fDE3NzE2MjgxMzZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"}
-            alt="Player avatar"
-            className="w-full h-full object-cover"
+          <UserAvatar
+            name={profile?.name || "User"}
+            color={profile?.color}
+            avatarUrl={profile?.avatar_url}
+            textClassName="text-headline-md"
           />
         </div>
         <h2 className="text-headline-sm font-medium text-on-surface mb-1">
           {profile?.name || "Alex Rivera"}
         </h2>
         <p className="text-label-lg text-on-surface-variant">
-          {profile?.email ? `@${profile.email.split("@")[0]}` : "@alexrivera"}
+          @{profile?.username || profile?.email?.split("@")[0] || "alexrivera"}
         </p>
       </div>
 
@@ -178,21 +188,42 @@ export function ProfileScreen() {
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="accountName">Display Name</Label>
-              <Input 
-                id="accountName" 
-                value={accountName} 
-                onChange={(e) => setAccountName(e.target.value)} 
+              <Input
+                id="accountName"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
                 className="rounded-xl border-outline-variant/50 focus-visible:ring-primary/50"
               />
             </div>
-            
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="accountUsername">Username</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-body-md select-none">@</span>
+                <Input
+                  id="accountUsername"
+                  value={accountUsername}
+                  onChange={(e) => {
+                    setAccountUsername(e.target.value);
+                    setUsernameError("");
+                  }}
+                  className="pl-7 rounded-xl border-outline-variant/50 focus-visible:ring-primary/50"
+                  placeholder="your_handle"
+                  maxLength={20}
+                />
+              </div>
+              {usernameError && (
+                <p className="text-label-sm text-error">{usernameError}</p>
+              )}
+            </div>
+
             <div className="flex flex-col gap-2">
               <Label htmlFor="accountEmail">Email Address</Label>
-              <Input 
-                id="accountEmail" 
-                type="email" 
-                value={accountEmail} 
-                onChange={(e) => setAccountEmail(e.target.value)} 
+              <Input
+                id="accountEmail"
+                type="email"
+                value={accountEmail}
+                onChange={(e) => setAccountEmail(e.target.value)}
                 className="rounded-xl border-outline-variant/50 focus-visible:ring-primary/50"
               />
             </div>
