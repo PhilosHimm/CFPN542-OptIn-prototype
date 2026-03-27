@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
+import { toast } from "sonner";
 import {
   ChevronRight,
   Users,
@@ -26,11 +27,18 @@ export function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(profile?.name || "Marcus Johnson");
   const [bio, setBio] = useState(profile?.bio || "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer");
+  const [nameError, setNameError] = useState("");
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 2MB.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -74,7 +82,17 @@ export function Profile() {
 
   const handleSave = async () => {
     if (editMode) {
-      await updateProfile({ name, bio });
+      if (name.trim().length < 2) {
+        setNameError("Name must be at least 2 characters.");
+        return;
+      }
+      setNameError("");
+      setSaving(true);
+      try {
+        await updateProfile({ name, bio });
+      } finally {
+        setSaving(false);
+      }
     }
     setEditMode(!editMode);
   };
@@ -135,13 +153,14 @@ export function Profile() {
         <h1 className="text-3xl font-bold tracking-tight text-black/90">Profile</h1>
         <button
           onClick={handleSave}
+          disabled={saving}
           aria-label={editMode ? "Save profile changes" : "Edit profile"}
           className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm transition-all active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
             editMode ? "bg-primary text-white shadow-lg" : "glass text-primary"
-          }`}
+          } ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           {editMode ? <Check className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-          <span>{editMode ? "Save" : "Edit"}</span>
+          <span>{saving ? "Saving…" : editMode ? "Save" : "Edit"}</span>
         </button>
       </header>
 
@@ -176,18 +195,26 @@ export function Profile() {
 
         {editMode ? (
           <div className="w-full space-y-3">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full text-center bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3 text-xl font-bold outline-none focus:ring-2 focus:ring-primary/10"
-            />
-            <input
-              type="text"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="w-full text-center bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/40 outline-none focus:ring-2 focus:ring-primary/10"
-            />
+            <div>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setNameError(""); }}
+                aria-label="Display name"
+                className={`w-full text-center bg-white/50 backdrop-blur-md border rounded-2xl px-4 py-3 text-xl font-bold outline-none focus:ring-2 focus:ring-primary/10 ${nameError ? "border-rose-400" : "border-black/5"}`}
+              />
+              {nameError && <p className="text-xs text-rose-500 text-center mt-1">{nameError}</p>}
+            </div>
+            <div>
+              <input
+                type="text"
+                value={bio}
+                onChange={(e) => setBio(e.target.value.slice(0, 160))}
+                aria-label="Bio"
+                className="w-full text-center bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/40 outline-none focus:ring-2 focus:ring-primary/10"
+              />
+              <p className={`text-xs text-center mt-1 ${bio.length > 150 ? "text-rose-500" : "text-black/30"}`}>{bio.length}/160</p>
+            </div>
           </div>
         ) : (
           <div className="text-center space-y-1">
@@ -263,32 +290,41 @@ export function Profile() {
           ))}
           {/* Demo / Live Mode Toggle */}
           <div
-            className="w-full flex items-center gap-4 p-4"
-            onClick={() => supabaseConfigured && toggleDemoMode(!isDemo)}
-            style={{ cursor: supabaseConfigured ? "pointer" : "not-allowed" }}
+            className="w-full flex flex-col gap-2 p-4"
           >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDemo ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
-              <FlaskConical className="w-5 h-5" style={{ color: isDemo ? "#FF9500" : "#34C759" }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-black/80">Demo Mode</p>
-              <p className="text-[11px] font-medium text-black/30">
-                {isDemo ? "Pre-built sample data" : "Live Supabase data"}
-              </p>
-            </div>
             <div
-              role="switch"
-              aria-checked={isDemo}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                isDemo ? "bg-amber-400" : "bg-emerald-500"
-              } ${!supabaseConfigured ? "opacity-40" : ""}`}
+              className="flex items-center gap-4"
+              onClick={() => !isDemo && supabaseConfigured && toggleDemoMode(!isDemo)}
+              style={{ cursor: isDemo ? "not-allowed" : supabaseConfigured ? "pointer" : "not-allowed" }}
             >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  isDemo ? "translate-x-1" : "translate-x-6"
-                }`}
-              />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDemo ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
+                <FlaskConical className="w-5 h-5" style={{ color: isDemo ? "#FF9500" : "#34C759" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-black/80">Demo Mode</p>
+                <p className="text-[11px] font-medium text-black/30">
+                  {isDemo ? "Pre-built sample data" : "Live Supabase data"}
+                </p>
+              </div>
+              <div
+                role="switch"
+                aria-checked={isDemo}
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                  isDemo ? "bg-amber-400" : "bg-emerald-500"
+                } ${!supabaseConfigured || isDemo ? "opacity-40" : ""}`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    isDemo ? "translate-x-1" : "translate-x-6"
+                  }`}
+                />
+              </div>
             </div>
+            {isDemo && (
+              <p className="text-xs font-medium text-black/40 ml-14">
+                <Link to="/signup" className="text-primary underline">Sign up</Link> to use live games and save your data.
+              </p>
+            )}
           </div>
           <button
             onClick={handleSignOut}

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Copy, 
-  Check, 
-  Users, 
-  Search, 
-  ChevronDown, 
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  Users,
+  Search,
+  ChevronDown,
   CheckCircle,
   Share2,
   Globe,
@@ -43,7 +44,10 @@ function TextField({
   onChange,
   placeholder,
   type = "text",
-  icon: Icon
+  icon: Icon,
+  maxLength,
+  counter,
+  error
 }: {
   label: string;
   value: string;
@@ -51,6 +55,9 @@ function TextField({
   placeholder?: string;
   type?: string;
   icon?: any;
+  maxLength?: number;
+  counter?: boolean;
+  error?: string;
 }) {
   const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
@@ -73,6 +80,14 @@ function TextField({
           className={`w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3.5 text-[15px] font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary/20 outline-none transition-all ${Icon ? 'pl-11' : ''}`}
         />
       </div>
+      {counter && maxLength && (
+        <p className={`text-[11px] font-medium ml-1 ${value.length >= maxLength - (maxLength <= 50 ? 5 : 10) ? 'text-red-500' : 'text-black/30'}`}>
+          {value.length}/{maxLength}
+        </p>
+      )}
+      {error && (
+        <p className="text-[11px] font-medium text-red-500 ml-1">{error}</p>
+      )}
     </div>
   );
 }
@@ -116,14 +131,83 @@ export function CreateGame() {
       ? parseFloat(totalCost).toFixed(2)
       : "0.00";
 
+  // Helper: check if a date string is in the past
+  const isDateInPast = (dateStr: string): boolean => {
+    if (!dateStr) return false;
+    const today = new Date().toISOString().split("T")[0];
+    return dateStr < today;
+  };
+
+  // Helper: check if end time is not after start time
+  const isEndTimeInvalid = (startTime: string, endTime: string): boolean => {
+    if (!startTime || !endTime) return false;
+    return endTime <= startTime;
+  };
+
+  // Helper: validate time options have at least one with date+start
+  const hasValidTimeOption = (): boolean => {
+    return timeOptions.some((o) => o.date && o.startTime);
+  };
+
+  // Helper: check all filled time options pass date/time validation
+  const allTimeOptionsValid = (): boolean => {
+    for (const opt of timeOptions) {
+      if (opt.date && isDateInPast(opt.date)) return false;
+      if (opt.startTime && opt.endTime && isEndTimeInvalid(opt.startTime, opt.endTime)) return false;
+    }
+    return true;
+  };
+
   const handleBack = () => {
     if (step === 1) navigate(-1);
     else setStep((s) => (s - 1) as Step);
   };
   const handleNext = async () => {
+    // Step 1 validation: sport and title
+    if (step === 1) {
+      if (!selectedSport) {
+        toast.error("Please select a sport");
+        return;
+      }
+      if (!gameTitle.trim()) {
+        toast.error("Please enter a game title");
+        return;
+      }
+    }
+
+    // Step 2 validation: at least one time option with date+start, and all valid
+    if (step === 2) {
+      if (!hasValidTimeOption()) {
+        toast.error("At least one time option must have a date and start time");
+        return;
+      }
+      if (!allTimeOptionsValid()) {
+        toast.error("Please fix date/time errors before continuing");
+        return;
+      }
+    }
+
     if (step < 5) {
       setStep((s) => (s + 1) as Step);
     } else {
+      // Step 5 (submit) validation
+      if (!selectedSport) {
+        toast.error("Please select a sport");
+        return;
+      }
+      if (!gameTitle.trim()) {
+        toast.error("Please enter a game title");
+        return;
+      }
+      if (!hasValidTimeOption()) {
+        toast.error("At least one time option must have a date and start time");
+        return;
+      }
+      if (!allTimeOptionsValid()) {
+        toast.error("Please fix date/time errors before submitting");
+        return;
+      }
+
       setSubmitting(true);
       const result = await createGame({
         title: gameTitle,
@@ -227,7 +311,7 @@ export function CreateGame() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* -- Header ---------------------------------------------------------- */}
       <header className="px-6 pt-4 space-y-4 bg-[#F2F2F7]/80 backdrop-blur-md sticky top-0 z-40 pb-4 border-b border-black/5">
         <div className="flex items-center gap-4">
           <button
@@ -259,7 +343,7 @@ export function CreateGame() {
       </header>
 
       <div className="px-6 space-y-6">
-        {/* ── STEP 1: Game Details ─────────────────────────────────────────── */}
+        {/* -- STEP 1: Game Details ------------------------------------------ */}
         {step === 1 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
@@ -274,8 +358,8 @@ export function CreateGame() {
                       key={sport.name}
                       onClick={() => setSelectedSport(sport.name)}
                       className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-90 ${
-                        isSelected 
-                          ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" 
+                        isSelected
+                          ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105"
                           : "bg-black/5 text-black/40"
                       }`}
                     >
@@ -288,19 +372,23 @@ export function CreateGame() {
             </div>
 
             <div className="ios-card space-y-5">
-              <TextField 
-                label="Game Title" 
-                value={gameTitle} 
-                onChange={setGameTitle} 
-                placeholder="e.g. Friday Night Hoops" 
+              <TextField
+                label="Game Title"
+                value={gameTitle}
+                onChange={(v) => setGameTitle(v.slice(0, 50))}
+                placeholder="e.g. Friday Night Hoops"
                 icon={Trophy}
+                maxLength={50}
+                counter
               />
-              <TextField 
-                label="Default Address" 
-                value={address} 
-                onChange={setAddress} 
-                placeholder="Where do you usually play?" 
+              <TextField
+                label="Default Address"
+                value={address}
+                onChange={(v) => setAddress(v.slice(0, 100))}
+                placeholder="Where do you usually play?"
                 icon={MapPin}
+                maxLength={100}
+                counter
               />
 
               <div className="space-y-2">
@@ -315,8 +403,8 @@ export function CreateGame() {
                         key={type}
                         onClick={() => setGameType(type)}
                         className={`flex-1 p-4 rounded-2xl flex items-center justify-center gap-3 font-bold transition-all ${
-                          isSelected 
-                            ? "bg-primary text-white shadow-lg" 
+                          isSelected
+                            ? "bg-primary text-white shadow-lg"
                             : "bg-black/5 text-black/40"
                         }`}
                       >
@@ -328,18 +416,18 @@ export function CreateGame() {
                 </div>
               </div>
 
-              <TextField 
-                label="Max Players" 
-                value={maxPlayers} 
-                onChange={setMaxPlayers} 
-                type="number" 
+              <TextField
+                label="Max Players"
+                value={maxPlayers}
+                onChange={setMaxPlayers}
+                type="number"
                 icon={Users}
               />
             </div>
           </div>
         )}
 
-        {/* ── STEP 2: Time & Location ──────────────────────────────────────── */}
+        {/* -- STEP 2: Time & Location --------------------------------------- */}
         {step === 2 && (
           <div className="space-y-6">
             <div className="bg-primary/5 rounded-2xl p-4 flex gap-3 items-center">
@@ -356,7 +444,7 @@ export function CreateGame() {
                 <div className="flex justify-between items-center border-b border-black/5 pb-3">
                   <span className="text-sm font-bold text-black/70">Time Option {index + 1}</span>
                   {timeOptions.length > 1 && (
-                    <button 
+                    <button
                       onClick={() => removeTimeOption(opt.id)}
                       className="text-rose-500 active:scale-90 p-1"
                     >
@@ -364,38 +452,40 @@ export function CreateGame() {
                     </button>
                   )}
                 </div>
-                <TextField 
-                  label="Date" 
-                  value={opt.date} 
-                  onChange={(v) => updateTimeOption(opt.id, "date", v)} 
-                  type="date" 
+                <TextField
+                  label="Date"
+                  value={opt.date}
+                  onChange={(v) => updateTimeOption(opt.id, "date", v)}
+                  type="date"
                   icon={Calendar}
+                  error={isDateInPast(opt.date) ? "Date cannot be in the past" : undefined}
                 />
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <TextField 
-                      label="Start" 
-                      value={opt.startTime} 
-                      onChange={(v) => updateTimeOption(opt.id, "startTime", v)} 
-                      type="time" 
+                    <TextField
+                      label="Start"
+                      value={opt.startTime}
+                      onChange={(v) => updateTimeOption(opt.id, "startTime", v)}
+                      type="time"
                       icon={Clock}
                     />
                   </div>
                   <div className="flex-1">
-                    <TextField 
-                      label="End" 
-                      value={opt.endTime} 
-                      onChange={(v) => updateTimeOption(opt.id, "endTime", v)} 
-                      type="time" 
+                    <TextField
+                      label="End"
+                      value={opt.endTime}
+                      onChange={(v) => updateTimeOption(opt.id, "endTime", v)}
+                      type="time"
                       icon={Clock}
+                      error={isEndTimeInvalid(opt.startTime, opt.endTime) ? "End time must be after start time" : undefined}
                     />
                   </div>
                 </div>
-                <TextField 
-                  label="Specific Location" 
-                  value={opt.location} 
-                  onChange={(v) => updateTimeOption(opt.id, "location", v)} 
-                  placeholder="Court # or exact field" 
+                <TextField
+                  label="Specific Location"
+                  value={opt.location}
+                  onChange={(v) => updateTimeOption(opt.id, "location", v)}
+                  placeholder="Court # or exact field"
                   icon={MapPin}
                 />
               </div>
@@ -413,7 +503,7 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 3: Costs ─────────────────────────────────────────────────── */}
+        {/* -- STEP 3: Costs ------------------------------------------------- */}
         {step === 3 && (
           <div className="space-y-6">
             <div className="ios-card space-y-6 p-6">
@@ -469,7 +559,7 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 4: Invite Players ─────────────────────────────────────────── */}
+        {/* -- STEP 4: Invite Players ---------------------------------------- */}
         {step === 4 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
@@ -511,7 +601,7 @@ export function CreateGame() {
                 <span className="text-xs font-bold text-black/40 uppercase tracking-widest">
                   {filteredPlayers.length} Suggested
                 </span>
-                <button 
+                <button
                   onClick={handleSelectAll}
                   className="text-xs font-bold text-primary flex items-center gap-1.5"
                 >
@@ -535,7 +625,7 @@ export function CreateGame() {
                         isSelected ? "bg-primary/5" : "hover:bg-black/5"
                       }`}
                     >
-                      <div 
+                      <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold text-white shadow-sm"
                         style={{ backgroundColor: player.color }}
                       >
@@ -560,12 +650,12 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 5: Review ─────────────────────────────────────────────── */}
+        {/* -- STEP 5: Review ------------------------------------------------ */}
         {step === 5 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
               <div className="flex gap-4">
-                <div 
+                <div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center text-white"
                   style={{ backgroundColor: sports.find(s => s.name === selectedSport)?.color || '#007AFF' }}
                 >
@@ -646,8 +736,8 @@ export function CreateGame() {
                       key={v.id}
                       onClick={() => setVisibility(v.id)}
                       className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl transition-all ${
-                        isSelected 
-                          ? "bg-primary text-white shadow-lg" 
+                        isSelected
+                          ? "bg-primary text-white shadow-lg"
                           : "bg-black/5 text-black/40"
                       }`}
                     >
@@ -661,15 +751,16 @@ export function CreateGame() {
 
             <button
               onClick={handleNext}
-              className="w-full ios-btn-primary py-5 text-lg shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+              disabled={submitting}
+              className="w-full ios-btn-primary py-5 text-lg shadow-2xl shadow-primary/30 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Trophy className="w-6 h-6" />
-              <span>Create & Send Invites</span>
+              <span>{submitting ? "Creating..." : "Create & Send Invites"}</span>
             </button>
           </div>
         )}
 
-        {/* ── Next Button ──────────────────────────────────────────────────── */}
+        {/* -- Next Button --------------------------------------------------- */}
         {step < 5 && (
           <div className="pt-4">
             <button

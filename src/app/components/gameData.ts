@@ -458,7 +458,7 @@ export async function fetchAllGames(): Promise<Game[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("fetchAllGames error:", error.message);
+
     return DEMO_GAMES;
   }
 
@@ -530,8 +530,6 @@ export async function saveGame(input: {
 
   const gameId = crypto.randomUUID();
 
-  console.log("saveGame: inserting game", gameId, "by user", input.createdBy);
-
   const { error } = await supabase!
     .from("games")
     .insert({
@@ -554,11 +552,9 @@ export async function saveGame(input: {
     });
 
   if (error) {
-    console.error("saveGame: insert error:", error.message);
+
     return { id: "", error: error.message };
   }
-
-  console.log("saveGame: game inserted, adding time options");
 
   // Insert time options
   const optionInserts = input.timeOptions
@@ -579,7 +575,7 @@ export async function saveGame(input: {
 
   if (optionInserts.length > 0) {
     const { error: optError } = await supabase!.from("game_options").insert(optionInserts);
-    if (optError) console.error("saveGame: game_options insert error:", optError.message);
+    if (optError) return { id: "", error: optError.message };
   }
 
   // Invite players (only real UUIDs)
@@ -590,10 +586,9 @@ export async function saveGame(input: {
       status: "invited" as const,
     }));
     const { error: playerError } = await supabase!.from("game_players").insert(playerInserts);
-    if (playerError) console.error("saveGame: game_players insert error:", playerError.message);
+    if (playerError) return { id: "", error: playerError.message };
   }
 
-  console.log("saveGame: complete, game id:", gameId);
   return { id: gameId, error: null };
 }
 

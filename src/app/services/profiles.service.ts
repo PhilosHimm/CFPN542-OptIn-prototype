@@ -12,23 +12,28 @@ export interface ProfileSearchResult {
 
 export async function getPlayers(): Promise<Player[]> {
   if (isDemoMode()) return mockPlayers;
+  if (!supabase) return [];
 
-  const { data, error } = await supabase!
-    .from("profiles")
-    .select("*")
-    .order("name");
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("name");
 
-  if (error || !data) return mockPlayers;
+    if (error || !data) return [];
 
-  return data.map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    initials: p.initials,
-    color: p.color,
-    gamesPlayed: p.games_played,
-    weeksPlayed: p.weeks_played,
-    attendanceRate: p.attendance_rate,
-  }));
+    return data.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      initials: p.initials,
+      color: p.color,
+      gamesPlayed: p.games_played,
+      weeksPlayed: p.weeks_played,
+      attendanceRate: p.attendance_rate,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function searchProfiles(
@@ -49,24 +54,30 @@ export async function searchProfiles(
       }));
   }
 
-  const { data, error } = await supabase!
-    .from("profiles")
-    .select("id, name, username, color, email, avatar_url")
-    .or(`name.ilike.%${normalizedQuery}%,username.ilike.%${normalizedQuery}%`)
-    .limit(20);
+  if (!supabase) return [];
 
-  if (error || !data) return [];
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, username, color, email, avatar_url")
+      .or(`name.ilike.%${normalizedQuery}%,username.ilike.%${normalizedQuery}%`)
+      .limit(20);
 
-  return data
-    .filter((profile: any) => profile.id !== excludeUserId)
-    .map((profile: any) => ({
-      id: profile.id,
-      name: profile.name,
-      username: profile.username,
-      color: profile.color,
-      email: profile.email,
-      avatar_url: profile.avatar_url,
-    }));
+    if (error || !data) return [];
+
+    return data
+      .filter((profile: any) => profile.id !== excludeUserId)
+      .map((profile: any) => ({
+        id: profile.id,
+        name: profile.name,
+        username: profile.username,
+        color: profile.color,
+        email: profile.email,
+        avatar_url: profile.avatar_url,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function updatePlayerProfile(
@@ -74,21 +85,26 @@ export async function updatePlayerProfile(
   updates: { name?: string; bio?: string; avatar_url?: string | null }
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
+  if (!supabase) return { error: "Unable to connect to the server." };
 
-  const updateData: any = { ...updates };
-  if (updates.name) {
-    updateData.initials = updates.name
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  try {
+    const updateData: Record<string, unknown> = { ...updates };
+    if (updates.name) {
+      updateData.initials = updates.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", userId);
+
+    return { error: error?.message ?? null };
+  } catch {
+    return { error: "Something went wrong — please try again" };
   }
-
-  const { error } = await supabase!
-    .from("profiles")
-    .update(updateData)
-    .eq("id", userId);
-
-  return { error: error?.message ?? null };
 }

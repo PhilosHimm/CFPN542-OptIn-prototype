@@ -88,14 +88,16 @@ export async function getFriendIds(currentUserId: string): Promise<string[]> {
       .map((friendship) => (friendship.userAId === currentUserId ? friendship.userBId : friendship.userAId));
   }
 
-  const { data, error } = await supabase!
-    .from("friendships")
-    .select("user_a_id, user_b_id")
-    .or(`user_a_id.eq.${currentUserId},user_b_id.eq.${currentUserId}`);
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("friendships")
+      .select("user_a_id, user_b_id")
+      .or(`user_a_id.eq.${currentUserId},user_b_id.eq.${currentUserId}`);
 
-  if (error || !data) return [];
-
-  return data.map((row: any) => (row.user_a_id === currentUserId ? row.user_b_id : row.user_a_id));
+    if (error || !data) return [];
+    return data.map((row: any) => (row.user_a_id === currentUserId ? row.user_b_id : row.user_a_id));
+  } catch { return []; }
 }
 
 export async function getIncomingMessageRequests(currentUserId: string): Promise<MessageRequestItem[]> {
@@ -113,7 +115,8 @@ export async function getIncomingMessageRequests(currentUserId: string): Promise
     }));
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) return [];
+  const { data, error } = await supabase
     .from("friend_requests")
     .select("id, requester_id, requester:requester_id(name, avatar_url)")
     .eq("addressee_id", currentUserId)
@@ -140,7 +143,8 @@ export async function getOutgoingMessageRequestUserIds(currentUserId: string): P
       .map((request) => request.addresseeId);
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) return [];
+  const { data, error } = await supabase
     .from("friend_requests")
     .select("addressee_id")
     .eq("requester_id", currentUserId)
@@ -189,7 +193,8 @@ export async function sendMessageRequest(
     return { status: "sent" };
   }
 
-  const { data: existingFriendship, error: friendshipError } = await supabase!
+  if (!supabase) return { status: "error", error: "Unable to connect" };
+  const { data: existingFriendship, error: friendshipError } = await supabase
     .from("friendships")
     .select("id")
     .eq("user_a_id", userAId)
@@ -199,7 +204,7 @@ export async function sendMessageRequest(
   if (friendshipError) return { status: "error", error: friendshipError.message };
   if (existingFriendship) return { status: "already_friends" };
 
-  const { data: existingRequest, error: requestCheckError } = await supabase!
+  const { data: existingRequest, error: requestCheckError } = await supabase
     .from("friend_requests")
     .select("id")
     .eq("status", "pending")
@@ -211,7 +216,7 @@ export async function sendMessageRequest(
   if (requestCheckError) return { status: "error", error: requestCheckError.message };
   if (existingRequest) return { status: "already_pending" };
 
-  const { error } = await supabase!
+  const { error } = await supabase
     .from("friend_requests")
     .insert({ requester_id: requesterId, addressee_id: addresseeId, status: "pending" });
 
@@ -250,7 +255,8 @@ export async function acceptMessageRequest(
     return { error: null };
   }
 
-  const { data: requestRow, error: requestError } = await supabase!
+  if (!supabase) return { error: "Unable to connect" };
+  const { data: requestRow, error: requestError } = await supabase
     .from("friend_requests")
     .select("id, requester_id, addressee_id")
     .eq("id", requestId)
@@ -262,14 +268,14 @@ export async function acceptMessageRequest(
 
   const [userAId, userBId] = normalizePair(requestRow.requester_id, requestRow.addressee_id);
 
-  const { error: updateError } = await supabase!
+  const { error: updateError } = await supabase
     .from("friend_requests")
     .update({ status: "accepted" })
     .eq("id", requestId);
 
   if (updateError) return { error: updateError.message };
 
-  const { error: friendshipError } = await supabase!
+  const { error: friendshipError } = await supabase
     .from("friendships")
     .insert({ user_a_id: userAId, user_b_id: userBId })
     .select("id")
@@ -298,7 +304,8 @@ export async function declineMessageRequest(
     return { error: null };
   }
 
-  const { error } = await supabase!
+  if (!supabase) return { error: "Unable to connect" };
+  const { error } = await supabase
     .from("friend_requests")
     .update({ status: "declined" })
     .eq("id", requestId)

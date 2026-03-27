@@ -621,7 +621,7 @@ export function ChatsScreen() {
               <div
                 key={chat.id}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-surface-container-low cursor-pointer transition-colors active:bg-surface-container"
-                onClick={() => console.log("Open chat", chat.id)}
+                onClick={() => setActiveChatId(chat.id)}
               >
                 <Avatar className="w-14 h-14 border border-outline-variant/30 font-medium flex-shrink-0">
                   {chat.avatar ? (

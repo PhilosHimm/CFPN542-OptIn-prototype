@@ -43,8 +43,8 @@ export function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       setSubmitting(false);
       return;
     }
@@ -133,6 +133,7 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12"
                 required
+                aria-label="Full Name"
               />
               <label htmlFor="name" className="md3-floating-label !left-12">
                 Full Name
@@ -151,6 +152,7 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12"
                 required={!isDemo}
+                aria-label="Email"
               />
               <label htmlFor="email" className="md3-floating-label !left-12">
                 Email
@@ -169,10 +171,11 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12 !pr-12"
                 required={!isDemo}
-                minLength={6}
+                minLength={8}
+                aria-label="Password"
               />
               <label htmlFor="password" className="md3-floating-label !left-12">
-                Password (min 6 characters)
+                Password (min 8 characters)
               </label>
               <button
                 type="button"

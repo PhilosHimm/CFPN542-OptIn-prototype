@@ -18,6 +18,11 @@ import { getGames, getGroups, createGroup } from "../services/games.service";
 import { sports } from "../services/games.service";
 import type { Game, Group, GameStatus } from "../data/games";
 
+function isGameExpired(game: Game): boolean {
+  const today = new Date().toISOString().split("T")[0];
+  return game.options.length > 0 && game.options.every((o) => o.date && o.date < today);
+}
+
 function StatusBadge({ status }: { status: GameStatus }) {
   const config = {
     proposal: { label: "Voting Open", color: "text-amber-600 bg-amber-100" },
@@ -50,7 +55,7 @@ export function Home() {
     getGroups().then(setGroups);
   }, []);
 
-  const upcomingGames = games.filter((g) => g.status !== "completed" && g.status !== "cancelled");
+  const upcomingGames = games.filter((g) => g.status !== "completed" && g.status !== "cancelled" && !isGameExpired(g));
   const completedGames = games.filter((g) => g.status === "completed");
 
   const handleCreateGroup = async () => {
@@ -112,12 +117,12 @@ export function Home() {
           </button>
         </div>
         <div className="flex gap-4 overflow-x-auto px-6 pb-2 no-scrollbar">
-          {groups.map((group) => (
+          {groups.length > 0 && groups.map((group) => (
             <button
               key={group.id}
               className="flex-shrink-0 w-[120px] ios-card flex flex-col items-center gap-3 text-center transition-transform active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
-              <div 
+              <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-inner shadow-black/5"
                 style={{ backgroundColor: group.color }}
               >
@@ -134,15 +139,20 @@ export function Home() {
               )}
             </button>
           ))}
-          <button
-            onClick={() => setShowCreateGroup(true)}
-            className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/40 active:bg-black/5 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
-              <Plus className="w-6 h-6" />
-            </div>
-            <span className="text-xs font-bold">New Group</span>
-          </button>
+          <div className="flex-shrink-0 flex flex-col items-center gap-2">
+            {groups.length === 0 && (
+              <p className="text-xs font-medium text-black/40 text-center mb-1">Create your first group to get started</p>
+            )}
+            <button
+              onClick={() => setShowCreateGroup(true)}
+              className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/40 active:bg-black/5 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold">New Group</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -159,85 +169,100 @@ export function Home() {
         </div>
 
         <div className="space-y-4">
-          {upcomingGames.map((game) => {
-            const group = groups.find((g) => g.id === game.groupId);
-            const topOption = [...game.options].sort((a, b) => b.inVotes - a.inVotes)[0];
-            const confirmedOption = game.confirmedOptionId
-              ? game.options.find((o) => o.id === game.confirmedOptionId)
-              : null;
-            const displayOption = confirmedOption || topOption;
-
-            return (
-              <button
-                key={game.id}
-                onClick={() => navigate(`/game/${game.id}`)}
-                className="w-full ios-card text-left flex flex-col gap-4 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
-              >
-                {/* Visual Accent */}
-                <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: game.sportColor }} />
-                
-                <div className="flex justify-between items-start pl-2">
-                  <div className="flex gap-3">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
-                      style={{ backgroundColor: game.sportColor }}
-                    >
-                      <SportIcon sport={game.sport} className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-black/90">{game.title}</h4>
-                      <p className="text-xs font-medium text-black/40 mt-0.5">
-                        {group?.name} • {game.gameType}
-                      </p>
-                    </div>
-                  </div>
-                  <StatusBadge status={game.status} />
-                </div>
-
-                {displayOption && (
-                  <div className={`p-3 rounded-xl ml-2 ${game.status === 'proposal' ? 'bg-amber-50/50' : 'bg-emerald-50/50'}`}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Clock className={`w-3.5 h-3.5 ${game.status === 'proposal' ? 'text-amber-600' : 'text-emerald-600'}`} />
-                      <span className={`text-xs font-bold ${game.status === 'proposal' ? 'text-amber-700' : 'text-emerald-700'}`}>
-                        {displayOption.displayDate} @ {displayOption.startTime}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-black/40" />
-                      <span className="text-xs font-medium text-black/60 truncate">
-                        {displayOption.location}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pl-2 mt-1">
-                  <div className="flex items-center gap-3">
-                    <div className="flex -space-x-2">
-                      {topOption?.voterInitials.slice(0, 4).map((init, i) => (
-                        <div
-                          key={i}
-                          className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-sm"
-                          style={{ backgroundColor: `hsl(${i * 45}, 70%, 45%)` }}
-                        >
-                          {init}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="text-[11px] font-bold text-black/40 uppercase tracking-wider">
-                      {game.currentPlayers}/{game.maxPlayers} JOINED
-                    </span>
-                  </div>
-                  
-                  <div className="bg-black/5 px-2.5 py-1 rounded-lg">
-                    <span className="text-[11px] font-bold text-black/60">
-                      {game.perPersonCost > 0 ? `$${game.perPersonCost.toFixed(2)}` : 'FREE'}
-                    </span>
-                  </div>
-                </div>
+          {upcomingGames.length === 0 ? (
+            <div className="ios-card bg-white/30 border-dashed py-10 flex flex-col items-center gap-4 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-black/5 flex items-center justify-center text-black/20">
+                <Trophy className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="font-bold text-black/70">No upcoming games yet</p>
+                <p className="text-xs font-medium text-black/40 mt-1">Create your first game to get started!</p>
+              </div>
+              <button onClick={() => navigate("/create")} className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all">
+                Create Game
               </button>
-            );
-          })}
+            </div>
+          ) : (
+            upcomingGames.map((game) => {
+              const group = groups.find((g) => g.id === game.groupId);
+              const topOption = game.options.length > 0 ? [...game.options].sort((a, b) => b.inVotes - a.inVotes)[0] : null;
+              const confirmedOption = game.confirmedOptionId
+                ? game.options.find((o) => o.id === game.confirmedOptionId)
+                : null;
+              const displayOption = confirmedOption || topOption;
+
+              return (
+                <button
+                  key={game.id}
+                  onClick={() => navigate(`/game/${game.id}`)}
+                  className="w-full ios-card text-left flex flex-col gap-4 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+                >
+                  {/* Visual Accent */}
+                  <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: game.sportColor }} />
+
+                  <div className="flex justify-between items-start pl-2">
+                    <div className="flex gap-3">
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
+                        style={{ backgroundColor: game.sportColor }}
+                      >
+                        <SportIcon sport={game.sport} className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-black/90">{game.title}</h4>
+                        <p className="text-xs font-medium text-black/40 mt-0.5">
+                          {group?.name} • {game.gameType}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status={game.status} />
+                  </div>
+
+                  {displayOption && (
+                    <div className={`p-3 rounded-xl ml-2 ${game.status === 'proposal' ? 'bg-amber-50/50' : 'bg-emerald-50/50'}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Clock className={`w-3.5 h-3.5 ${game.status === 'proposal' ? 'text-amber-600' : 'text-emerald-600'}`} />
+                        <span className={`text-xs font-bold ${game.status === 'proposal' ? 'text-amber-700' : 'text-emerald-700'}`}>
+                          {displayOption.displayDate} @ {displayOption.startTime}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-black/40" />
+                        <span className="text-xs font-medium text-black/60 truncate">
+                          {displayOption.location}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pl-2 mt-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-2">
+                        {topOption?.voterInitials.slice(0, 4).map((init, i) => (
+                          <div
+                            key={i}
+                            className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-sm"
+                            style={{ backgroundColor: `hsl(${i * 45}, 70%, 45%)` }}
+                          >
+                            {init}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[11px] font-bold text-black/40 uppercase tracking-wider">
+                        {game.currentPlayers}/{game.maxPlayers} JOINED
+                      </span>
+                    </div>
+
+                    <div className="bg-black/5 px-2.5 py-1 rounded-lg">
+                      <span className="text-[11px] font-bold text-black/60">
+                        {game.perPersonCost > 0 ? `$${game.perPersonCost.toFixed(2)}` : 'FREE'}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </section>
 
@@ -278,7 +303,7 @@ export function Home() {
                 <div className="flex-1 text-left">
                   <p className="text-sm font-bold text-black/90">{game.title}</p>
                   <p className="text-[11px] font-medium text-black/40">
-                    {game.options[0].displayDate} • {game.currentPlayers} players
+                    {game.options.length > 0 ? game.options[0].displayDate : "No date"} • {game.currentPlayers} players
                   </p>
                 </div>
                 <StatusBadge status={game.status} />

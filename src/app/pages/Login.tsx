@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router";
-import { Mail, Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, LogIn, Play } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Login() {
   const navigate = useNavigate();
-  const { signIn, resetPassword, isDemo, user, loading: authLoading } = useAuth();
+  const { signIn, resetPassword, isDemo, user, loading: authLoading, enterDemoMode } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,11 +23,6 @@ export function Login() {
     setError("");
     setSubmitting(true);
 
-    if (isDemo) {
-      navigate("/");
-      return;
-    }
-
     const trimmedEmail = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setError("Please enter a valid email address");
@@ -35,8 +30,8 @@ export function Login() {
       return;
     }
 
-    if (!password) {
-      setError("Please enter your password");
+    if (!password || password.length < 8) {
+      setError("Password must be at least 8 characters");
       setSubmitting(false);
       return;
     }
@@ -49,6 +44,11 @@ export function Login() {
     } else {
       navigate("/");
     }
+  };
+
+  const handleDemoEntry = () => {
+    enterDemoMode();
+    navigate("/");
   };
 
   return (
@@ -73,12 +73,6 @@ export function Login() {
             </div>
           )}
 
-          {isDemo && (
-            <div className="bg-tertiary-container rounded-md3-medium p-4 text-body-md text-on-tertiary-container">
-              Demo mode: No Supabase configured. Click Sign In to explore with mock data.
-            </div>
-          )}
-
           <div className="md3-outlined-field">
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none z-10" />
@@ -89,7 +83,8 @@ export function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder=" "
                 className="!pl-12"
-                required={!isDemo}
+                required
+                aria-label="Email address"
               />
               <label htmlFor="email" className="md3-floating-label !left-12">
                 Email
@@ -107,7 +102,9 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder=" "
                 className="!pl-12 !pr-12"
-                required={!isDemo}
+                required
+                minLength={8}
+                aria-label="Password"
               />
               <label htmlFor="password" className="md3-floating-label !left-12">
                 Password
@@ -115,6 +112,7 @@ export function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-md3-full text-on-surface-variant hover:bg-on-surface/8 transition-colors z-10"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -132,18 +130,31 @@ export function Login() {
           </button>
         </form>
 
+        {/* Continue in Demo */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={handleDemoEntry}
+            className="w-full h-12 border-2 border-black/10 text-on-surface-variant text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-2 hover:bg-black/5 active:bg-black/10 transition-all"
+          >
+            <Play className="w-4 h-4" />
+            Continue in Demo
+          </button>
+          <p className="text-center text-body-sm text-on-surface-variant/60">
+            Preview OptIn with sample data. Create an account to use the live app.
+          </p>
+        </div>
+
         {/* Forgot Password */}
-        {!isDemo && (
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => { setShowResetForm(!showResetForm); setResetMessage(""); }}
-              className="text-body-md text-on-surface-variant hover:text-primary transition-colors"
-            >
-              Forgot your password?
-            </button>
-          </div>
-        )}
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => { setShowResetForm(!showResetForm); setResetMessage(""); }}
+            className="text-body-md text-on-surface-variant hover:text-primary transition-colors"
+          >
+            Forgot your password?
+          </button>
+        </div>
 
         {showResetForm && (
           <div className="bg-surface-container rounded-md3-large p-4 space-y-3">
@@ -159,6 +170,7 @@ export function Login() {
                   onChange={(e) => setResetEmail(e.target.value)}
                   placeholder=" "
                   className="!pl-12"
+                  aria-label="Reset email address"
                 />
                 <label className="md3-floating-label !left-12">Email</label>
               </div>
@@ -171,8 +183,10 @@ export function Login() {
             <button
               type="button"
               onClick={async () => {
-                if (!resetEmail.trim()) { setResetMessage("Please enter your email."); return; }
-                const result = await resetPassword(resetEmail.trim());
+                const trimmed = resetEmail.trim();
+                if (!trimmed) { setResetMessage("Please enter your email."); return; }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setResetMessage("Please enter a valid email address."); return; }
+                const result = await resetPassword(trimmed);
                 setResetMessage(result.error || "Reset link sent! Check your email.");
               }}
               className="w-full h-10 bg-primary/10 text-primary text-label-lg font-medium rounded-md3-full hover:bg-primary/20 transition-colors"

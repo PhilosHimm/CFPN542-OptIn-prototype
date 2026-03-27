@@ -28,6 +28,7 @@ export function Messages() {
   const [groupMsgs, setGroupMsgs] = useState<Message[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [sendCooldown, setSendCooldown] = useState(false);
 
   useEffect(() => {
     getDirectMessages().then(setDirectMsgs);
@@ -48,7 +49,8 @@ export function Messages() {
   );
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !profile || !openConvo) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed || !profile || !openConvo || sendCooldown) return;
 
     const tempMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
@@ -56,7 +58,7 @@ export function Messages() {
       senderName: "You",
       senderInitials: profile.initials,
       senderColor: profile.color,
-      content: newMessage,
+      content: trimmed,
       timestamp: "Just now",
       isMe: true,
       isSystem: false,
@@ -64,12 +66,32 @@ export function Messages() {
 
     setChatMessages((prev) => [...prev, tempMsg]);
     setNewMessage("");
+    setSendCooldown(true);
+    setTimeout(() => setSendCooldown(false), 500);
 
-    await sendChatMessage(openConvo, profile.id, newMessage);
+    await sendChatMessage(openConvo, profile.id, trimmed);
   };
 
   if (openConvo) {
-    const convo = messages.find((m) => m.id === openConvo)!;
+    const convo = messages.find((m) => m.id === openConvo);
+
+    if (!convo) {
+      return (
+        <div className="flex flex-col h-full bg-[#F2F2F7] items-center justify-center gap-4">
+          <MessageCircle className="w-16 h-16 opacity-30" />
+          <p className="font-bold uppercase tracking-widest text-xs opacity-30">Conversation not found</p>
+          <button
+            onClick={() => setOpenConvo(null)}
+            className="mt-2 w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </div>
+      );
+    }
+
+    const isSendDisabled = sendCooldown || !newMessage.trim();
+
     return (
       <div className="flex flex-col h-full bg-[#F2F2F7]">
         {/* Chat Header */}
@@ -81,7 +103,7 @@ export function Messages() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3 flex-1">
-            <div 
+            <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
               style={{ backgroundColor: convo.color }}
             >
@@ -94,7 +116,7 @@ export function Messages() {
               </p>
             </div>
           </div>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center text-black/30">
+          <button className="w-11 h-11 rounded-full flex items-center justify-center text-black/30">
             <MoreHorizontal className="w-5 h-5" />
           </button>
         </header>
@@ -165,7 +187,12 @@ export function Messages() {
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-[15px] font-medium"
             />
-            <button onClick={handleSend} aria-label="Send message" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none">
+            <button
+              onClick={handleSend}
+              disabled={isSendDisabled}
+              aria-label="Send message"
+              className={`w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none ${isSendDisabled ? "opacity-50" : ""}`}
+            >
               <Send className="w-5 h-5" />
             </button>
           </div>
@@ -195,7 +222,7 @@ export function Messages() {
             const groupUnread = groupMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
             const directUnread = directMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
             const unreadCount = tab === "groups" ? groupUnread : directUnread;
-            
+
             return (
               <button
                 key={tab}
@@ -227,6 +254,7 @@ export function Messages() {
           <input
             type="text"
             placeholder={`Search ${activeTab}...`}
+            aria-label="Search conversations"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/10 transition-all"
@@ -245,9 +273,9 @@ export function Messages() {
             {msg.unread > 0 && (
               <div className="absolute left-0 top-0 w-1 h-full bg-primary" />
             )}
-            
+
             <div className="relative shrink-0">
-              <div 
+              <div
                 className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-sm"
                 style={{ backgroundColor: msg.color }}
               >
@@ -272,7 +300,7 @@ export function Messages() {
                 {msg.lastMessage}
               </p>
             </div>
-            
+
             <ChevronRight className="w-5 h-5 text-black/10 group-active:translate-x-1 transition-transform" />
           </button>
         ))}
@@ -280,7 +308,13 @@ export function Messages() {
         {filtered.length === 0 && (
           <div className="py-20 flex flex-col items-center gap-4 text-center opacity-30">
             <MessageCircle className="w-16 h-16" />
-            <p className="font-bold uppercase tracking-widest text-xs">No conversations found</p>
+            <p className="font-bold uppercase tracking-widest text-xs">
+              {searchQuery
+                ? "No conversations found"
+                : activeTab === "groups"
+                  ? "No group conversations yet. Join a group to start chatting with your teams."
+                  : "No direct messages yet. Start a conversation with a friend."}
+            </p>
           </div>
         )}
       </div>
