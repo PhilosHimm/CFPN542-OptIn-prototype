@@ -24,6 +24,7 @@ import {
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 import {
   fetchGameById,
   addGameOption,
@@ -461,10 +462,11 @@ function RosterSection({
 export function GameViewScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [game, setGame] = useState<Game | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showHostMenu, setShowHostMenu] = useState(false);
-  const isHost = true; // Hardcoded mock for UI demonstration
+  const isHost = !!game && !!user && game.createdBy === user.id;
 
   // Form states
   const [showProposeTime, setShowProposeTime] = useState(false);
@@ -580,6 +582,18 @@ export function GameViewScreen() {
     }
   };
 
+  const handleShare = useCallback(async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: game?.title, url });
+      } catch { /* user dismissed */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Game link copied!");
+    }
+  }, [game?.title]);
+
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
 
@@ -684,7 +698,11 @@ export function GameViewScreen() {
           )}
 
           {/* Share button */}
-          <button className="w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md">
+          <button
+            onClick={handleShare}
+            aria-label="Share game"
+            className="w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
+          >
             <Share2 className="w-5 h-5 text-on-surface" />
           </button>
         </div>

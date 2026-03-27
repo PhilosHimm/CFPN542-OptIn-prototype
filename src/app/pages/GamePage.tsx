@@ -67,7 +67,7 @@ export function GamePage() {
           setHours((h) => (h > 0 ? h - 1 : 0));
           return m > 0 ? 59 : 0;
         });
-        return s > 0 ? 58 : 59;
+        return 59;
       });
     }, 1000);
     return () => clearInterval(interval);

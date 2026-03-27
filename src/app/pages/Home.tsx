@@ -9,11 +9,13 @@ import {
   Trophy,
   Plus,
   Calendar as CalendarIcon,
+  X,
 } from "lucide-react";
 import { SportIcon } from "../components/SportIcon";
 import { UserAvatar } from "../components/UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
-import { getGames, getGroups } from "../services/games.service";
+import { getGames, getGroups, createGroup } from "../services/games.service";
+import { sports } from "../services/games.service";
 import type { Game, Group, GameStatus } from "../data/games";
 
 function StatusBadge({ status }: { status: GameStatus }) {
@@ -37,6 +39,11 @@ export function Home() {
   const { profile } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupSport, setNewGroupSport] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   useEffect(() => {
     getGames().then(setGames);
@@ -45,6 +52,19 @@ export function Home() {
 
   const upcomingGames = games.filter((g) => g.status !== "completed" && g.status !== "cancelled");
   const completedGames = games.filter((g) => g.status === "completed");
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim() || !newGroupSport || !profile) return;
+    setCreatingGroup(true);
+    const { id, error } = await createGroup({ name: newGroupName.trim(), sport: newGroupSport, createdBy: profile.id });
+    setCreatingGroup(false);
+    if (!error && id) {
+      setShowCreateGroup(false);
+      setNewGroupName("");
+      setNewGroupSport("");
+      getGroups().then(setGroups);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -59,6 +79,7 @@ export function Home() {
         <div className="flex gap-3">
           <button
             aria-label="Notifications"
+            onClick={() => setShowNotifications(true)}
             className="relative w-11 h-11 glass rounded-full flex items-center justify-center text-black/70 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
             <Bell className="w-5 h-5" />
@@ -83,7 +104,10 @@ export function Home() {
       <section>
         <div className="px-6 flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-black/80">My Groups</h3>
-          <button className="text-primary text-sm font-semibold flex items-center gap-0.5">
+          <button
+            onClick={() => navigate("/profile")}
+            className="text-primary text-sm font-semibold flex items-center gap-0.5"
+          >
             Manage <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -110,7 +134,10 @@ export function Home() {
               )}
             </button>
           ))}
-          <button className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/40 active:bg-black/5 transition-colors">
+          <button
+            onClick={() => setShowCreateGroup(true)}
+            className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/40 active:bg-black/5 transition-colors"
+          >
             <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
               <Plus className="w-6 h-6" />
             </div>
@@ -259,6 +286,90 @@ export function Home() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* ── Notifications Panel ──────────────────────────────────────────────── */}
+      {showNotifications && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setShowNotifications(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-black/90">Notifications</h2>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-black/50" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center py-10 gap-3 text-center">
+              <Bell className="w-12 h-12 text-black/10" />
+              <p className="font-bold text-black/40">No new notifications</p>
+              <p className="text-sm text-black/30">You're all caught up!</p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Create Group Modal ───────────────────────────────────────────────── */}
+      {showCreateGroup && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setShowCreateGroup(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-black/90">Create Group</h2>
+              <button
+                onClick={() => setShowCreateGroup(false)}
+                className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-black/50" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-black/60 block mb-1">Group Name</label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="e.g. Sunday Soccer Crew"
+                  className="w-full border border-black/10 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-black/60 block mb-1">Sport</label>
+                <div className="flex flex-wrap gap-2">
+                  {sports.map((s) => (
+                    <button
+                      key={s.name}
+                      onClick={() => setNewGroupSport(s.name)}
+                      className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
+                        newGroupSport === s.name
+                          ? "bg-primary text-white border-primary"
+                          : "border-black/10 text-black/60"
+                      }`}
+                    >
+                      {s.emoji} {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={handleCreateGroup}
+                disabled={!newGroupName.trim() || !newGroupSport || creatingGroup}
+                className="w-full py-3 bg-primary text-white rounded-full font-bold text-sm disabled:opacity-50 active:scale-95 transition-all"
+              >
+                {creatingGroup ? "Creating..." : "Create Group"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

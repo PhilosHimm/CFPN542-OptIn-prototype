@@ -1,15 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send, Users } from "lucide-react";
+import { ArrowLeft, Send, Users, MoreHorizontal, BellOff, Trash2, Ban } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import type { DemoConversation, ChatMessage } from "../data/games";
 
 interface ChatViewProps {
   conversation: DemoConversation;
   onBack: () => void;
   onSendMessage: (conversationId: string, content: string) => void;
+  onDelete?: (conversationId: string) => void;
 }
 
-export function ChatView({ conversation, onBack, onSendMessage }: ChatViewProps) {
+export function ChatView({ conversation, onBack, onSendMessage, onDelete }: ChatViewProps) {
   const [input, setInput] = useState("");
+  const [muted, setMuted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +71,43 @@ export function ChatView({ conversation, onBack, onSendMessage }: ChatViewProps)
             <p className="text-label-sm text-on-surface-variant">Group</p>
           )}
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-on-surface/8 active:bg-on-surface/12 transition-colors flex-shrink-0"
+              aria-label="More options"
+            >
+              <MoreHorizontal className="w-5 h-5 text-on-surface-variant" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="gap-2"
+              onClick={() => setMuted((m) => !m)}
+            >
+              <BellOff className="w-4 h-4" />
+              {muted ? "Unmute notifications" : "Mute notifications"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-error focus:text-error focus:bg-error/8 gap-2"
+              onClick={() => {
+                if (onDelete) onDelete(conversation.id);
+                onBack();
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete conversation
+            </DropdownMenuItem>
+            {conversation.type === "direct" && (
+              <DropdownMenuItem className="text-error focus:text-error focus:bg-error/8 gap-2">
+                <Ban className="w-4 h-4" />
+                Block user
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Messages */}

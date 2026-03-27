@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -21,6 +21,9 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 import { saveGame } from "./gameData";
 import { useAuth } from "../contexts/AuthContext";
+import { getGroups } from "../services/games.service";
+import { getFriendIds } from "../services/friendships.service";
+import { getPlayers } from "../services/profiles.service";
 
 // ─── Constants ─────────────────────────────────────────────
 const TOTAL_STEPS = 5;
@@ -40,58 +43,16 @@ const stepLabels = [
   "Review",
 ];
 
-const suggestedPlayers = [
-  {
-    id: "1",
-    name: "Marcus Johnson",
-    avatar:
-      "https://images.unsplash.com/photo-1751730739769-00b6e0807d65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbGUlMjBhdGhsZXRlJTIwcG9ydHJhaXQlMjBoZWFkc2hvdHxlbnwxfHx8fDE3NzE2MzA5OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Basketball",
-  },
-  {
-    id: "2",
-    name: "Sarah Chen",
-    avatar:
-      "https://images.unsplash.com/photo-1650066579657-ae92847b1482?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMGZlbWFsZSUyMGF0aGxldGUlMjBwb3J0cmFpdCUyMHNtaWxlfGVufDF8fHx8MTc3MTYzMDk5Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Soccer",
-  },
-  {
-    id: "3",
-    name: "DeAndre Williams",
-    avatar:
-      "https://images.unsplash.com/photo-1590156552211-69280532a54a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYWxlJTIwYmFza2V0YmFsbCUyMHBsYXllciUyMHBvcnRyYWl0JTIwY2FzdWFsfGVufDF8fHx8MTc3MTYzMDk5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Basketball",
-  },
-  {
-    id: "4",
-    name: "Priya Patel",
-    avatar:
-      "https://images.unsplash.com/photo-1762170318123-616b97727044?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmZW1hbGUlMjBzb2NjZXIlMjBwbGF5ZXIlMjBwb3J0cmFpdCUyMG91dGRvb3J8ZW58MXx8fHwxNzcxNjMwOTk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Volleyball",
-  },
-  {
-    id: "5",
-    name: "Jake Torres",
-    avatar:
-      "https://images.unsplash.com/photo-1649440100794-0776df1177b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHNwb3J0eSUyMHBvcnRyYWl0JTIwZml0bmVzc3xlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Soccer",
-  },
-  {
-    id: "6",
-    name: "Aisha Robinson",
-    avatar:
-      "https://images.unsplash.com/photo-1695774361378-a8a8695c408e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwYXRobGV0aWMlMjBwb3J0cmFpdCUyMGd5bXxlbnwxfHx8fDE3NzE2MzA5OTR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    sport: "Volleyball",
-  },
-];
-
-const groups = [
-  { id: "g1", name: "Sunday Soccer" },
-  { id: "g2", name: "Pickup Hoops" },
-  { id: "g3", name: "Beach Volley" },
-];
-
 // ─── Types ─────────────────────────────────────────────────
+type InvitePlayer = {
+  id: string;
+  name: string;
+  avatar?: string;
+  initials?: string;
+  color?: string;
+  sport?: string;
+};
+
 interface TimeOption {
   id: string;
   date: string;
@@ -271,16 +232,44 @@ export function CreateGameScreen() {
 
   // Step 4 state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>(mock ? ["1", "2", "3", "4"] : []);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [invitePlayers, setInvitePlayers] = useState<InvitePlayer[]>([]);
 
   // Step 5 state
   const [visibility, setVisibility] = useState<"public" | "group" | "private" | "">(
     ""
   );
-  const [assignedGroup, setAssignedGroup] = useState("g1");
+  const [assignedGroup, setAssignedGroup] = useState("");
+  const [realGroups, setRealGroups] = useState<{ id: string; name: string }[]>([]);
   const [votingPeriodType, setVotingPeriodType] = useState<number | "custom">(24);
   const [customVotingHours, setCustomVotingHours] = useState<string>("");
+
+  // ─── Load real groups + friends ────────────────────────
+  useEffect(() => {
+    getGroups().then((gs) => {
+      const mapped = gs.map((g) => ({ id: g.id, name: g.name }));
+      setRealGroups(mapped);
+      if (mapped.length > 0) setAssignedGroup(mapped[0].id);
+    });
+    if (profile?.id) {
+      getFriendIds(profile.id).then((friendIds) => {
+        if (friendIds.length === 0) return;
+        getPlayers().then((allPlayers) => {
+          const friends = allPlayers
+            .filter((p) => friendIds.includes(p.id))
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              initials: p.initials,
+              color: p.color,
+            }));
+          setInvitePlayers(friends);
+        });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   // ─── Derived ──────────────────────────────────────────
   const perPersonCost = useMemo(() => {
@@ -291,13 +280,14 @@ export function CreateGameScreen() {
   }, [totalCost, splitCost, maxPlayers]);
 
   const filteredPlayers = useMemo(() => {
-    if (!searchQuery.trim()) return suggestedPlayers;
-    return suggestedPlayers.filter((p) =>
+    const list = invitePlayers;
+    if (!searchQuery.trim()) return list;
+    return list.filter((p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, invitePlayers]);
 
-  const allSelected = selectedPlayers.length === suggestedPlayers.length;
+  const allSelected = filteredPlayers.length > 0 && selectedPlayers.length === filteredPlayers.length;
 
   // ─── Handlers ─────────────────────────────────────────
   const goNext = useCallback(() => {
@@ -353,9 +343,9 @@ export function CreateGameScreen() {
     if (allSelected) {
       setSelectedPlayers([]);
     } else {
-      setSelectedPlayers(suggestedPlayers.map((p) => p.id));
+      setSelectedPlayers(filteredPlayers.map((p) => p.id));
     }
-  }, [allSelected]);
+  }, [allSelected, filteredPlayers]);
 
   const handleCopyLink = useCallback(() => {
     setLinkCopied(true);
@@ -559,6 +549,8 @@ export function CreateGameScreen() {
                 splitCost={splitCost}
                 perPersonCost={perPersonCost}
                 selectedPlayers={selectedPlayers}
+                invitePlayers={invitePlayers}
+                groups={realGroups}
                 visibility={visibility}
                 setVisibility={setVisibility}
                 assignedGroup={assignedGroup}
@@ -1061,7 +1053,7 @@ function StepInvite({
 }: {
   searchQuery: string;
   setSearchQuery: (v: string) => void;
-  filteredPlayers: typeof suggestedPlayers;
+  filteredPlayers: InvitePlayer[];
   selectedPlayers: string[];
   togglePlayer: (id: string) => void;
   allSelected: boolean;
@@ -1170,56 +1162,75 @@ function StepInvite({
 
       {/* Player list */}
       <div className="flex flex-col gap-0 mb-6">
-        {filteredPlayers.map((player) => {
-          const isSelected = selectedPlayers.includes(player.id);
-          return (
-            <button
-              key={player.id}
-              onClick={() => togglePlayer(player.id)}
-              className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[56px] ${
-                isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
-              }`}
-            >
-              <ImageWithFallback
-                src={player.avatar}
-                alt={player.name}
-                className="w-10 h-10 rounded-md3-full object-cover flex-shrink-0"
-              />
-              <div className="flex-1 text-left">
-                <p className="text-body-md font-medium text-on-surface leading-tight">
-                  {player.name}
-                </p>
-                <p className="text-label-md text-on-surface-variant leading-tight">
-                  {player.sport}
-                </p>
-              </div>
-              <div
-                className={`w-5 h-5 rounded-md3-extra-small border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  isSelected
-                    ? "bg-primary border-primary"
-                    : "border-outline bg-transparent"
+        {filteredPlayers.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-on-surface-variant">
+            <Users className="w-8 h-8 opacity-40" />
+            <p className="text-body-md">No friends yet</p>
+            <p className="text-label-md text-center">Add friends first, then invite them to games.</p>
+          </div>
+        ) : (
+          filteredPlayers.map((player) => {
+            const isSelected = selectedPlayers.includes(player.id);
+            return (
+              <button
+                key={player.id}
+                onClick={() => togglePlayer(player.id)}
+                className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[56px] ${
+                  isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
                 }`}
               >
-                {isSelected && (
-                  <svg
-                    width="12"
-                    height="10"
-                    viewBox="0 0 12 10"
-                    fill="none"
+                {player.avatar ? (
+                  <ImageWithFallback
+                    src={player.avatar}
+                    alt={player.name}
+                    className="w-10 h-10 rounded-md3-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-md3-full flex items-center justify-center flex-shrink-0 text-label-lg font-medium text-white"
+                    style={{ backgroundColor: player.color || "#6750A4" }}
                   >
-                    <path
-                      d="M1 5L4.5 8.5L11 1.5"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                    {player.initials || player.name.charAt(0).toUpperCase()}
+                  </div>
                 )}
-              </div>
-            </button>
-          );
-        })}
+                <div className="flex-1 text-left">
+                  <p className="text-body-md font-medium text-on-surface leading-tight">
+                    {player.name}
+                  </p>
+                  {player.sport && (
+                    <p className="text-label-md text-on-surface-variant leading-tight">
+                      {player.sport}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-md3-extra-small border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    isSelected
+                      ? "bg-primary border-primary"
+                      : "border-outline bg-transparent"
+                  }`}
+                >
+                  {isSelected && (
+                    <svg
+                      width="12"
+                      height="10"
+                      viewBox="0 0 12 10"
+                      fill="none"
+                    >
+                      <path
+                        d="M1 5L4.5 8.5L11 1.5"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          })
+        )}
       </div>
 
       {/* Selected count */}
@@ -1249,6 +1260,8 @@ function StepReview({
   splitCost,
   perPersonCost,
   selectedPlayers,
+  invitePlayers,
+  groups,
   visibility,
   setVisibility,
   assignedGroup,
@@ -1270,6 +1283,8 @@ function StepReview({
   splitCost: boolean;
   perPersonCost: string;
   selectedPlayers: string[];
+  invitePlayers: InvitePlayer[];
+  groups: { id: string; name: string }[];
   visibility: "public" | "group" | "private" | "";
   setVisibility: (v: "public" | "group" | "private" | "") => void;
   assignedGroup: string;
@@ -1384,18 +1399,27 @@ function StepReview({
         {selectedPlayers.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {selectedPlayers.map((pid) => {
-              const player = suggestedPlayers.find((p) => p.id === pid);
+              const player = invitePlayers.find((p) => p.id === pid);
               if (!player) return null;
               return (
                 <div
                   key={pid}
                   className="flex items-center gap-2 bg-secondary-container rounded-md3-full px-3 py-1.5"
                 >
-                  <ImageWithFallback
-                    src={player.avatar}
-                    alt={player.name}
-                    className="w-6 h-6 rounded-md3-full object-cover"
-                  />
+                  {player.avatar ? (
+                    <ImageWithFallback
+                      src={player.avatar}
+                      alt={player.name}
+                      className="w-6 h-6 rounded-md3-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-6 h-6 rounded-md3-full flex items-center justify-center text-[10px] font-medium text-white flex-shrink-0"
+                      style={{ backgroundColor: player.color || "#6750A4" }}
+                    >
+                      {player.initials || player.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <span className="text-label-md font-medium text-on-surface leading-none">
                     {player.name.split(" ")[0]}
                   </span>
@@ -1502,36 +1526,40 @@ function StepReview({
           <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
             Assign to Group
           </h3>
-          <div className="flex flex-col gap-0">
-            {groups.map((group) => {
-              const isSelected = assignedGroup === group.id;
-              return (
-                <button
-                  key={group.id}
-                  onClick={() => setAssignedGroup(group.id)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[48px] ${
-                    isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
-                  }`}
-                >
-                  <div
-                  className={`w-5 h-5 rounded-md3-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected
-                      ? "border-primary"
-                      : "border-outline"
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="w-[10px] h-[10px] rounded-md3-full bg-primary" />
-                  )}
-                </div>
-                <span className="text-body-md text-on-surface font-medium leading-none">
-                  {group.name}
-                </span>
-              </button>
-            );
-          })}
+          {groups.length === 0 ? (
+            <p className="text-label-lg text-on-surface-variant leading-normal">
+              No groups yet. Create a group from the home screen.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-0">
+              {groups.map((group) => {
+                const isSelected = assignedGroup === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => setAssignedGroup(group.id)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-md3-medium transition-colors min-h-[48px] ${
+                      isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-md3-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? "border-primary" : "border-outline"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="w-[10px] h-[10px] rounded-md3-full bg-primary" />
+                      )}
+                    </div>
+                    <span className="text-body-md text-on-surface font-medium leading-none">
+                      {group.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
       )}
 
       {/* Error display */}

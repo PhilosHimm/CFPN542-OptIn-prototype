@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical } from "lucide-react";
+import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical, Check } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -30,6 +30,23 @@ export function ProfileScreen() {
   );
   const [usernameError, setUsernameError] = useState("");
 
+  // Notification preferences
+  const [notifGameReminders, setNotifGameReminders] = useState(true);
+  const [notifNewProposals, setNotifNewProposals] = useState(true);
+  const [notifVotingClosing, setNotifVotingClosing] = useState(false);
+  const [notifFriendRequests, setNotifFriendRequests] = useState(true);
+
+  // Game preferences
+  const allSports = ["Soccer", "Basketball", "Volleyball", "Tennis", "Flag Football", "Softball"];
+  const [preferredSports, setPreferredSports] = useState<string[]>(["Soccer"]);
+  const [skillLevel, setSkillLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
+
+  const toggleSport = (sport: string) => {
+    setPreferredSports((prev) =>
+      prev.includes(sport) ? prev.filter((s) => s !== sport) : [...prev, sport]
+    );
+  };
+
   // Group Management mock data
   const [myGroups, setMyGroups] = useState([
     { id: "1", name: "Weekend Warriors", members: 12 },
@@ -47,8 +64,10 @@ export function ProfileScreen() {
       setActiveDialog("groups");
     } else if (id === "account") {
       setActiveDialog("account");
-    } else {
-      console.log(`Action not implemented: ${id}`);
+    } else if (id === "notifications") {
+      setActiveDialog("notifications");
+    } else if (id === "preferences") {
+      setActiveDialog("preferences");
     }
   };
 
@@ -293,6 +312,99 @@ export function ProfileScreen() {
                 Delete Account
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notifications Dialog */}
+      <Dialog open={activeDialog === "notifications"} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
+          <DialogHeader className="mb-4 text-left">
+            <DialogTitle className="text-title-lg text-on-surface">Notifications</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-0 divide-y divide-outline-variant/30">
+            {[
+              { label: "Game reminders", sub: "24 hours before game time", value: notifGameReminders, set: setNotifGameReminders },
+              { label: "New game proposals", sub: "When someone creates a game you're in", value: notifNewProposals, set: setNotifNewProposals },
+              { label: "Voting closing soon", sub: "2 hours before voting closes", value: notifVotingClosing, set: setNotifVotingClosing },
+              { label: "Friend requests", sub: "When someone wants to connect", value: notifFriendRequests, set: setNotifFriendRequests },
+            ].map(({ label, sub, value, set }) => (
+              <div key={label} className="flex items-center justify-between py-4">
+                <div>
+                  <p className="text-body-md font-medium text-on-surface">{label}</p>
+                  <p className="text-label-sm text-on-surface-variant">{sub}</p>
+                </div>
+                <button
+                  onClick={() => set(!value)}
+                  role="switch"
+                  aria-checked={value}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${value ? "bg-primary" : "bg-surface-variant"}`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${value ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="pt-4 flex justify-end">
+            <Button onClick={() => setActiveDialog(null)} className="rounded-full bg-primary text-on-primary hover:bg-primary/90">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Game Preferences Dialog */}
+      <Dialog open={activeDialog === "preferences"} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
+          <DialogHeader className="mb-4 text-left">
+            <DialogTitle className="text-title-lg text-on-surface">Game Preferences</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6">
+            <div>
+              <p className="text-label-md font-medium text-on-surface-variant mb-3">Preferred Sports</p>
+              <div className="flex flex-wrap gap-2">
+                {allSports.map((sport) => {
+                  const active = preferredSports.includes(sport);
+                  return (
+                    <button
+                      key={sport}
+                      onClick={() => toggleSport(sport)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-label-lg font-medium border transition-colors ${
+                        active
+                          ? "bg-secondary-container text-on-secondary-container border-transparent"
+                          : "bg-surface text-on-surface-variant border-outline"
+                      }`}
+                    >
+                      {active && <Check className="w-3.5 h-3.5" />}
+                      {sport}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-label-md font-medium text-on-surface-variant mb-3">Skill Level</p>
+              <div className="flex gap-2">
+                {(["beginner", "intermediate", "advanced"] as const).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => setSkillLevel(level)}
+                    className={`flex-1 py-2 rounded-full text-label-lg font-medium border transition-colors capitalize ${
+                      skillLevel === level
+                        ? "bg-secondary-container text-on-secondary-container border-transparent"
+                        : "bg-surface text-on-surface-variant border-outline"
+                    }`}
+                  >
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="pt-6 flex justify-end">
+            <Button onClick={() => setActiveDialog(null)} className="rounded-full bg-primary text-on-primary hover:bg-primary/90">
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

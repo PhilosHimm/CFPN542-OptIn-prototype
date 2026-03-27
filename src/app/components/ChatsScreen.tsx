@@ -336,6 +336,10 @@ export function ChatsScreen() {
           conversation={convo}
           onBack={() => setActiveChatId(null)}
           onSendMessage={handleSendMessage}
+          onDelete={(id) => {
+            setDemoConvos((prev) => prev.filter((c) => c.id !== id));
+            setActiveChatId(null);
+          }}
         />
       );
     }
