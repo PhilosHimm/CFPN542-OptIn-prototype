@@ -123,6 +123,7 @@ export function CreateGame() {
 
   const [visibility, setVisibility] = useState("Public");
   const [created, setCreated] = useState(false);
+  const [createdGameId, setCreatedGameId] = useState("");
 
   const perPerson =
     splitCost && totalCost && selectedPlayers.size > 0
@@ -228,6 +229,7 @@ export function CreateGame() {
       });
       setSubmitting(false);
       if (!result.error) {
+        setCreatedGameId(result.id);
         setCreated(true);
       }
     }
@@ -280,8 +282,28 @@ export function CreateGame() {
   };
 
   if (created) {
+    const gameUrl = createdGameId
+      ? `${window.location.origin}/game/${createdGameId}`
+      : window.location.origin;
+
+    const handleShareGame = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: gameTitle, url: gameUrl });
+        } catch { /* dismissed */ }
+      } else {
+        await navigator.clipboard.writeText(gameUrl);
+        toast.success("Game link copied!");
+      }
+    };
+
+    const handleCopyGameLink = async () => {
+      await navigator.clipboard.writeText(gameUrl);
+      toast.success("Game link copied!");
+    };
+
     return (
-      <div className="min-h-full flex flex-col items-center justify-center p-8 text-center space-y-8">
+      <div className="min-h-full flex flex-col items-center justify-center p-8 text-center space-y-6">
         <div className="w-24 h-24 rounded-[32px] bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-200">
           <CheckCircle className="w-12 h-12" />
         </div>
@@ -291,9 +313,35 @@ export function CreateGame() {
             {selectedPlayers.size} players invited to vote on your {timeOptions.length} time options.
           </p>
         </div>
-        <div className="w-full space-y-4 pt-4">
+
+        {createdGameId && (
+          <div className="w-full space-y-3">
+            <p className="text-sm font-semibold text-black/40 uppercase tracking-widest">Share with your crew</p>
+            <div className="bg-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/50 break-all text-left">
+              {gameUrl}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopyGameLink}
+                className="flex-1 ios-btn-secondary py-4 flex items-center justify-center gap-2 text-base font-semibold"
+              >
+                <Copy className="w-5 h-5" />
+                Copy Link
+              </button>
+              <button
+                onClick={handleShareGame}
+                className="flex-1 ios-btn-primary py-4 flex items-center justify-center gap-2 text-base font-semibold"
+              >
+                <Share2 className="w-5 h-5" />
+                Share
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full space-y-3 pt-2">
           <button
-            onClick={() => navigate("/game/game1")}
+            onClick={() => navigate(createdGameId ? `/game/${createdGameId}` : "/")}
             className="w-full ios-btn-primary py-4 text-lg"
           >
             View Game Page
@@ -310,7 +358,7 @@ export function CreateGame() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 max-w-[430px] mx-auto w-full">
       {/* -- Header ---------------------------------------------------------- */}
       <header className="px-6 pt-4 space-y-4 bg-[#F2F2F7]/80 backdrop-blur-md sticky top-0 z-40 pb-4 border-b border-black/5">
         <div className="flex items-center gap-4">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -33,7 +33,11 @@ import {
   updateGameVotingDeadline,
   cancelGame,
   confirmGame,
+  unconfirmGame,
+  completeGame,
+  clearVotesForOption,
   isGameVotable,
+  getMinPlayers,
   type Game,
   type VoteOption,
   type Player,
@@ -91,8 +95,9 @@ function getStatusConfig(status: Game["status"]) {
 }
 
 // ─── Countdown Timer Component ────────────────────────────
-function CountdownTimer({ deadline }: { deadline: string }) {
+function CountdownTimer({ deadline, onExpire }: { deadline: string; onExpire?: () => void }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const firedRef = useRef(false);
 
   useEffect(() => {
     const target = new Date(deadline).getTime();
@@ -104,11 +109,15 @@ function CountdownTimer({ deadline }: { deadline: string }) {
         minutes: Math.floor((diff % 3_600_000) / 60_000),
         seconds: Math.floor((diff % 60_000) / 1000),
       });
+      if (diff <= 0 && !firedRef.current && onExpire) {
+        firedRef.current = true;
+        onExpire();
+      }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [deadline]);
+  }, [deadline, onExpire]);
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -470,17 +479,32 @@ export function GameViewScreen() {
 
   // Form states
   const [showProposeTime, setShowProposeTime] = useState(false);
-  const [showEditTime, setShowEditTime] = useState<{ id: string } | null>(null);
+  const [showEditTime, setShowEditTime] = useState<VoteOption | null>(null);
   const [showDeadline, setShowDeadline] = useState(false);
-  
+
   // Propose/Edit form values
   const [formDate, setFormDate] = useState("");
   const [formStart, setFormStart] = useState("");
   const [formEnd, setFormEnd] = useState("");
   const [formLocation, setFormLocation] = useState("");
-  
+
   // Deadline form
   const [deadlineDate, setDeadlineDate] = useState("");
+
+  // Tie-break sheet (Task 6)
+  const [showTieBreak, setShowTieBreak] = useState(false);
+  const [tiedOptions, setTiedOptions] = useState<VoteOption[]>([]);
+
+  // Min-player warning (Task 5)
+  const [showMinPlayerWarning, setShowMinPlayerWarning] = useState<{
+    optionId: string;
+    inCount: number;
+    minRequired: number;
+  } | null>(null);
+
+  // Cancel reason sheet (Task 11)
+  const [showCancelSheet, setShowCancelSheet] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const refreshGame = useCallback(() => {
     if (!id) return;
@@ -489,13 +513,41 @@ export function GameViewScreen() {
     });
   }, [id]);
 
+  // ─── Auto-transitions (Tasks 1, 2, 3) ───────────────────
+  const applyAutoTransitions = useCallback(async (g: Game) => {
+    // Task 2: confirmed → completed if confirmed option date has passed
+    if (g.status === "confirmed" && g.confirmedOptionId) {
+      const opt = g.timeOptions.find((o) => o.id === g.confirmedOptionId);
+      if (opt) {
+        const gameEnd = new Date(`${opt.date}T${opt.endTime || "23:59"}`);
+        if (gameEnd < new Date()) {
+          await completeGame(g.id, opt.votes.in);
+          refreshGame();
+          return;
+        }
+      }
+    }
+    // Task 3: proposal → cancelled if deadline passed AND all options past-dated
+    if (g.status === "proposal") {
+      const deadlinePassed = g.votingDeadline ? new Date(g.votingDeadline) < new Date() : false;
+      const allPast = g.timeOptions.every((o) => new Date(o.date + "T00:00") < new Date());
+      if (deadlinePassed && allPast) {
+        await cancelGame(g.id, "Not enough players");
+        refreshGame();
+      }
+    }
+  }, [refreshGame]);
+
   useEffect(() => {
     if (!id) return;
     fetchGameById(id).then((g) => {
-      if (g) setGame(g);
+      if (g) {
+        setGame(g);
+        applyAutoTransitions(g);
+      }
       setLoading(false);
     });
-  }, [id]);
+  }, [id, applyAutoTransitions]);
 
   // Handlers for advanced game operations
   const handleProposeSubmit = async () => {
@@ -517,6 +569,10 @@ export function GameViewScreen() {
 
   const handleEditSubmit = async () => {
     if (!showEditTime || !formDate || !formStart || !formEnd) return;
+    const isMaterialChange =
+      formDate !== showEditTime.date ||
+      formStart !== showEditTime.startTime ||
+      formEnd !== showEditTime.endTime;
     try {
       await updateGameOption(showEditTime.id, {
         date: formDate,
@@ -524,9 +580,14 @@ export function GameViewScreen() {
         end_time: formEnd,
         location: formLocation || undefined,
       });
+      if (isMaterialChange) {
+        await clearVotesForOption(showEditTime.id);
+        toast.success("Option updated — votes cleared so players can re-vote.");
+      } else {
+        toast.success("Option updated successfully!");
+      }
       setShowEditTime(null);
       refreshGame();
-      toast.success("Option updated successfully!");
     } catch (e: any) {
       toast.error("Failed to update option: " + e.message);
     }
@@ -537,7 +598,7 @@ export function GameViewScreen() {
       await deleteGameOption(optionId);
       if (showEditTime?.id === optionId) setShowEditTime(null);
       refreshGame();
-      toast.success("Option deleted!");
+      toast.success("Option deleted.");
     } catch (e: any) {
       toast.error("Failed to delete option: " + e.message);
     }
@@ -555,32 +616,86 @@ export function GameViewScreen() {
     }
   };
 
-  const handleCancelGame = async () => {
+  // Task 11: cancel with reason sheet
+  const handleCancelGame = () => {
     if (!game) return;
-    if (confirm("Are you sure you want to cancel the game? All attendees will be notified.")) {
-      try {
-        await cancelGame(game.id);
-        setShowHostMenu(false);
-        refreshGame();
-        toast.success("Game cancelled.");
-      } catch (e: any) {
-        toast.error("Failed to cancel game: " + e.message);
-      }
+    setCancelReason("");
+    setShowHostMenu(false);
+    setShowCancelSheet(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!game) return;
+    try {
+      await cancelGame(game.id, cancelReason || undefined);
+      setShowCancelSheet(false);
+      refreshGame();
+      toast.success("Game cancelled.");
+    } catch (e: any) {
+      toast.error("Failed to cancel game: " + e.message);
     }
   };
 
-  const handleConfirmGame = async (optionId: string) => {
+  // Task 5: confirm with min-player check
+  const handleConfirmWithChecks = useCallback(async (optionId: string) => {
     if (!game) return;
-    if (confirm("Confirm this time option? This will lock in the game.")) {
-      try {
-        await confirmGame(game.id, optionId);
-        refreshGame();
-        toast.success("Game confirmed!");
-      } catch (e: any) {
-        toast.error("Failed to confirm game: " + e.message);
-      }
+    const opt = game.timeOptions.find((o) => o.id === optionId);
+    const inCount = opt?.votes.in.length ?? 0;
+    const minRequired = getMinPlayers(game.sport);
+    if (inCount < minRequired) {
+      setShowMinPlayerWarning({ optionId, inCount, minRequired });
+      return;
+    }
+    try {
+      await confirmGame(game.id, optionId);
+      refreshGame();
+      toast.success("Game confirmed!");
+    } catch (e: any) {
+      toast.error("Failed to confirm game: " + e.message);
+    }
+  }, [game, refreshGame]);
+
+  const handleConfirmGame = (optionId: string) => {
+    handleConfirmWithChecks(optionId);
+  };
+
+  // Task 4: undo confirmation
+  const handleUndoConfirm = async () => {
+    if (!game || game.status !== "confirmed") return;
+    const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+    if (confirmedOpt && new Date(confirmedOpt.date + "T00:00") < new Date()) {
+      toast.error("Cannot undo — the game date has already passed.");
+      return;
+    }
+    try {
+      await unconfirmGame(game.id);
+      setShowHostMenu(false);
+      refreshGame();
+      toast.success("Confirmation undone — back to voting.");
+    } catch (e: any) {
+      toast.error("Failed to undo confirmation: " + e.message);
     }
   };
+
+  // Task 1: deadline expiry → auto state transition
+  const handleDeadlineExpiry = useCallback(async () => {
+    if (!game || game.status !== "proposal") return;
+    const opts = [...game.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
+    const maxVotes = opts.length > 0 ? opts[0].votes.in.length : 0;
+    if (maxVotes === 0) {
+      await cancelGame(game.id, "Not enough players");
+      refreshGame();
+      toast.info("Voting closed with no attendees — game cancelled.");
+      return;
+    }
+    const topOptions = opts.filter((o) => o.votes.in.length === maxVotes);
+    if (topOptions.length === 1) {
+      await handleConfirmWithChecks(topOptions[0].id);
+    } else {
+      setTiedOptions(topOptions);
+      setShowTieBreak(true);
+    }
+  }, [game, refreshGame, handleConfirmWithChecks]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -667,7 +782,7 @@ export function GameViewScreen() {
   const createdByPlayer = null as { avatar: string; name: string } | null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
+    <div className="flex flex-col min-h-screen bg-surface max-w-lg mx-auto w-full">
       {/* Hero Image */}
       <div className="relative h-[200px] overflow-hidden">
         <ImageWithFallback
@@ -793,7 +908,7 @@ export function GameViewScreen() {
 
         {/* Voting Countdown — proposal only */}
         {game.status === "proposal" && (
-          <CountdownTimer deadline={game.votingDeadline} />
+          <CountdownTimer deadline={game.votingDeadline} onExpire={handleDeadlineExpiry} />
         )}
 
         {/* Confirmed banner */}
@@ -813,6 +928,23 @@ export function GameViewScreen() {
             <p className="text-body-md text-on-surface-variant font-medium leading-normal">
               This game has been completed. Thanks for playing!
             </p>
+          </div>
+        )}
+
+        {/* Cancelled banner with reason (Task 11) */}
+        {game.status === "cancelled" && (
+          <div className="flex items-start gap-2 bg-error-container rounded-md3-medium px-4 py-3 mb-4">
+            <Ban className="w-5 h-5 text-on-error-container flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-body-md text-on-error-container font-medium leading-normal">
+                This game has been cancelled.
+              </p>
+              {game.cancellationReason && (
+                <p className="text-body-sm text-on-error-container mt-0.5">
+                  Reason: {game.cancellationReason}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -856,7 +988,7 @@ export function GameViewScreen() {
                   setFormDate(opt.date);
                   setFormStart(opt.startTime);
                   setFormEnd(opt.endTime);
-                  setFormLocation(""); // We didn't enforce a location field on VoteOption UI yet
+                  setFormLocation(opt.location || "");
                 }}
               />
             ))}
@@ -896,6 +1028,15 @@ export function GameViewScreen() {
                 Cost Breakdown
               </h3>
             </div>
+            {/* Task 10: cost-split warning when no confirmed attendees */}
+            {game.status === "confirmed" && game.roster.length === 0 && (
+              <div className="flex items-center gap-2 bg-error-container rounded-xl px-3 py-2 mb-3">
+                <CircleAlert className="w-4 h-4 text-on-error-container shrink-0" />
+                <p className="text-body-sm text-on-error-container">
+                  No confirmed attendees — cost split unavailable
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <div className="flex justify-between">
                 <span className="text-label-lg text-on-surface-variant leading-normal">
@@ -918,7 +1059,7 @@ export function GameViewScreen() {
                   Per Person
                 </span>
                 <span className="text-title-md text-primary font-medium leading-normal">
-                  {perPersonCost}
+                  {game.roster.length === 0 ? "—" : perPersonCost}
                 </span>
               </div>
             </div>
@@ -963,7 +1104,7 @@ export function GameViewScreen() {
         )}
       </div>
 
-      {/* Host Settings Menu Bottom Sheet */}
+      {/* Host Settings Menu Bottom Sheet (Task 7 — status-conditional) */}
       <AnimatePresence>
         {showHostMenu && (
           <>
@@ -979,53 +1120,227 @@ export function GameViewScreen() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 left-0 right-0 bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
               <h2 className="text-title-lg font-semibold text-on-surface mb-6">Host Options</h2>
-              
+
               <div className="flex flex-col gap-4">
-                <button
-                  onClick={() => {
-                    setShowHostMenu(false);
-                    setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
-                    setShowProposeTime(true);
-                  }}
-                  className="w-full flex items-center justify-between p-4 bg-surface rounded-xl shadow-sm text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    <span className="text-body-lg font-medium text-on-surface">Propose New Time</span>
-                  </div>
-                </button>
+                {/* Proposal-only actions */}
+                {game.status === "proposal" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowHostMenu(false);
+                        setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
+                        setShowProposeTime(true);
+                      }}
+                      className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
+                    >
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <span className="text-body-lg font-medium text-on-surface">Propose New Time</span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    setShowHostMenu(false);
-                    setShowDeadline(true);
-                    setDeadlineDate(game.votingDeadline ? new Date(game.votingDeadline).toISOString().slice(0, 16) : "");
-                  }}
-                  className="w-full flex items-center justify-between p-4 bg-surface rounded-xl shadow-sm text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <span className="text-body-lg font-medium text-on-surface">Set/Change Voting Deadline</span>
-                  </div>
-                </button>
+                    <button
+                      onClick={() => {
+                        setShowHostMenu(false);
+                        setShowDeadline(true);
+                        setDeadlineDate(game.votingDeadline ? new Date(game.votingDeadline).toISOString().slice(0, 16) : "");
+                      }}
+                      className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
+                    >
+                      <Clock className="w-5 h-5 text-primary" />
+                      <span className="text-body-lg font-medium text-on-surface">Set / Change Voting Deadline</span>
+                    </button>
+                  </>
+                )}
 
-                <div className="h-px w-full bg-outline-variant my-2" />
+                {/* Confirmed-only actions (Task 4 — undo confirm) */}
+                {game.status === "confirmed" && (() => {
+                  const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+                  const canUndo = confirmedOpt ? new Date(confirmedOpt.date + "T00:00") >= new Date() : false;
+                  return canUndo ? (
+                    <button
+                      onClick={handleUndoConfirm}
+                      className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
+                    >
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <span className="text-body-lg font-medium text-on-surface">Undo Confirmation</span>
+                    </button>
+                  ) : null;
+                })()}
+
+                <div className="h-px w-full bg-outline-variant" />
 
                 <button
                   onClick={handleCancelGame}
-                  className="w-full flex items-center justify-between p-4 bg-error-container rounded-xl shadow-sm text-left"
+                  className="w-full flex items-center p-4 bg-error-container rounded-xl shadow-sm text-left gap-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <Ban className="w-5 h-5 text-error" />
-                    <span className="text-body-lg font-medium text-on-error-container">Cancel Game</span>
-                  </div>
+                  <Ban className="w-5 h-5 text-error" />
+                  <span className="text-body-lg font-medium text-on-error-container">Cancel Game</span>
                 </button>
               </div>
             </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Cancel Reason Sheet (Task 11) */}
+      <AnimatePresence>
+        {showCancelSheet && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCancelSheet(false)}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+            >
+              <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
+              <h2 className="text-title-lg font-semibold text-on-surface mb-2">Cancel Game</h2>
+              <p className="text-body-md text-on-surface-variant mb-5">
+                Select a reason (optional) — this will be shown to all players.
+              </p>
+              <div className="flex flex-col gap-3 mb-6">
+                {["Weather", "Venue issue", "Not enough players", "Personal"].map((reason) => (
+                  <button
+                    key={reason}
+                    onClick={() => setCancelReason(cancelReason === reason ? "" : reason)}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 text-left transition-colors ${
+                      cancelReason === reason
+                        ? "border-error bg-error-container text-on-error-container"
+                        : "border-outline-variant bg-surface text-on-surface"
+                    }`}
+                  >
+                    <span className="text-body-md font-medium">{reason}</span>
+                    {cancelReason === reason && <CheckCircle2 className="w-5 h-5 text-error" />}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleCancelConfirm}
+                className="w-full h-12 bg-error text-on-error rounded-full font-medium text-label-lg"
+              >
+                Confirm Cancellation
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Tie-break Sheet (Task 6) */}
+      <AnimatePresence>
+        {showTieBreak && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTieBreak(false)}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+            >
+              <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
+              <h2 className="text-title-lg font-semibold text-on-surface mb-2">Tie Breaker</h2>
+              <p className="text-body-md text-on-surface-variant mb-5">
+                Multiple options tied. Pick the winning time slot.
+              </p>
+              <div className="flex flex-col gap-3">
+                {tiedOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={async () => {
+                      await handleConfirmWithChecks(opt.id);
+                      setShowTieBreak(false);
+                    }}
+                    className="w-full flex flex-col p-4 bg-surface rounded-xl border-2 border-outline text-left gap-1 hover:border-primary transition-colors"
+                  >
+                    <span className="text-body-md font-semibold text-on-surface">{formatDate(opt.date)}</span>
+                    <span className="text-body-sm text-on-surface-variant">
+                      {formatTime(opt.startTime)} – {formatTime(opt.endTime)}
+                    </span>
+                    {opt.location && (
+                      <span className="text-body-sm text-on-surface-variant">{opt.location}</span>
+                    )}
+                    <span className="text-label-md text-primary font-medium mt-1">
+                      {opt.votes.in.length} confirmed In
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Min-player Warning Dialog (Task 5) */}
+      <AnimatePresence>
+        {showMinPlayerWarning && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMinPlayerWarning(null)}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5"
+              >
+                <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-6 h-6 text-on-tertiary-container" />
+                </div>
+                <h3 className="text-title-lg font-semibold text-on-surface text-center mb-2">
+                  Low Player Count
+                </h3>
+                <p className="text-body-md text-on-surface-variant text-center mb-6">
+                  Only <span className="font-semibold text-on-surface">{showMinPlayerWarning.inCount}</span> of{" "}
+                  <span className="font-semibold text-on-surface">{showMinPlayerWarning.minRequired}</span> minimum
+                  players have confirmed. Confirm anyway?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowMinPlayerWarning(null)}
+                    className="flex-1 h-12 rounded-full border-2 border-outline text-label-lg font-medium text-on-surface"
+                  >
+                    Wait
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const { optionId } = showMinPlayerWarning;
+                      setShowMinPlayerWarning(null);
+                      try {
+                        await confirmGame(game!.id, optionId);
+                        refreshGame();
+                        toast.success("Game confirmed!");
+                      } catch (e: any) {
+                        toast.error("Failed to confirm: " + e.message);
+                      }
+                    }}
+                    className="flex-1 h-12 bg-primary text-on-primary rounded-full text-label-lg font-medium"
+                  >
+                    Confirm Anyway
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
