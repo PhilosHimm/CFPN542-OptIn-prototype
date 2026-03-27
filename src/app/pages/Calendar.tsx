@@ -12,6 +12,11 @@ import { getGames, getGroups, getCalendarMarkers } from "../services/games.servi
 import type { Game, Group, GameStatus } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
+function isGameExpired(game: Game): boolean {
+  const today = new Date().toISOString().split("T")[0];
+  return game.options.length > 0 && game.options.every((o) => o.date && o.date < today);
+}
+
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -252,7 +257,7 @@ export function Calendar() {
       <section>
         <h2 className="text-xl font-bold text-black/80 mb-4">All Upcoming</h2>
         {(() => {
-          const upcomingGames = games.filter((g) => g.status === "proposal" || g.status === "confirmed");
+          const upcomingGames = games.filter((g) => (g.status === "proposal" || g.status === "confirmed") && !isGameExpired(g));
           if (upcomingGames.length === 0) {
             return (
               <div className="ios-card bg-white/30 border-dashed py-10 flex flex-col items-center gap-4 text-center">
