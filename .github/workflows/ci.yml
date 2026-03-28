@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, claude/*]
+    branches: [main, "claude/**", "feature/**"]
   pull_request:
     branches: [main]
 
@@ -25,6 +25,10 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Use demo mode so the build does not fail on missing Supabase credentials.
+          # Real values are injected by the Vercel project for production deploys.
+          VITE_APP_ENV: demo
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

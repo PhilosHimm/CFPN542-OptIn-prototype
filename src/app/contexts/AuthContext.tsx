@@ -1,6 +1,6 @@
 // @refresh reset
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase, isSupabaseConfigured, isDemoMode, setDemoModePreference } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured, isDemoMode, setDemoModePreference, devLog } from "@/lib/supabase";
 import type { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
 
 interface UserProfile {
@@ -198,7 +198,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error) setSessionExpired(false);
+      if (!error) {
+        setSessionExpired(false);
+        // Dev-only: confirm auth.uid() is set correctly after sign-in
+        supabase.auth.getUser().then(({ data }) => {
+          devLog("Signed in — auth.uid():", data.user?.id ?? "null");
+        });
+      }
       return { error: error?.message ?? null };
     } catch {
       return { error: "Something went wrong — please try again" };

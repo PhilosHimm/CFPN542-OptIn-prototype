@@ -27,6 +27,15 @@ export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+// Dev-only: confirm the client was initialised with the anon key (not service_role).
+// The anon key and service_role key are both JWTs starting with "eyJh". Developers
+// should cross-check the last 6 chars against the anon key in the Supabase dashboard
+// (Settings → API → Project API Keys → anon public).
+if (supabaseAnonKey && !IS_PROD) {
+  const tail = supabaseAnonKey.slice(-6);
+  console.log(`[OptIn] Supabase client key ends in: ...${tail} — confirm this matches your anon (public) key, NOT service_role.`);
+}
+
 export function isSupabaseConfigured(): boolean {
   return supabase !== null;
 }
