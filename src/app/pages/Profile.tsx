@@ -211,15 +211,15 @@ export function Profile() {
                 value={bio}
                 onChange={(e) => setBio(e.target.value.slice(0, 160))}
                 aria-label="Bio"
-                className="w-full text-center bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/40 outline-none focus:ring-2 focus:ring-primary/10"
+                className="w-full text-center bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/55 outline-none focus:ring-2 focus:ring-primary/10"
               />
-              <p className={`text-xs text-center mt-1 ${bio.length > 150 ? "text-rose-500" : "text-black/30"}`}>{bio.length}/160</p>
+              <p className={`text-xs text-center mt-1 ${bio.length > 150 ? "text-rose-500" : "text-black/50"}`}>{bio.length}/160</p>
             </div>
           </div>
         ) : (
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-black/90 tracking-tight">{name}</h2>
-            <p className="text-sm font-medium text-black/40 max-w-[250px]">{bio}</p>
+            <p className="text-sm font-medium text-black/55 max-w-[250px]">{bio}</p>
           </div>
         )}
       </section>
@@ -234,7 +234,7 @@ export function Profile() {
             >
               <stat.Icon className="w-5 h-5 mb-1" style={{ color: stat.color }} />
               <p className="text-2xl font-black tracking-tighter" style={{ color: stat.color }}>{stat.value}</p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-black/30 leading-tight">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-black/50 leading-tight">
                 {stat.label}
               </p>
             </div>
@@ -246,7 +246,7 @@ export function Profile() {
       <section className="px-6">
         <div className="ios-card space-y-4">
           <div className="flex justify-between items-center border-b border-black/5 pb-2">
-            <h3 className="text-xs font-bold text-black/30 uppercase tracking-widest">Active Groups</h3>
+            <h3 className="text-xs font-bold text-black/50 uppercase tracking-widest">Active Groups</h3>
             <span className="text-xs font-bold text-primary">3 Total</span>
           </div>
           <div className="flex gap-4">
@@ -271,7 +271,7 @@ export function Profile() {
 
       {/* Settings Menu */}
       <section className="px-6 space-y-4">
-        <h3 className="text-xs font-bold text-black/30 uppercase tracking-widest ml-1">Settings</h3>
+        <h3 className="text-xs font-bold text-black/50 uppercase tracking-widest ml-1">Settings</h3>
         <div className="ios-card !p-0 overflow-hidden divide-y divide-black/5">
           {settingsItems.map((item) => (
             <button
@@ -283,7 +283,7 @@ export function Profile() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-black/80">{item.label}</p>
-                <p className="text-[11px] font-medium text-black/30 truncate">{item.sublabel}</p>
+                <p className="text-[11px] font-medium text-black/50 truncate">{item.sublabel}</p>
               </div>
               <ChevronRight className="w-5 h-5 text-black/10" />
             </button>
@@ -302,7 +302,7 @@ export function Profile() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-black/80">Demo Mode</p>
-                <p className="text-[11px] font-medium text-black/30">
+                <p className="text-[11px] font-medium text-black/50">
                   {isDemo ? "Pre-built sample data" : "Live Supabase data"}
                 </p>
               </div>
@@ -321,7 +321,7 @@ export function Profile() {
               </div>
             </div>
             {isDemo && (
-              <p className="text-xs font-medium text-black/40 ml-14">
+              <p className="text-xs font-medium text-black/55 ml-14">
                 <Link to="/signup" className="text-primary underline">Sign up</Link> to use live games and save your data.
               </p>
             )}

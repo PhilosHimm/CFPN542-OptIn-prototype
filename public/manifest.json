@@ -1,0 +1,22 @@
+{
+  "name": "OptIn — Pickup Sports Scheduling",
+  "short_name": "OptIn",
+  "description": "Create games, vote on times, and rally your crew for pickup sports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ONBOARDING_KEY } from "../pages/Onboarding";
 
 export function Layout() {
-  const { user, loading, isDemo } = useAuth();
+  const { user, loading, isDemo, sessionExpired } = useAuth();
   const navigate = useNavigate();
 
   if (loading) {
@@ -27,7 +27,21 @@ export function Layout() {
 
   return (
     <div className="w-full min-h-screen bg-surface flex justify-center">
-      <div className="w-full max-w-[430px] min-h-screen relative bg-surface">
+      <div className="w-full max-w-[430px] sm:max-w-lg min-h-screen relative bg-surface">
+        {/* Session Expired Banner */}
+        {sessionExpired && !isDemo && (
+          <div className="sticky top-0 z-[60] bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-rose-800">
+              Your session has expired. Please sign in again.
+            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="text-xs font-bold text-rose-700 hover:text-rose-900 underline underline-offset-2 shrink-0 ml-2"
+            >
+              Sign In
+            </button>
+          </div>
+        )}
         {/* Demo Mode Banner */}
         {isDemo && (
           <div className="sticky top-0 z-[60] bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between">

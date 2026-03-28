@@ -62,12 +62,12 @@ function TextField({
   const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+      <label htmlFor={id} className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
         {label}
       </label>
       <div className="relative group">
         {Icon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30 group-focus-within:text-primary transition-colors">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/50 group-focus-within:text-primary transition-colors">
             <Icon className="w-4 h-4" aria-hidden="true" />
           </div>
         )}
@@ -81,7 +81,7 @@ function TextField({
         />
       </div>
       {counter && maxLength && (
-        <p className={`text-[11px] font-medium ml-1 ${value.length >= maxLength - (maxLength <= 50 ? 5 : 10) ? 'text-red-500' : 'text-black/30'}`}>
+        <p className={`text-[11px] font-medium ml-1 ${value.length >= maxLength - (maxLength <= 50 ? 5 : 10) ? 'text-red-500' : 'text-black/50'}`}>
           {value.length}/{maxLength}
         </p>
       )}
@@ -172,6 +172,11 @@ export function CreateGame() {
       }
       if (!gameTitle.trim()) {
         toast.error("Please enter a game title");
+        return;
+      }
+      const mp = parseInt(maxPlayers);
+      if (!mp || mp < 2 || mp > 100) {
+        toast.error("Max players must be between 2 and 100");
         return;
       }
     }
@@ -309,14 +314,14 @@ export function CreateGame() {
         </div>
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Game Created!</h2>
-          <p className="text-black/40 font-medium">
+          <p className="text-black/55 font-medium">
             {selectedPlayers.size} players invited to vote on your {timeOptions.length} time options.
           </p>
         </div>
 
         {createdGameId && (
           <div className="w-full space-y-3">
-            <p className="text-sm font-semibold text-black/40 uppercase tracking-widest">Share with your crew</p>
+            <p className="text-sm font-semibold text-black/55 uppercase tracking-widest">Share with your crew</p>
             <div className="bg-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/50 break-all text-left">
               {gameUrl}
             </div>
@@ -358,7 +363,7 @@ export function CreateGame() {
   }
 
   return (
-    <div className="space-y-6 pb-10 max-w-[430px] mx-auto w-full">
+    <div className="space-y-6 pb-10 max-w-[430px] sm:max-w-lg mx-auto w-full">
       {/* -- Header ---------------------------------------------------------- */}
       <header className="px-6 pt-4 space-y-4 bg-[#F2F2F7]/80 backdrop-blur-md sticky top-0 z-40 pb-4 border-b border-black/5">
         <div className="flex items-center gap-4">
@@ -380,7 +385,7 @@ export function CreateGame() {
             />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">
+            <span className="text-[10px] font-bold text-black/50 uppercase tracking-widest">
               Step {step} of 5
             </span>
             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
@@ -395,7 +400,7 @@ export function CreateGame() {
         {step === 1 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                 Select Sport
               </label>
               <div className="grid grid-cols-4 gap-3">
@@ -408,7 +413,7 @@ export function CreateGame() {
                       className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-90 ${
                         isSelected
                           ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105"
-                          : "bg-black/5 text-black/40"
+                          : "bg-black/5 text-black/55"
                       }`}
                     >
                       <SportIcon sport={sport.name} className="w-6 h-6" />
@@ -440,7 +445,7 @@ export function CreateGame() {
               />
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+                <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                   Game Intensity
                 </label>
                 <div className="flex gap-3">
@@ -453,7 +458,7 @@ export function CreateGame() {
                         className={`flex-1 p-4 rounded-2xl flex items-center justify-center gap-3 font-bold transition-all ${
                           isSelected
                             ? "bg-primary text-white shadow-lg"
-                            : "bg-black/5 text-black/40"
+                            : "bg-black/5 text-black/55"
                         }`}
                       >
                         {type === "Casual" ? <Smile className="w-5 h-5" /> : <Trophy className="w-5 h-5" />}
@@ -467,9 +472,17 @@ export function CreateGame() {
               <TextField
                 label="Max Players"
                 value={maxPlayers}
-                onChange={setMaxPlayers}
+                onChange={(v) => {
+                  const num = parseInt(v);
+                  if (v === "" || (num >= 0 && num <= 100)) setMaxPlayers(v);
+                }}
                 type="number"
                 icon={Users}
+                error={
+                  maxPlayers && (parseInt(maxPlayers) < 2 || parseInt(maxPlayers) > 100)
+                    ? "Must be between 2 and 100 players"
+                    : undefined
+                }
               />
             </div>
           </div>
@@ -556,7 +569,7 @@ export function CreateGame() {
           <div className="space-y-6">
             <div className="ios-card space-y-6 p-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1 text-center block">
+                <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1 text-center block">
                   Total Venue Cost
                 </label>
                 <div className="relative">
@@ -574,7 +587,7 @@ export function CreateGame() {
               <div className="flex items-center justify-between p-4 bg-black/5 rounded-2xl">
                 <div>
                   <p className="font-bold text-black/80">Split cost among players?</p>
-                  <p className="text-[10px] font-medium text-black/40 mt-0.5 uppercase tracking-wider">Automated calculations</p>
+                  <p className="text-[10px] font-medium text-black/55 mt-0.5 uppercase tracking-wider">Automated calculations</p>
                 </div>
                 <button
                   onClick={() => setSplitCost(!splitCost)}
@@ -611,7 +624,7 @@ export function CreateGame() {
         {step === 4 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                 Share Invitation
               </label>
               <div className="flex gap-3">
@@ -634,7 +647,7 @@ export function CreateGame() {
             <div className="ios-card !p-0 overflow-hidden">
               <div className="p-4 border-b border-black/5 bg-black/[0.02]">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50" />
                   <input
                     type="text"
                     placeholder="Search players..."
@@ -646,7 +659,7 @@ export function CreateGame() {
               </div>
 
               <div className="p-4 flex justify-between items-center bg-white/40">
-                <span className="text-xs font-bold text-black/40 uppercase tracking-widest">
+                <span className="text-xs font-bold text-black/55 uppercase tracking-widest">
                   {filteredPlayers.length} Suggested
                 </span>
                 <button
@@ -681,7 +694,7 @@ export function CreateGame() {
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-sm font-bold text-black/90">{player.name}</p>
-                        <p className="text-[11px] font-medium text-black/30">
+                        <p className="text-[11px] font-medium text-black/50">
                           {player.gamesPlayed} games • {player.attendanceRate}% in
                         </p>
                       </div>
@@ -712,13 +725,13 @@ export function CreateGame() {
                 <div className="flex-1">
                   <h3 className="text-2xl font-bold leading-tight">{gameTitle || "Untitled Game"}</h3>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {selectedSport}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {gameType}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {maxPlayers} Max
                     </span>
                   </div>
@@ -733,7 +746,7 @@ export function CreateGame() {
             </div>
 
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest block border-b border-black/5 pb-2">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest block border-b border-black/5 pb-2">
                 Time Proposals
               </label>
               <div className="space-y-3">
@@ -744,7 +757,7 @@ export function CreateGame() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-black/80">{opt.date || "Date TBD"} @ {opt.startTime || "Time TBD"}</p>
-                      <p className="text-xs font-medium text-black/40">{opt.location || address || "No location set"}</p>
+                      <p className="text-xs font-medium text-black/55">{opt.location || address || "No location set"}</p>
                     </div>
                   </div>
                 ))}
@@ -758,17 +771,17 @@ export function CreateGame() {
                 </div>
                 <div>
                   <p className="font-bold">Entry Fee</p>
-                  <p className="text-xs text-black/40">Per confirmed player</p>
+                  <p className="text-xs text-black/55">Per confirmed player</p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-black text-primary">${totalCost ? perPerson : '0.00'}</p>
-                <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest">{totalCost ? 'Split Cost' : 'Free'}</p>
+                <p className="text-[10px] font-bold text-black/50 uppercase tracking-widest">{totalCost ? 'Split Cost' : 'Free'}</p>
               </div>
             </div>
 
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest block border-b border-black/5 pb-2">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest block border-b border-black/5 pb-2">
                 Visibility
               </label>
               <div className="flex gap-2">
@@ -786,7 +799,7 @@ export function CreateGame() {
                       className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl transition-all ${
                         isSelected
                           ? "bg-primary text-white shadow-lg"
-                          : "bg-black/5 text-black/40"
+                          : "bg-black/5 text-black/55"
                       }`}
                     >
                       <Icon className="w-5 h-5" />

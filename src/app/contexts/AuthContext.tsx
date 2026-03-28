@@ -23,6 +23,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isDemo: boolean;
+  sessionExpired: boolean;
   supabaseConfigured: boolean;
   toggleDemoMode: (enabled: boolean) => void;
   enterDemoMode: () => void;
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [isDemo, setIsDemo] = useState(() => isDemoMode() || localStorage.getItem(DEMO_SESSION_KEY) === "true");
   const supabaseConfigured = isSupabaseConfigured();
 
@@ -109,15 +111,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Periodic session refresh check
+    // Periodic session refresh check — attempt token refresh, detect expiry
     const refreshInterval = setInterval(async () => {
       if (!supabase) return;
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession && user) {
-          setUser(null);
-          setSession(null);
-          setProfile(null);
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        if ((!currentSession || error) && user) {
+          // Attempt to refresh the token before giving up
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (!refreshData.session) {
+            setSessionExpired(true);
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+          }
         }
       } catch {
         // Network error — don't sign out on transient failures
@@ -191,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error) setSessionExpired(false);
       return { error: error?.message ?? null };
     } catch {
       return { error: "Something went wrong — please try again" };
@@ -264,7 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
+      value={{ user, profile, session, loading, isDemo, sessionExpired, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
     >
       {children}
     </AuthContext.Provider>

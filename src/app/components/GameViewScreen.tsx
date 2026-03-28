@@ -711,9 +711,15 @@ export function GameViewScreen() {
 
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
+  const voteCooldown = useRef<Set<string>>(new Set());
 
   const handleVote = useCallback(
     (optionId: string, vote: "in" | "maybe" | "out") => {
+      // Debounce: ignore rapid clicks on the same option
+      if (voteCooldown.current.has(optionId)) return;
+      voteCooldown.current.add(optionId);
+      setTimeout(() => voteCooldown.current.delete(optionId), 400);
+
       setVotes((prev) => {
         // Toggle off if same vote
         if (prev[optionId] === vote) {
@@ -1120,6 +1126,9 @@ export function GameViewScreen() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Host Options"
               className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
@@ -1201,6 +1210,9 @@ export function GameViewScreen() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Cancel Game"
               className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
@@ -1251,6 +1263,9 @@ export function GameViewScreen() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Tie Breaker"
               className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
@@ -1302,6 +1317,9 @@ export function GameViewScreen() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                role="alertdialog"
+                aria-modal="true"
+                aria-label="Minimum players warning"
                 className="bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5"
               >
                 <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center mx-auto mb-4">

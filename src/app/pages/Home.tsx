@@ -76,7 +76,7 @@ export function Home() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="px-6 pt-4 flex justify-between items-end">
         <div>
-          <p className="text-black/40 text-sm font-medium">
+          <p className="text-black/55 text-sm font-medium">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
           </p>
           <h1 className="text-3xl font-bold tracking-tight text-black/90">Hey, {profile?.name.split(" ")[0] || "there"}</h1>
@@ -130,7 +130,7 @@ export function Home() {
               </div>
               <div>
                 <p className="text-sm font-bold text-black/90 leading-tight">{group.name}</p>
-                <p className="text-[11px] font-medium text-black/40 mt-0.5">{group.memberCount} members</p>
+                <p className="text-[11px] font-medium text-black/55 mt-0.5">{group.memberCount} members</p>
               </div>
               {group.nextGame && (
                 <div className="bg-black/5 px-2 py-0.5 rounded-md">
@@ -141,11 +141,11 @@ export function Home() {
           ))}
           <div className="flex-shrink-0 flex flex-col items-center gap-2">
             {groups.length === 0 && (
-              <p className="text-xs font-medium text-black/40 text-center mb-1">Create your first group to get started</p>
+              <p className="text-xs font-medium text-black/55 text-center mb-1">Create your first group to get started</p>
             )}
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/40 active:bg-black/5 transition-colors"
+              className="flex-shrink-0 w-[120px] rounded-[20px] border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 text-black/55 active:bg-black/5 transition-colors"
             >
               <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
                 <Plus className="w-6 h-6" />
@@ -176,7 +176,7 @@ export function Home() {
               </div>
               <div>
                 <p className="font-bold text-black/70">No upcoming games yet</p>
-                <p className="text-xs font-medium text-black/40 mt-1">Create your first game to get started!</p>
+                <p className="text-xs font-medium text-black/55 mt-1">Create your first game to get started!</p>
               </div>
               <button onClick={() => navigate("/create")} className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all">
                 Create Game
@@ -210,7 +210,7 @@ export function Home() {
                       </div>
                       <div>
                         <h4 className="font-bold text-black/90">{game.title}</h4>
-                        <p className="text-xs font-medium text-black/40 mt-0.5">
+                        <p className="text-xs font-medium text-black/55 mt-0.5">
                           {group?.name} • {game.gameType}
                         </p>
                       </div>
@@ -227,7 +227,7 @@ export function Home() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-black/40" />
+                        <MapPin className="w-3.5 h-3.5 text-black/55" />
                         <span className="text-xs font-medium text-black/60 truncate">
                           {displayOption.location}
                         </span>
@@ -248,7 +248,7 @@ export function Home() {
                           </div>
                         ))}
                       </div>
-                      <span className="text-[11px] font-bold text-black/40 uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-black/55 uppercase tracking-wider">
                         {game.currentPlayers}/{game.maxPlayers} JOINED
                       </span>
                     </div>
@@ -302,7 +302,7 @@ export function Home() {
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-bold text-black/90">{game.title}</p>
-                  <p className="text-[11px] font-medium text-black/40">
+                  <p className="text-[11px] font-medium text-black/55">
                     {game.options.length > 0 ? game.options[0].displayDate : "No date"} • {game.currentPlayers} players
                   </p>
                 </div>
@@ -320,7 +320,15 @@ export function Home() {
             className="fixed inset-0 bg-black/50 z-40"
             onClick={() => setShowNotifications(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notifications"
+            onKeyDown={(e) => e.key === "Escape" && setShowNotifications(false)}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl outline-none"
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-black/90">Notifications</h2>
               <button
@@ -332,8 +340,8 @@ export function Home() {
             </div>
             <div className="flex flex-col items-center py-10 gap-3 text-center">
               <Bell className="w-12 h-12 text-black/10" />
-              <p className="font-bold text-black/40">No new notifications</p>
-              <p className="text-sm text-black/30">You're all caught up!</p>
+              <p className="font-bold text-black/55">No new notifications</p>
+              <p className="text-sm text-black/50">You're all caught up!</p>
             </div>
           </div>
         </>
@@ -346,7 +354,15 @@ export function Home() {
             className="fixed inset-0 bg-black/50 z-40"
             onClick={() => setShowCreateGroup(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create Group"
+            onKeyDown={(e) => e.key === "Escape" && setShowCreateGroup(false)}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl outline-none"
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-black/90">Create Group</h2>
               <button

@@ -77,7 +77,7 @@ export function Calendar() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="pt-4">
         <h1 className="text-3xl font-bold tracking-tight text-black/90">Calendar</h1>
-        <p className="text-black/40 text-sm font-medium mt-0.5">Your game schedule at a glance</p>
+        <p className="text-black/55 text-sm font-medium mt-0.5">Your game schedule at a glance</p>
       </header>
 
       {/* ── Calendar Card ───────────────────────────────────────────────────── */}
@@ -107,7 +107,7 @@ export function Calendar() {
         <div className="grid grid-cols-7 px-2 py-3 bg-black/[0.02]">
           {DAYS.map((d) => (
             <div key={d} className="text-center">
-              <span className="text-[10px] font-bold text-black/30 tracking-widest">{d}</span>
+              <span className="text-[10px] font-bold text-black/50 tracking-widest">{d}</span>
             </div>
           ))}
         </div>
@@ -186,7 +186,7 @@ export function Calendar() {
             </div>
             <div>
               <p className="font-bold text-black/70">Nothing scheduled</p>
-              <p className="text-xs font-medium text-black/40 mt-1">No games on this date.</p>
+              <p className="text-xs font-medium text-black/55 mt-1">No games on this date.</p>
             </div>
             <button
               onClick={() => navigate("/create")}
@@ -225,7 +225,7 @@ export function Calendar() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-bold text-black/90 truncate">{game.title}</h4>
-                        <p className="text-xs font-medium text-black/40">{group?.name}</p>
+                        <p className="text-xs font-medium text-black/55">{group?.name}</p>
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                         status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
@@ -236,12 +236,12 @@ export function Calendar() {
                     {displayOpt && (
                       <div className="mt-3 flex gap-4">
                         <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-black/30" />
+                          <Clock className="w-3.5 h-3.5 text-black/50" />
                           <span className="text-xs font-bold text-black/60">{displayOpt.startTime}</span>
                         </div>
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <MapPin className="w-3.5 h-3.5 text-black/30" />
-                          <span className="text-xs font-medium text-black/40 truncate">{displayOpt.location}</span>
+                          <MapPin className="w-3.5 h-3.5 text-black/50" />
+                          <span className="text-xs font-medium text-black/55 truncate">{displayOpt.location}</span>
                         </div>
                       </div>
                     )}
@@ -266,7 +266,7 @@ export function Calendar() {
                 </div>
                 <div>
                   <p className="font-bold text-black/70">No upcoming games</p>
-                  <p className="text-xs font-medium text-black/40 mt-1">Games you create or join will appear here.</p>
+                  <p className="text-xs font-medium text-black/55 mt-1">Games you create or join will appear here.</p>
                 </div>
                 <button
                   onClick={() => navigate("/create")}
@@ -290,12 +290,12 @@ export function Calendar() {
                     onClick={() => navigate(`/game/${game.id}`)}
                     className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/30">
+                    <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/50">
                       <SportIcon sport={game.sport} className="w-6 h-6" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-black/90 truncate">{game.title}</p>
-                      <p className="text-[11px] font-medium text-black/40">
+                      <p className="text-[11px] font-medium text-black/55">
                         {opt?.displayDate ?? "No date"} • {opt?.startTime ?? ""}
                       </p>
                     </div>

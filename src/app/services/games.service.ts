@@ -1,4 +1,5 @@
 import { supabase, isDemoMode } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
   games as mockGames,
   groups as mockGroups,
@@ -9,6 +10,10 @@ import {
   type GameStatus,
   type VoteValue,
 } from "../data/games";
+
+function showNetworkError(context: string) {
+  toast.error(`Failed to load ${context}. Check your connection and try again.`);
+}
 
 export async function getGames(): Promise<Game[]> {
   if (isDemoMode()) return mockGames;
@@ -58,8 +63,8 @@ export async function getGames(): Promise<Game[]> {
       confirmedOptionId: g.confirmed_option_id,
       description: g.description,
     }));
-  } catch (err) {
-
+  } catch {
+    showNetworkError("games");
     return [];
   }
 }
@@ -115,8 +120,8 @@ export async function getGameById(id: string): Promise<Game | null> {
       confirmedOptionId: data.confirmed_option_id,
       description: data.description,
     };
-  } catch (err) {
-
+  } catch {
+    showNetworkError("game details");
     return null;
   }
 }
@@ -143,8 +148,8 @@ export async function getGroups(): Promise<Group[]> {
       nextGame: g.next_game,
       initials: g.initials,
     }));
-  } catch (err) {
-
+  } catch {
+    showNetworkError("groups");
     return [];
   }
 }
@@ -172,8 +177,8 @@ export async function getCalendarMarkers(): Promise<Record<string, { status: Gam
       }
     }
     return markers;
-  } catch (err) {
-
+  } catch {
+    showNetworkError("calendar");
     return {};
   }
 }
@@ -268,8 +273,8 @@ export async function createGame(input: CreateGameInput): Promise<{ id: string; 
     }
 
     return { id: game.id, error: null };
-  } catch (err) {
-
+  } catch {
+    toast.error("Failed to create game. Check your connection and try again.");
     return { id: "", error: "Something went wrong while creating the game. Please try again." };
   }
 }

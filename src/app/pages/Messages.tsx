@@ -111,12 +111,12 @@ export function Messages() {
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-black/90">{convo.name}</h3>
-              <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest">
+              <p className="text-[10px] font-medium text-black/55 uppercase tracking-widest">
                 {convo.type === "group" ? "8 Members Online" : "Active Now"}
               </p>
             </div>
           </div>
-          <button className="w-11 h-11 rounded-full flex items-center justify-center text-black/30">
+          <button className="w-11 h-11 rounded-full flex items-center justify-center text-black/50">
             <MoreHorizontal className="w-5 h-5" />
           </button>
         </header>
@@ -124,7 +124,7 @@ export function Messages() {
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           <div className="flex justify-center my-4">
-            <span className="bg-black/5 px-3 py-1 rounded-full text-[10px] font-bold text-black/30 uppercase tracking-widest">
+            <span className="bg-black/5 px-3 py-1 rounded-full text-[10px] font-bold text-black/50 uppercase tracking-widest">
               Today
             </span>
           </div>
@@ -163,7 +163,7 @@ export function Messages() {
                     {msg.senderInitials}
                   </div>
                   <div className="max-w-[75%] space-y-1">
-                    <p className="text-[10px] font-bold text-black/30 ml-1 uppercase tracking-wider">{msg.senderName}</p>
+                    <p className="text-[10px] font-bold text-black/50 ml-1 uppercase tracking-wider">{msg.senderName}</p>
                     <div className="glass px-4 py-2.5 rounded-[20px] rounded-bl-[4px]">
                       <p className="text-[15px] font-medium text-black/80 leading-tight">{msg.content}</p>
                     </div>
@@ -208,7 +208,7 @@ export function Messages() {
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-black/90">Messages</h1>
-            <p className="text-black/40 text-sm font-medium mt-0.5">Stay connected with your teams</p>
+            <p className="text-black/55 text-sm font-medium mt-0.5">Stay connected with your teams</p>
           </div>
           <button aria-label="New message" className="w-11 h-11 glass rounded-full flex items-center justify-center text-primary active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none">
             <SquarePen className="w-5 h-5" />
@@ -229,7 +229,7 @@ export function Messages() {
                 onClick={() => setActiveTab(tab)}
                 aria-pressed={isActive}
                 className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
-                  isActive ? "bg-white shadow-sm" : "text-black/40"
+                  isActive ? "bg-white shadow-sm" : "text-black/55"
                 }`}
               >
                 {tab === "groups" ? <Users2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
@@ -250,7 +250,7 @@ export function Messages() {
       {/* Search Bar */}
       <div className="px-6">
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             placeholder={`Search ${activeTab}...`}
@@ -295,7 +295,7 @@ export function Messages() {
                 </h4>
                 <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest">{msg.timestamp}</span>
               </div>
-              <p className={`text-sm truncate pr-4 ${msg.unread > 0 ? "text-black/60 font-medium" : "text-black/40 font-normal"}`}>
+              <p className={`text-sm truncate pr-4 ${msg.unread > 0 ? "text-black/60 font-medium" : "text-black/55 font-normal"}`}>
                 {msg.isSystemMessage && <span className="text-primary font-bold">New Post: </span>}
                 {msg.lastMessage}
               </p>

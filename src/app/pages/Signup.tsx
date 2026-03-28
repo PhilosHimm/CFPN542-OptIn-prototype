@@ -62,7 +62,7 @@ export function Signup() {
   if (success) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-[430px] text-center space-y-8">
+        <div className="w-full max-w-[430px] sm:max-w-lg text-center space-y-8">
           <div className="w-24 h-24 rounded-md3-extra-large bg-primary-container flex items-center justify-center mx-auto">
             <CheckCircle className="w-12 h-12 text-on-primary-container" />
           </div>
@@ -96,7 +96,7 @@ export function Signup() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-[430px] space-y-10">
+      <div className="w-full max-w-[430px] sm:max-w-lg space-y-10">
         {/* Logo */}
         <div className="text-center space-y-3">
           <div className="flex justify-center">
