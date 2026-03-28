@@ -61,6 +61,17 @@ export function HomeScreen() {
     });
   }, []);
 
+  // Re-fetch when the user returns to this tab so data stays fresh
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchAllGames().then((g) => setAllGames(g));
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
   const getGamesForDate = (dateStr: string) => {
     return allGames.filter((g) => {
       if (g.status === "completed" || g.status === "cancelled") return false;

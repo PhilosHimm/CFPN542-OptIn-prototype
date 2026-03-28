@@ -31,9 +31,16 @@ export function Profile() {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      toast.error("Invalid file type. Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
 
     if (file.size > 2 * 1024 * 1024) {
       toast.error("File too large. Maximum size is 2MB.");

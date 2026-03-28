@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,6 +7,18 @@ import { ONBOARDING_KEY } from "../pages/Onboarding";
 export function Layout() {
   const { user, loading, isDemo, sessionExpired } = useAuth();
   const navigate = useNavigate();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -28,6 +41,14 @@ export function Layout() {
   return (
     <div className="w-full min-h-screen bg-surface flex justify-center">
       <div className="w-full max-w-[430px] sm:max-w-lg min-h-screen relative bg-surface">
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="sticky top-0 z-[70] bg-gray-900 px-4 py-2 text-center">
+            <p className="text-xs font-medium text-white">
+              You are offline — some features may be unavailable
+            </p>
+          </div>
+        )}
         {/* Session Expired Banner */}
         {sessionExpired && !isDemo && (
           <div className="sticky top-0 z-[60] bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-between">

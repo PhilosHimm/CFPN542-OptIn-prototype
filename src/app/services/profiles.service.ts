@@ -56,6 +56,10 @@ export async function searchProfiles(
 
   if (!supabase) return [];
 
+  // Queries the profiles table directly (not filtered by game membership).
+  // The supabase client auto-attaches the user's JWT so requests are authenticated.
+  // The profiles SELECT RLS policy uses USING (true), allowing all users to discover
+  // each other by name/username — this is intentional for the friend-search flow.
   try {
     const { data, error } = await supabase
       .from("profiles")
