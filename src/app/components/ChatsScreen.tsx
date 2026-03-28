@@ -19,7 +19,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "../contexts/AuthContext";
-import { searchProfiles } from "../services/profiles.service";
+import { searchProfiles, getProfilesByIds } from "../services/profiles.service";
 import { players as mockPlayers } from "../data/games";
 import {
   acceptMessageRequest,
@@ -94,13 +94,9 @@ export function ChatsScreen() {
   useEffect(() => {
     if (isDemo || !profile?.id || friendIds.length === 0) return;
     // Fetch friend profiles for suggestions when no search query
-    Promise.all(
-      friendIds.slice(0, 10).map((fid) =>
-        searchProfiles(fid, profile.id).then((results) => results[0])
-      )
-    ).then((results) => {
+    getProfilesByIds(friendIds.slice(0, 10)).then((results) => {
       setSuggestedUsers(
-        results.filter(Boolean).map((r) => ({
+        results.map((r) => ({
           id: r.id,
           name: r.name,
           avatar: r.avatar_url ?? undefined,

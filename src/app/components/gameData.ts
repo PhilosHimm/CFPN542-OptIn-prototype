@@ -64,6 +64,34 @@ export function getMinPlayers(sport: string): number {
   return SPORT_MINIMUMS[sport] ?? 2;
 }
 
+/**
+ * Applies automatic status transitions for expired games:
+ *  - proposal  + all dates past → cancelled  (voting closed, never confirmed)
+ *  - confirmed + confirmed date past → completed (game already happened)
+ */
+function applyAutoTransitions(games: Game[]): { games: Game[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const transitions: { id: string; newStatus: "cancelled" | "completed" }[] = [];
+  const updated = games.map((g) => {
+    if (g.status === "proposal") {
+      const allPast = g.timeOptions.length > 0 && g.timeOptions.every((o) => o.date < todayStr);
+      if (allPast) {
+        transitions.push({ id: g.id, newStatus: "cancelled" });
+        return { ...g, status: "cancelled" as GameStatus };
+      }
+    }
+    if (g.status === "confirmed") {
+      const confirmedOpt = g.timeOptions.find((o) => o.id === g.confirmedOptionId);
+      if (confirmedOpt && confirmedOpt.date < todayStr) {
+        transitions.push({ id: g.id, newStatus: "completed" });
+        return { ...g, status: "completed" as GameStatus };
+      }
+    }
+    return g;
+  });
+  return { games: updated, transitions };
+}
+
 /** Returns true if the game has at least one option whose date is today or in the future. */
 export function isGameVotable(game: Game): boolean {
   if (game.status !== "proposal") return false;
@@ -469,7 +497,7 @@ function mapDbGameToGame(g: any): Game {
 
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
-  if (isDemoMode()) return DEMO_GAMES;
+  if (isDemoMode()) return applyAutoTransitions(DEMO_GAMES).games;
 
   const { data, error } = await supabase!
     .from("games")
@@ -478,15 +506,22 @@ export async function fetchAllGames(): Promise<Game[]> {
 
   if (error) {
 
-    return DEMO_GAMES;
+    return applyAutoTransitions(DEMO_GAMES).games;
   }
 
-  return (data || []).map(mapDbGameToGame);
+  const { games, transitions } = applyAutoTransitions((data || []).map(mapDbGameToGame));
+  for (const { id, newStatus } of transitions) {
+    supabase!.from("games").update({ status: newStatus }).eq("id", id);
+  }
+  return games;
 }
 
 /** Fetch a single game by ID — returns demo game in demo mode */
 export async function fetchGameById(id: string): Promise<Game | undefined> {
-  if (isDemoMode()) return DEMO_GAMES.find((g) => g.id === id);
+  if (isDemoMode()) {
+    const game = DEMO_GAMES.find((g) => g.id === id);
+    return game ? applyAutoTransitions([game]).games[0] : undefined;
+  }
 
   const { data, error } = await supabase!
     .from("games")
@@ -494,9 +529,12 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
     .eq("id", id)
     .single();
 
-  if (error || !data) return DEMO_GAMES.find((g) => g.id === id);
+  if (error || !data) {
+    const demo = DEMO_GAMES.find((g) => g.id === id);
+    return demo ? applyAutoTransitions([demo]).games[0] : undefined;
+  }
 
-  return mapDbGameToGame(data);
+  return applyAutoTransitions([mapDbGameToGame(data)]).games[0];
 }
 
 // Check if a string looks like a valid UUID

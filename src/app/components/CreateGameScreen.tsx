@@ -198,7 +198,7 @@ function NextButton({
 // ─── Main Component ────────────────────────────────────────
 export function CreateGameScreen() {
   const navigate = useNavigate();
-  const { profile, user } = useAuth();
+  const { profile, user, isDemo } = useAuth();
   const [searchParams] = useSearchParams();
   const mock = searchParams.get("mock") === "true";
   const initialStep = Math.min(Math.max(parseInt(searchParams.get("step") || "1"), 1), 5);
@@ -252,19 +252,23 @@ export function CreateGameScreen() {
       setRealGroups(mapped);
       if (mapped.length > 0) setAssignedGroup(mapped[0].id);
     });
-    if (profile?.id) {
+    if (isDemo) {
+      getPlayers().then((allPlayers) => {
+        setInvitePlayers(
+          allPlayers
+            .filter((p) => p.id !== profile?.id)
+            .map((p) => ({ id: p.id, name: p.name, initials: p.initials, color: p.color }))
+        );
+      });
+    } else if (profile?.id) {
       getFriendIds(profile.id).then((friendIds) => {
         if (friendIds.length === 0) return;
         getPlayers().then((allPlayers) => {
-          const friends = allPlayers
-            .filter((p) => friendIds.includes(p.id))
-            .map((p) => ({
-              id: p.id,
-              name: p.name,
-              initials: p.initials,
-              color: p.color,
-            }));
-          setInvitePlayers(friends);
+          setInvitePlayers(
+            allPlayers
+              .filter((p) => friendIds.includes(p.id))
+              .map((p) => ({ id: p.id, name: p.name, initials: p.initials, color: p.color }))
+          );
         });
       });
     }
