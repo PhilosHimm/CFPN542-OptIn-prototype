@@ -78,7 +78,7 @@ export function Onboarding() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-[430px]">
+      <div className="w-full max-w-[430px] sm:max-w-lg">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-12">
           {[1, 2, 3].map((s) => (

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Copy, 
-  Check, 
-  Users, 
-  Search, 
-  ChevronDown, 
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  Users,
+  Search,
+  ChevronDown,
   CheckCircle,
   Share2,
   Globe,
@@ -43,7 +44,10 @@ function TextField({
   onChange,
   placeholder,
   type = "text",
-  icon: Icon
+  icon: Icon,
+  maxLength,
+  counter,
+  error
 }: {
   label: string;
   value: string;
@@ -51,16 +55,19 @@ function TextField({
   placeholder?: string;
   type?: string;
   icon?: any;
+  maxLength?: number;
+  counter?: boolean;
+  error?: string;
 }) {
   const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+      <label htmlFor={id} className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
         {label}
       </label>
       <div className="relative group">
         {Icon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30 group-focus-within:text-primary transition-colors">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/50 group-focus-within:text-primary transition-colors">
             <Icon className="w-4 h-4" aria-hidden="true" />
           </div>
         )}
@@ -73,6 +80,14 @@ function TextField({
           className={`w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl px-4 py-3.5 text-[15px] font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary/20 outline-none transition-all ${Icon ? 'pl-11' : ''}`}
         />
       </div>
+      {counter && maxLength && (
+        <p className={`text-[11px] font-medium ml-1 ${value.length >= maxLength - (maxLength <= 50 ? 5 : 10) ? 'text-red-500' : 'text-black/50'}`}>
+          {value.length}/{maxLength}
+        </p>
+      )}
+      {error && (
+        <p className="text-[11px] font-medium text-red-500 ml-1">{error}</p>
+      )}
     </div>
   );
 }
@@ -108,6 +123,7 @@ export function CreateGame() {
 
   const [visibility, setVisibility] = useState("Public");
   const [created, setCreated] = useState(false);
+  const [createdGameId, setCreatedGameId] = useState("");
 
   const perPerson =
     splitCost && totalCost && selectedPlayers.size > 0
@@ -116,14 +132,88 @@ export function CreateGame() {
       ? parseFloat(totalCost).toFixed(2)
       : "0.00";
 
+  // Helper: check if a date string is in the past
+  const isDateInPast = (dateStr: string): boolean => {
+    if (!dateStr) return false;
+    const today = new Date().toISOString().split("T")[0];
+    return dateStr < today;
+  };
+
+  // Helper: check if end time is not after start time
+  const isEndTimeInvalid = (startTime: string, endTime: string): boolean => {
+    if (!startTime || !endTime) return false;
+    return endTime <= startTime;
+  };
+
+  // Helper: validate time options have at least one with date+start
+  const hasValidTimeOption = (): boolean => {
+    return timeOptions.some((o) => o.date && o.startTime);
+  };
+
+  // Helper: check all filled time options pass date/time validation
+  const allTimeOptionsValid = (): boolean => {
+    for (const opt of timeOptions) {
+      if (opt.date && isDateInPast(opt.date)) return false;
+      if (opt.startTime && opt.endTime && isEndTimeInvalid(opt.startTime, opt.endTime)) return false;
+    }
+    return true;
+  };
+
   const handleBack = () => {
     if (step === 1) navigate(-1);
     else setStep((s) => (s - 1) as Step);
   };
   const handleNext = async () => {
+    // Step 1 validation: sport and title
+    if (step === 1) {
+      if (!selectedSport) {
+        toast.error("Please select a sport");
+        return;
+      }
+      if (!gameTitle.trim()) {
+        toast.error("Please enter a game title");
+        return;
+      }
+      const mp = parseInt(maxPlayers);
+      if (!mp || mp < 2 || mp > 100) {
+        toast.error("Max players must be between 2 and 100");
+        return;
+      }
+    }
+
+    // Step 2 validation: at least one time option with date+start, and all valid
+    if (step === 2) {
+      if (!hasValidTimeOption()) {
+        toast.error("At least one time option must have a date and start time");
+        return;
+      }
+      if (!allTimeOptionsValid()) {
+        toast.error("Please fix date/time errors before continuing");
+        return;
+      }
+    }
+
     if (step < 5) {
       setStep((s) => (s + 1) as Step);
     } else {
+      // Step 5 (submit) validation
+      if (!selectedSport) {
+        toast.error("Please select a sport");
+        return;
+      }
+      if (!gameTitle.trim()) {
+        toast.error("Please enter a game title");
+        return;
+      }
+      if (!hasValidTimeOption()) {
+        toast.error("At least one time option must have a date and start time");
+        return;
+      }
+      if (!allTimeOptionsValid()) {
+        toast.error("Please fix date/time errors before submitting");
+        return;
+      }
+
       setSubmitting(true);
       const result = await createGame({
         title: gameTitle,
@@ -144,6 +234,7 @@ export function CreateGame() {
       });
       setSubmitting(false);
       if (!result.error) {
+        setCreatedGameId(result.id);
         setCreated(true);
       }
     }
@@ -196,20 +287,66 @@ export function CreateGame() {
   };
 
   if (created) {
+    const gameUrl = createdGameId
+      ? `${window.location.origin}/game/${createdGameId}`
+      : window.location.origin;
+
+    const handleShareGame = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: gameTitle, url: gameUrl });
+        } catch { /* dismissed */ }
+      } else {
+        await navigator.clipboard.writeText(gameUrl);
+        toast.success("Game link copied!");
+      }
+    };
+
+    const handleCopyGameLink = async () => {
+      await navigator.clipboard.writeText(gameUrl);
+      toast.success("Game link copied!");
+    };
+
     return (
-      <div className="min-h-full flex flex-col items-center justify-center p-8 text-center space-y-8">
+      <div className="min-h-full flex flex-col items-center justify-center p-8 text-center space-y-6">
         <div className="w-24 h-24 rounded-[32px] bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-200">
           <CheckCircle className="w-12 h-12" />
         </div>
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Game Created!</h2>
-          <p className="text-black/40 font-medium">
+          <p className="text-black/55 font-medium">
             {selectedPlayers.size} players invited to vote on your {timeOptions.length} time options.
           </p>
         </div>
-        <div className="w-full space-y-4 pt-4">
+
+        {createdGameId && (
+          <div className="w-full space-y-3">
+            <p className="text-sm font-semibold text-black/55 uppercase tracking-widest">Share with your crew</p>
+            <div className="bg-black/5 rounded-2xl px-4 py-3 text-sm font-medium text-black/50 break-all text-left">
+              {gameUrl}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopyGameLink}
+                className="flex-1 ios-btn-secondary py-4 flex items-center justify-center gap-2 text-base font-semibold"
+              >
+                <Copy className="w-5 h-5" />
+                Copy Link
+              </button>
+              <button
+                onClick={handleShareGame}
+                className="flex-1 ios-btn-primary py-4 flex items-center justify-center gap-2 text-base font-semibold"
+              >
+                <Share2 className="w-5 h-5" />
+                Share
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full space-y-3 pt-2">
           <button
-            onClick={() => navigate("/game/game1")}
+            onClick={() => navigate(createdGameId ? `/game/${createdGameId}` : "/")}
             className="w-full ios-btn-primary py-4 text-lg"
           >
             View Game Page
@@ -226,8 +363,8 @@ export function CreateGame() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+    <div className="space-y-6 pb-10 max-w-[430px] sm:max-w-lg mx-auto w-full">
+      {/* -- Header ---------------------------------------------------------- */}
       <header className="px-6 pt-4 space-y-4 bg-[#F2F2F7]/80 backdrop-blur-md sticky top-0 z-40 pb-4 border-b border-black/5">
         <div className="flex items-center gap-4">
           <button
@@ -248,7 +385,7 @@ export function CreateGame() {
             />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">
+            <span className="text-[10px] font-bold text-black/50 uppercase tracking-widest">
               Step {step} of 5
             </span>
             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
@@ -259,11 +396,11 @@ export function CreateGame() {
       </header>
 
       <div className="px-6 space-y-6">
-        {/* ── STEP 1: Game Details ─────────────────────────────────────────── */}
+        {/* -- STEP 1: Game Details ------------------------------------------ */}
         {step === 1 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                 Select Sport
               </label>
               <div className="grid grid-cols-4 gap-3">
@@ -274,9 +411,9 @@ export function CreateGame() {
                       key={sport.name}
                       onClick={() => setSelectedSport(sport.name)}
                       className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-90 ${
-                        isSelected 
-                          ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" 
-                          : "bg-black/5 text-black/40"
+                        isSelected
+                          ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105"
+                          : "bg-black/5 text-black/55"
                       }`}
                     >
                       <SportIcon sport={sport.name} className="w-6 h-6" />
@@ -288,23 +425,27 @@ export function CreateGame() {
             </div>
 
             <div className="ios-card space-y-5">
-              <TextField 
-                label="Game Title" 
-                value={gameTitle} 
-                onChange={setGameTitle} 
-                placeholder="e.g. Friday Night Hoops" 
+              <TextField
+                label="Game Title"
+                value={gameTitle}
+                onChange={(v) => setGameTitle(v.slice(0, 50))}
+                placeholder="e.g. Friday Night Hoops"
                 icon={Trophy}
+                maxLength={50}
+                counter
               />
-              <TextField 
-                label="Default Address" 
-                value={address} 
-                onChange={setAddress} 
-                placeholder="Where do you usually play?" 
+              <TextField
+                label="Default Address"
+                value={address}
+                onChange={(v) => setAddress(v.slice(0, 100))}
+                placeholder="Where do you usually play?"
                 icon={MapPin}
+                maxLength={100}
+                counter
               />
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+                <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                   Game Intensity
                 </label>
                 <div className="flex gap-3">
@@ -315,9 +456,9 @@ export function CreateGame() {
                         key={type}
                         onClick={() => setGameType(type)}
                         className={`flex-1 p-4 rounded-2xl flex items-center justify-center gap-3 font-bold transition-all ${
-                          isSelected 
-                            ? "bg-primary text-white shadow-lg" 
-                            : "bg-black/5 text-black/40"
+                          isSelected
+                            ? "bg-primary text-white shadow-lg"
+                            : "bg-black/5 text-black/55"
                         }`}
                       >
                         {type === "Casual" ? <Smile className="w-5 h-5" /> : <Trophy className="w-5 h-5" />}
@@ -328,18 +469,26 @@ export function CreateGame() {
                 </div>
               </div>
 
-              <TextField 
-                label="Max Players" 
-                value={maxPlayers} 
-                onChange={setMaxPlayers} 
-                type="number" 
+              <TextField
+                label="Max Players"
+                value={maxPlayers}
+                onChange={(v) => {
+                  const num = parseInt(v);
+                  if (v === "" || (num >= 0 && num <= 100)) setMaxPlayers(v);
+                }}
+                type="number"
                 icon={Users}
+                error={
+                  maxPlayers && (parseInt(maxPlayers) < 2 || parseInt(maxPlayers) > 100)
+                    ? "Must be between 2 and 100 players"
+                    : undefined
+                }
               />
             </div>
           </div>
         )}
 
-        {/* ── STEP 2: Time & Location ──────────────────────────────────────── */}
+        {/* -- STEP 2: Time & Location --------------------------------------- */}
         {step === 2 && (
           <div className="space-y-6">
             <div className="bg-primary/5 rounded-2xl p-4 flex gap-3 items-center">
@@ -356,7 +505,7 @@ export function CreateGame() {
                 <div className="flex justify-between items-center border-b border-black/5 pb-3">
                   <span className="text-sm font-bold text-black/70">Time Option {index + 1}</span>
                   {timeOptions.length > 1 && (
-                    <button 
+                    <button
                       onClick={() => removeTimeOption(opt.id)}
                       className="text-rose-500 active:scale-90 p-1"
                     >
@@ -364,38 +513,40 @@ export function CreateGame() {
                     </button>
                   )}
                 </div>
-                <TextField 
-                  label="Date" 
-                  value={opt.date} 
-                  onChange={(v) => updateTimeOption(opt.id, "date", v)} 
-                  type="date" 
+                <TextField
+                  label="Date"
+                  value={opt.date}
+                  onChange={(v) => updateTimeOption(opt.id, "date", v)}
+                  type="date"
                   icon={Calendar}
+                  error={isDateInPast(opt.date) ? "Date cannot be in the past" : undefined}
                 />
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <TextField 
-                      label="Start" 
-                      value={opt.startTime} 
-                      onChange={(v) => updateTimeOption(opt.id, "startTime", v)} 
-                      type="time" 
+                    <TextField
+                      label="Start"
+                      value={opt.startTime}
+                      onChange={(v) => updateTimeOption(opt.id, "startTime", v)}
+                      type="time"
                       icon={Clock}
                     />
                   </div>
                   <div className="flex-1">
-                    <TextField 
-                      label="End" 
-                      value={opt.endTime} 
-                      onChange={(v) => updateTimeOption(opt.id, "endTime", v)} 
-                      type="time" 
+                    <TextField
+                      label="End"
+                      value={opt.endTime}
+                      onChange={(v) => updateTimeOption(opt.id, "endTime", v)}
+                      type="time"
                       icon={Clock}
+                      error={isEndTimeInvalid(opt.startTime, opt.endTime) ? "End time must be after start time" : undefined}
                     />
                   </div>
                 </div>
-                <TextField 
-                  label="Specific Location" 
-                  value={opt.location} 
-                  onChange={(v) => updateTimeOption(opt.id, "location", v)} 
-                  placeholder="Court # or exact field" 
+                <TextField
+                  label="Specific Location"
+                  value={opt.location}
+                  onChange={(v) => updateTimeOption(opt.id, "location", v)}
+                  placeholder="Court # or exact field"
                   icon={MapPin}
                 />
               </div>
@@ -413,12 +564,12 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 3: Costs ─────────────────────────────────────────────────── */}
+        {/* -- STEP 3: Costs ------------------------------------------------- */}
         {step === 3 && (
           <div className="space-y-6">
             <div className="ios-card space-y-6 p-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1 text-center block">
+                <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1 text-center block">
                   Total Venue Cost
                 </label>
                 <div className="relative">
@@ -436,7 +587,7 @@ export function CreateGame() {
               <div className="flex items-center justify-between p-4 bg-black/5 rounded-2xl">
                 <div>
                   <p className="font-bold text-black/80">Split cost among players?</p>
-                  <p className="text-[10px] font-medium text-black/40 mt-0.5 uppercase tracking-wider">Automated calculations</p>
+                  <p className="text-[10px] font-medium text-black/55 mt-0.5 uppercase tracking-wider">Automated calculations</p>
                 </div>
                 <button
                   onClick={() => setSplitCost(!splitCost)}
@@ -469,11 +620,11 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 4: Invite Players ─────────────────────────────────────────── */}
+        {/* -- STEP 4: Invite Players ---------------------------------------- */}
         {step === 4 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest ml-1">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest ml-1">
                 Share Invitation
               </label>
               <div className="flex gap-3">
@@ -496,7 +647,7 @@ export function CreateGame() {
             <div className="ios-card !p-0 overflow-hidden">
               <div className="p-4 border-b border-black/5 bg-black/[0.02]">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50" />
                   <input
                     type="text"
                     placeholder="Search players..."
@@ -508,10 +659,10 @@ export function CreateGame() {
               </div>
 
               <div className="p-4 flex justify-between items-center bg-white/40">
-                <span className="text-xs font-bold text-black/40 uppercase tracking-widest">
+                <span className="text-xs font-bold text-black/55 uppercase tracking-widest">
                   {filteredPlayers.length} Suggested
                 </span>
-                <button 
+                <button
                   onClick={handleSelectAll}
                   className="text-xs font-bold text-primary flex items-center gap-1.5"
                 >
@@ -535,7 +686,7 @@ export function CreateGame() {
                         isSelected ? "bg-primary/5" : "hover:bg-black/5"
                       }`}
                     >
-                      <div 
+                      <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold text-white shadow-sm"
                         style={{ backgroundColor: player.color }}
                       >
@@ -543,7 +694,7 @@ export function CreateGame() {
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-sm font-bold text-black/90">{player.name}</p>
-                        <p className="text-[11px] font-medium text-black/30">
+                        <p className="text-[11px] font-medium text-black/50">
                           {player.gamesPlayed} games • {player.attendanceRate}% in
                         </p>
                       </div>
@@ -560,12 +711,12 @@ export function CreateGame() {
           </div>
         )}
 
-        {/* ── STEP 5: Review ─────────────────────────────────────────────── */}
+        {/* -- STEP 5: Review ------------------------------------------------ */}
         {step === 5 && (
           <div className="space-y-6">
             <div className="ios-card space-y-4">
               <div className="flex gap-4">
-                <div 
+                <div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center text-white"
                   style={{ backgroundColor: sports.find(s => s.name === selectedSport)?.color || '#007AFF' }}
                 >
@@ -574,13 +725,13 @@ export function CreateGame() {
                 <div className="flex-1">
                   <h3 className="text-2xl font-bold leading-tight">{gameTitle || "Untitled Game"}</h3>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {selectedSport}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {gameType}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/40 uppercase">
+                    <span className="px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold text-black/55 uppercase">
                       {maxPlayers} Max
                     </span>
                   </div>
@@ -595,7 +746,7 @@ export function CreateGame() {
             </div>
 
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest block border-b border-black/5 pb-2">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest block border-b border-black/5 pb-2">
                 Time Proposals
               </label>
               <div className="space-y-3">
@@ -606,7 +757,7 @@ export function CreateGame() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-black/80">{opt.date || "Date TBD"} @ {opt.startTime || "Time TBD"}</p>
-                      <p className="text-xs font-medium text-black/40">{opt.location || address || "No location set"}</p>
+                      <p className="text-xs font-medium text-black/55">{opt.location || address || "No location set"}</p>
                     </div>
                   </div>
                 ))}
@@ -620,17 +771,17 @@ export function CreateGame() {
                 </div>
                 <div>
                   <p className="font-bold">Entry Fee</p>
-                  <p className="text-xs text-black/40">Per confirmed player</p>
+                  <p className="text-xs text-black/55">Per confirmed player</p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-black text-primary">${totalCost ? perPerson : '0.00'}</p>
-                <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest">{totalCost ? 'Split Cost' : 'Free'}</p>
+                <p className="text-[10px] font-bold text-black/50 uppercase tracking-widest">{totalCost ? 'Split Cost' : 'Free'}</p>
               </div>
             </div>
 
             <div className="ios-card space-y-4">
-              <label className="text-[11px] font-bold text-black/40 uppercase tracking-widest block border-b border-black/5 pb-2">
+              <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest block border-b border-black/5 pb-2">
                 Visibility
               </label>
               <div className="flex gap-2">
@@ -646,9 +797,9 @@ export function CreateGame() {
                       key={v.id}
                       onClick={() => setVisibility(v.id)}
                       className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl transition-all ${
-                        isSelected 
-                          ? "bg-primary text-white shadow-lg" 
-                          : "bg-black/5 text-black/40"
+                        isSelected
+                          ? "bg-primary text-white shadow-lg"
+                          : "bg-black/5 text-black/55"
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -661,15 +812,16 @@ export function CreateGame() {
 
             <button
               onClick={handleNext}
-              className="w-full ios-btn-primary py-5 text-lg shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+              disabled={submitting}
+              className="w-full ios-btn-primary py-5 text-lg shadow-2xl shadow-primary/30 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Trophy className="w-6 h-6" />
-              <span>Create & Send Invites</span>
+              <span>{submitting ? "Creating..." : "Create & Send Invites"}</span>
             </button>
           </div>
         )}
 
-        {/* ── Next Button ──────────────────────────────────────────────────── */}
+        {/* -- Next Button --------------------------------------------------- */}
         {step < 5 && (
           <div className="pt-4">
             <button

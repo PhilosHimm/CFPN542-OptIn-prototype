@@ -43,8 +43,8 @@ export function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       setSubmitting(false);
       return;
     }
@@ -62,7 +62,7 @@ export function Signup() {
   if (success) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-[430px] text-center space-y-8">
+        <div className="w-full max-w-[430px] sm:max-w-lg text-center space-y-8">
           <div className="w-24 h-24 rounded-md3-extra-large bg-primary-container flex items-center justify-center mx-auto">
             <CheckCircle className="w-12 h-12 text-on-primary-container" />
           </div>
@@ -96,7 +96,7 @@ export function Signup() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-[430px] space-y-10">
+      <div className="w-full max-w-[430px] sm:max-w-lg space-y-10">
         {/* Logo */}
         <div className="text-center space-y-3">
           <div className="flex justify-center">
@@ -133,6 +133,7 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12"
                 required
+                aria-label="Full Name"
               />
               <label htmlFor="name" className="md3-floating-label !left-12">
                 Full Name
@@ -151,6 +152,7 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12"
                 required={!isDemo}
+                aria-label="Email"
               />
               <label htmlFor="email" className="md3-floating-label !left-12">
                 Email
@@ -169,10 +171,11 @@ export function Signup() {
                 placeholder=" "
                 className="!pl-12 !pr-12"
                 required={!isDemo}
-                minLength={6}
+                minLength={8}
+                aria-label="Password"
               />
               <label htmlFor="password" className="md3-floating-label !left-12">
-                Password (min 6 characters)
+                Password (min 8 characters)
               </label>
               <button
                 type="button"

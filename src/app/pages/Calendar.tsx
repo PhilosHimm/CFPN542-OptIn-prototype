@@ -12,6 +12,11 @@ import { getGames, getGroups, getCalendarMarkers } from "../services/games.servi
 import type { Game, Group, GameStatus } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
+function isGameExpired(game: Game): boolean {
+  const today = new Date().toISOString().split("T")[0];
+  return game.options.length > 0 && game.options.every((o) => o.date && o.date < today);
+}
+
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -40,9 +45,12 @@ export function Calendar() {
     getCalendarMarkers().then(setCalendarMarkers);
   }, []);
 
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(1);
-  const [selectedDate, setSelectedDate] = useState("2026-02-27");
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [selectedDate, setSelectedDate] = useState(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  );
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
@@ -61,15 +69,15 @@ export function Calendar() {
     .map((m) => ({ ...m, game: games.find((g) => g.id === m.gameId)! }))
     .filter((m) => m.game);
 
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   return (
     <div className="space-y-6 pb-10 px-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="pt-4">
         <h1 className="text-3xl font-bold tracking-tight text-black/90">Calendar</h1>
-        <p className="text-black/40 text-sm font-medium mt-0.5">Your game schedule at a glance</p>
+        <p className="text-black/55 text-sm font-medium mt-0.5">Your game schedule at a glance</p>
       </header>
 
       {/* ── Calendar Card ───────────────────────────────────────────────────── */}
@@ -99,7 +107,7 @@ export function Calendar() {
         <div className="grid grid-cols-7 px-2 py-3 bg-black/[0.02]">
           {DAYS.map((d) => (
             <div key={d} className="text-center">
-              <span className="text-[10px] font-bold text-black/30 tracking-widest">{d}</span>
+              <span className="text-[10px] font-bold text-black/50 tracking-widest">{d}</span>
             </div>
           ))}
         </div>
@@ -178,7 +186,7 @@ export function Calendar() {
             </div>
             <div>
               <p className="font-bold text-black/70">Nothing scheduled</p>
-              <p className="text-xs font-medium text-black/40 mt-1">No games on this date.</p>
+              <p className="text-xs font-medium text-black/55 mt-1">No games on this date.</p>
             </div>
             <button
               onClick={() => navigate("/create")}
@@ -217,7 +225,7 @@ export function Calendar() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-bold text-black/90 truncate">{game.title}</h4>
-                        <p className="text-xs font-medium text-black/40">{group?.name}</p>
+                        <p className="text-xs font-medium text-black/55">{group?.name}</p>
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                         status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
@@ -228,12 +236,12 @@ export function Calendar() {
                     {displayOpt && (
                       <div className="mt-3 flex gap-4">
                         <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-black/30" />
+                          <Clock className="w-3.5 h-3.5 text-black/50" />
                           <span className="text-xs font-bold text-black/60">{displayOpt.startTime}</span>
                         </div>
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <MapPin className="w-3.5 h-3.5 text-black/30" />
-                          <span className="text-xs font-medium text-black/40 truncate">{displayOpt.location}</span>
+                          <MapPin className="w-3.5 h-3.5 text-black/50" />
+                          <span className="text-xs font-medium text-black/55 truncate">{displayOpt.location}</span>
                         </div>
                       </div>
                     )}
@@ -248,34 +256,56 @@ export function Calendar() {
       {/* ── All Upcoming ─────────────────────────────────────────────────────── */}
       <section>
         <h2 className="text-xl font-bold text-black/80 mb-4">All Upcoming</h2>
-        <div className="ios-card p-2 space-y-1">
-          {games
-            .filter((g) => g.status === "proposal" || g.status === "confirmed")
-            .map((game) => {
-              const opt = game.confirmedOptionId
-                ? game.options.find((o) => o.id === game.confirmedOptionId)
-                : [...game.options].sort((a, b) => b.inVotes - a.inVotes)[0];
-              
-              return (
+        {(() => {
+          const upcomingGames = games.filter((g) => (g.status === "proposal" || g.status === "confirmed") && !isGameExpired(g));
+          if (upcomingGames.length === 0) {
+            return (
+              <div className="ios-card bg-white/30 border-dashed py-10 flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-3xl bg-black/5 flex items-center justify-center text-black/20">
+                  <CalendarIcon className="w-8 h-8" />
+                </div>
+                <div>
+                  <p className="font-bold text-black/70">No upcoming games</p>
+                  <p className="text-xs font-medium text-black/55 mt-1">Games you create or join will appear here.</p>
+                </div>
                 <button
-                  key={game.id}
-                  onClick={() => navigate(`/game/${game.id}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors text-left"
+                  onClick={() => navigate("/create")}
+                  className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/30">
-                    <SportIcon sport={game.sport} className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-black/90 truncate">{game.title}</p>
-                    <p className="text-[11px] font-medium text-black/40">
-                      {opt?.displayDate} • {opt?.startTime}
-                    </p>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full ${game.status === 'confirmed' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                  Create Game
                 </button>
-              );
-            })}
-        </div>
+              </div>
+            );
+          }
+          return (
+            <div className="ios-card p-2 space-y-1">
+              {upcomingGames.map((game) => {
+                const opt = game.confirmedOptionId
+                  ? game.options.find((o) => o.id === game.confirmedOptionId)
+                  : game.options.length > 0 ? [...game.options].sort((a, b) => b.inVotes - a.inVotes)[0] : null;
+
+                return (
+                  <button
+                    key={game.id}
+                    onClick={() => navigate(`/game/${game.id}`)}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/50">
+                      <SportIcon sport={game.sport} className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-black/90 truncate">{game.title}</p>
+                      <p className="text-[11px] font-medium text-black/55">
+                        {opt?.displayDate ?? "No date"} • {opt?.startTime ?? ""}
+                      </p>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${game.status === 'confirmed' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
     </div>
   );

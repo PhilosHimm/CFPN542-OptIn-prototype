@@ -377,7 +377,6 @@ export function CreateGameScreen() {
     });
 
     if (result.error) {
-      console.error("Failed to create game:", result.error);
       setCreateError(result.error);
       return;
     }

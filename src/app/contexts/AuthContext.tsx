@@ -23,8 +23,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isDemo: boolean;
+  sessionExpired: boolean;
   supabaseConfigured: boolean;
   toggleDemoMode: (enabled: boolean) => void;
+  enterDemoMode: () => void;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -46,6 +48,8 @@ const DEMO_PROFILE: UserProfile = {
   attendance_rate: 89,
 };
 
+const DEMO_SESSION_KEY = "optin_demo_session";
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function getInitials(name: string): string {
@@ -57,14 +61,13 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-const COLORS = ["#22C55E", "#3B82F6", "#8B5CF6", "#F97316", "#EF4444", "#06B6D4", "#6366F1", "#EAB308"];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(() => isDemoMode());
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [isDemo, setIsDemo] = useState(() => isDemoMode() || localStorage.getItem(DEMO_SESSION_KEY) === "true");
   const supabaseConfigured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -74,47 +77,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    supabase!.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        fetchProfile(currentSession.user.id);
       } else {
         setLoading(false);
       }
+    }).catch(() => {
+      setLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase!.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, newSession: Session | null) => {
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
 
-      if (event === "TOKEN_REFRESHED") {
-        // Token was automatically refreshed — session is still valid
-      }
-
-      if (event === "SIGNED_OUT" || !session) {
+      if (event === "SIGNED_OUT" || !newSession) {
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      if (session?.user) {
-        fetchProfile(session.user.id);
+      if (newSession?.user) {
+        fetchProfile(newSession.user.id);
       }
     });
 
-    // Set up periodic session refresh check
+    // Periodic session refresh check — attempt token refresh, detect expiry
     const refreshInterval = setInterval(async () => {
-      const { data: { session: currentSession } } = await supabase!.auth.getSession();
-      if (!currentSession && user) {
-        // Session expired — sign out gracefully
-        setUser(null);
-        setSession(null);
-        setProfile(null);
+      if (!supabase) return;
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        if ((!currentSession || error) && user) {
+          // Attempt to refresh the token before giving up
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (!refreshData.session) {
+            setSessionExpired(true);
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+          }
+        }
+      } catch {
+        // Network error — don't sign out on transient failures
       }
-    }, 60_000); // Check every minute
+    }, 60_000);
 
     return () => {
       subscription.unsubscribe();
@@ -123,14 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isDemo]);
 
   async function fetchProfile(userId: string) {
-    const { data, error } = await supabase!
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    if (!supabase) { setLoading(false); return; }
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-    if (data && !error) {
-      setProfile(data as UserProfile);
+      if (data && !error) {
+        setProfile(data as UserProfile);
+      }
+    } catch {
+      // Profile fetch failed — proceed without profile
     }
     setLoading(false);
   }
@@ -139,43 +159,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDemoModePreference(enabled);
     setIsDemo(enabled);
     if (enabled) {
+      localStorage.setItem(DEMO_SESSION_KEY, "true");
       setProfile(DEMO_PROFILE);
       setLoading(false);
+    } else {
+      localStorage.removeItem(DEMO_SESSION_KEY);
     }
+  };
+
+  const enterDemoMode = () => {
+    setDemoModePreference(true);
+    localStorage.setItem(DEMO_SESSION_KEY, "true");
+    setIsDemo(true);
+    setProfile(DEMO_PROFILE);
+    setLoading(false);
   };
 
   const signUp = async (email: string, password: string, name: string) => {
     if (isDemo) return { error: "Running in demo mode" };
+    if (!supabase) return { error: "Supabase not configured" };
 
-    const { error } = await supabase!.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
-    if (error) return { error: error.message };
-
-    return { error: null };
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      });
+      if (error) return { error: error.message };
+      return { error: null };
+    } catch {
+      return { error: "Something went wrong — please try again" };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
     if (isDemo) return { error: "Running in demo mode" };
+    if (!supabase) return { error: "Supabase not configured" };
 
-    const { error } = await supabase!.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error) setSessionExpired(false);
+      return { error: error?.message ?? null };
+    } catch {
+      return { error: "Something went wrong — please try again" };
+    }
   };
 
   const signOut = async () => {
-    if (isDemo) return;
-    await supabase!.auth.signOut();
+    // Clear all optin localStorage keys
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("optin_")) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+    if (isDemo) {
+      localStorage.removeItem(DEMO_SESSION_KEY);
+      setIsDemo(false);
+      setProfile(null);
+      setUser(null);
+      setSession(null);
+      return;
+    }
+
+    if (supabase) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    }
     setProfile(null);
+    setUser(null);
+    setSession(null);
   };
 
   const resetPassword = async (email: string) => {
     if (isDemo) return { error: "Running in demo mode" };
-    const { error } = await supabase!.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
-    });
-    return { error: error?.message ?? null };
+    if (!supabase) return { error: "Supabase not configured" };
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      return { error: error?.message ?? null };
+    } catch {
+      return { error: "Something went wrong — please try again" };
+    }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -185,22 +252,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!user) return { error: "Not authenticated" };
+    if (!supabase) return { error: "Supabase not configured" };
 
-    const { error } = await supabase!
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id);
 
-    if (!error) {
-      setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+      if (!error) {
+        setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+      }
+
+      return { error: error?.message ?? null };
+    } catch {
+      return { error: "Something went wrong — please try again" };
     }
-
-    return { error: error?.message ?? null };
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, supabaseConfigured, toggleDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
+      value={{ user, profile, session, loading, isDemo, sessionExpired, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
     >
       {children}
     </AuthContext.Provider>

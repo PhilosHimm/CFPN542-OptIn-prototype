@@ -11,7 +11,12 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  if (!IS_PROD) {
+  if (IS_PROD && APP_ENV !== "demo") {
+    console.error(
+      "[OptIn] FATAL: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required in production. " +
+      "Set VITE_APP_ENV=demo to run without Supabase."
+    );
+  } else if (!IS_PROD) {
     console.warn(
       "[OptIn] Supabase credentials not found. Running in demo mode with mock data."
     );

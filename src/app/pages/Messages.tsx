@@ -28,6 +28,7 @@ export function Messages() {
   const [groupMsgs, setGroupMsgs] = useState<Message[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [sendCooldown, setSendCooldown] = useState(false);
 
   useEffect(() => {
     getDirectMessages().then(setDirectMsgs);
@@ -48,7 +49,8 @@ export function Messages() {
   );
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !profile || !openConvo) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed || !profile || !openConvo || sendCooldown) return;
 
     const tempMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
@@ -56,7 +58,7 @@ export function Messages() {
       senderName: "You",
       senderInitials: profile.initials,
       senderColor: profile.color,
-      content: newMessage,
+      content: trimmed,
       timestamp: "Just now",
       isMe: true,
       isSystem: false,
@@ -64,12 +66,32 @@ export function Messages() {
 
     setChatMessages((prev) => [...prev, tempMsg]);
     setNewMessage("");
+    setSendCooldown(true);
+    setTimeout(() => setSendCooldown(false), 500);
 
-    await sendChatMessage(openConvo, profile.id, newMessage);
+    await sendChatMessage(openConvo, profile.id, trimmed);
   };
 
   if (openConvo) {
-    const convo = messages.find((m) => m.id === openConvo)!;
+    const convo = messages.find((m) => m.id === openConvo);
+
+    if (!convo) {
+      return (
+        <div className="flex flex-col h-full bg-[#F2F2F7] items-center justify-center gap-4">
+          <MessageCircle className="w-16 h-16 opacity-30" />
+          <p className="font-bold uppercase tracking-widest text-xs opacity-30">Conversation not found</p>
+          <button
+            onClick={() => setOpenConvo(null)}
+            className="mt-2 w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-primary active:scale-90 transition-all"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </div>
+      );
+    }
+
+    const isSendDisabled = sendCooldown || !newMessage.trim();
+
     return (
       <div className="flex flex-col h-full bg-[#F2F2F7]">
         {/* Chat Header */}
@@ -81,7 +103,7 @@ export function Messages() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3 flex-1">
-            <div 
+            <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
               style={{ backgroundColor: convo.color }}
             >
@@ -89,12 +111,12 @@ export function Messages() {
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-black/90">{convo.name}</h3>
-              <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest">
+              <p className="text-[10px] font-medium text-black/55 uppercase tracking-widest">
                 {convo.type === "group" ? "8 Members Online" : "Active Now"}
               </p>
             </div>
           </div>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center text-black/30">
+          <button className="w-11 h-11 rounded-full flex items-center justify-center text-black/50">
             <MoreHorizontal className="w-5 h-5" />
           </button>
         </header>
@@ -102,7 +124,7 @@ export function Messages() {
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           <div className="flex justify-center my-4">
-            <span className="bg-black/5 px-3 py-1 rounded-full text-[10px] font-bold text-black/30 uppercase tracking-widest">
+            <span className="bg-black/5 px-3 py-1 rounded-full text-[10px] font-bold text-black/50 uppercase tracking-widest">
               Today
             </span>
           </div>
@@ -141,7 +163,7 @@ export function Messages() {
                     {msg.senderInitials}
                   </div>
                   <div className="max-w-[75%] space-y-1">
-                    <p className="text-[10px] font-bold text-black/30 ml-1 uppercase tracking-wider">{msg.senderName}</p>
+                    <p className="text-[10px] font-bold text-black/50 ml-1 uppercase tracking-wider">{msg.senderName}</p>
                     <div className="glass px-4 py-2.5 rounded-[20px] rounded-bl-[4px]">
                       <p className="text-[15px] font-medium text-black/80 leading-tight">{msg.content}</p>
                     </div>
@@ -165,7 +187,12 @@ export function Messages() {
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-[15px] font-medium"
             />
-            <button onClick={handleSend} aria-label="Send message" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none">
+            <button
+              onClick={handleSend}
+              disabled={isSendDisabled}
+              aria-label="Send message"
+              className={`w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none ${isSendDisabled ? "opacity-50" : ""}`}
+            >
               <Send className="w-5 h-5" />
             </button>
           </div>
@@ -181,7 +208,7 @@ export function Messages() {
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-black/90">Messages</h1>
-            <p className="text-black/40 text-sm font-medium mt-0.5">Stay connected with your teams</p>
+            <p className="text-black/55 text-sm font-medium mt-0.5">Stay connected with your teams</p>
           </div>
           <button aria-label="New message" className="w-11 h-11 glass rounded-full flex items-center justify-center text-primary active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none">
             <SquarePen className="w-5 h-5" />
@@ -195,14 +222,14 @@ export function Messages() {
             const groupUnread = groupMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
             const directUnread = directMsgs.reduce((s: number, m: Message) => s + m.unread, 0);
             const unreadCount = tab === "groups" ? groupUnread : directUnread;
-            
+
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 aria-pressed={isActive}
                 className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
-                  isActive ? "bg-white shadow-sm" : "text-black/40"
+                  isActive ? "bg-white shadow-sm" : "text-black/55"
                 }`}
               >
                 {tab === "groups" ? <Users2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
@@ -223,10 +250,11 @@ export function Messages() {
       {/* Search Bar */}
       <div className="px-6">
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             placeholder={`Search ${activeTab}...`}
+            aria-label="Search conversations"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white/50 backdrop-blur-md border border-black/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/10 transition-all"
@@ -245,9 +273,9 @@ export function Messages() {
             {msg.unread > 0 && (
               <div className="absolute left-0 top-0 w-1 h-full bg-primary" />
             )}
-            
+
             <div className="relative shrink-0">
-              <div 
+              <div
                 className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-sm"
                 style={{ backgroundColor: msg.color }}
               >
@@ -267,12 +295,12 @@ export function Messages() {
                 </h4>
                 <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest">{msg.timestamp}</span>
               </div>
-              <p className={`text-sm truncate pr-4 ${msg.unread > 0 ? "text-black/60 font-medium" : "text-black/40 font-normal"}`}>
+              <p className={`text-sm truncate pr-4 ${msg.unread > 0 ? "text-black/60 font-medium" : "text-black/55 font-normal"}`}>
                 {msg.isSystemMessage && <span className="text-primary font-bold">New Post: </span>}
                 {msg.lastMessage}
               </p>
             </div>
-            
+
             <ChevronRight className="w-5 h-5 text-black/10 group-active:translate-x-1 transition-transform" />
           </button>
         ))}
@@ -280,7 +308,13 @@ export function Messages() {
         {filtered.length === 0 && (
           <div className="py-20 flex flex-col items-center gap-4 text-center opacity-30">
             <MessageCircle className="w-16 h-16" />
-            <p className="font-bold uppercase tracking-widest text-xs">No conversations found</p>
+            <p className="font-bold uppercase tracking-widest text-xs">
+              {searchQuery
+                ? "No conversations found"
+                : activeTab === "groups"
+                  ? "No group conversations yet. Join a group to start chatting with your teams."
+                  : "No direct messages yet. Start a conversation with a friend."}
+            </p>
           </div>
         )}
       </div>

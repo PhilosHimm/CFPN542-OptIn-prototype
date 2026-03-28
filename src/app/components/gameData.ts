@@ -1,5 +1,6 @@
 // ─── Shared game data — Supabase-backed ───
 import { supabase, isDemoMode } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export interface Player {
   id: string;
@@ -39,12 +40,29 @@ export interface Game {
   roster: Player[];
   votingDeadline: string;
   confirmedOptionId?: string;
+  cancellationReason?: string;
   createdBy: string;
   date: string;
   time: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────
+
+// ─── Sport Minimums ───────────────────────────────────────
+
+export const SPORT_MINIMUMS: Record<string, number> = {
+  Soccer: 10,
+  Basketball: 5,
+  Volleyball: 6,
+  Tennis: 2,
+  Pickleball: 4,
+  "Flag Football": 8,
+  Softball: 9,
+};
+
+export function getMinPlayers(sport: string): number {
+  return SPORT_MINIMUMS[sport] ?? 2;
+}
 
 /** Returns true if the game has at least one option whose date is today or in the future. */
 export function isGameVotable(game: Game): boolean {
@@ -427,6 +445,7 @@ function mapDbGameToGame(g: any): Game {
     time: timeStr,
     votingDeadline: g.voting_deadline || "",
     confirmedOptionId: g.confirmed_option_id || undefined,
+    cancellationReason: g.cancellation_reason || undefined,
     createdBy: g.created_by || "",
     roster: Array.from({ length: g.current_players || 0 }, (_, i) => ({
       id: `player-${i}`,
@@ -458,7 +477,7 @@ export async function fetchAllGames(): Promise<Game[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("fetchAllGames error:", error.message);
+
     return DEMO_GAMES;
   }
 
@@ -530,8 +549,6 @@ export async function saveGame(input: {
 
   const gameId = crypto.randomUUID();
 
-  console.log("saveGame: inserting game", gameId, "by user", input.createdBy);
-
   const { error } = await supabase!
     .from("games")
     .insert({
@@ -554,11 +571,9 @@ export async function saveGame(input: {
     });
 
   if (error) {
-    console.error("saveGame: insert error:", error.message);
+
     return { id: "", error: error.message };
   }
-
-  console.log("saveGame: game inserted, adding time options");
 
   // Insert time options
   const optionInserts = input.timeOptions
@@ -579,7 +594,7 @@ export async function saveGame(input: {
 
   if (optionInserts.length > 0) {
     const { error: optError } = await supabase!.from("game_options").insert(optionInserts);
-    if (optError) console.error("saveGame: game_options insert error:", optError.message);
+    if (optError) return { id: "", error: optError.message };
   }
 
   // Invite players (only real UUIDs)
@@ -590,10 +605,9 @@ export async function saveGame(input: {
       status: "invited" as const,
     }));
     const { error: playerError } = await supabase!.from("game_players").insert(playerInserts);
-    if (playerError) console.error("saveGame: game_players insert error:", playerError.message);
+    if (playerError) return { id: "", error: playerError.message };
   }
 
-  console.log("saveGame: complete, game id:", gameId);
   return { id: gameId, error: null };
 }
 
@@ -634,9 +648,12 @@ export async function updateGameVotingDeadline(gameId: string, deadline: string)
   return !error;
 }
 
-export async function cancelGame(gameId: string): Promise<boolean> {
+export async function cancelGame(gameId: string, reason?: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("games").update({ status: "cancelled" }).eq("id", gameId);
+  const { error } = await supabase!
+    .from("games")
+    .update({ status: "cancelled", cancellation_reason: reason ?? null })
+    .eq("id", gameId);
   return !error;
 }
 
@@ -646,5 +663,46 @@ export async function confirmGame(gameId: string, optionId: string): Promise<boo
     .from("games")
     .update({ status: "confirmed", confirmed_option_id: optionId })
     .eq("id", gameId);
+  return !error;
+}
+
+export async function unconfirmGame(gameId: string): Promise<boolean> {
+  if (isDemoMode()) return false;
+  const { error } = await supabase!
+    .from("games")
+    .update({ status: "proposal", confirmed_option_id: null })
+    .eq("id", gameId);
+  return !error;
+}
+
+export async function completeGame(gameId: string, attendeeUserIds: string[] = []): Promise<boolean> {
+  if (isDemoMode()) return false;
+  const { error } = await supabase!.from("games").update({ status: "completed" }).eq("id", gameId);
+  if (error) return false;
+  for (const uid of attendeeUserIds) {
+    const { data: p } = await supabase!
+      .from("profiles")
+      .select("games_played")
+      .eq("id", uid)
+      .single();
+    if (p) {
+      await supabase!
+        .from("profiles")
+        .update({ games_played: (p.games_played || 0) + 1 })
+        .eq("id", uid);
+    }
+  }
+  return true;
+}
+
+export async function clearVotesForOption(optionId: string): Promise<boolean> {
+  if (isDemoMode()) return false;
+  const { error } = await supabase!.from("votes").delete().eq("option_id", optionId);
+  if (!error) {
+    await supabase!
+      .from("game_options")
+      .update({ in_votes: 0, maybe_votes: 0, out_votes: 0 })
+      .eq("id", optionId);
+  }
   return !error;
 }
