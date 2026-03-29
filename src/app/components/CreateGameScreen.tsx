@@ -32,8 +32,18 @@ const sports = [
   "Basketball",
   "Volleyball",
   "Tennis",
+  "Pickleball",
   "Flag Football",
   "Softball",
+  "Hockey",
+  "Baseball",
+  "Rugby",
+  "Badminton",
+  "Ultimate Frisbee",
+  "Lacrosse",
+  "Golf",
+  "Cricket",
+  "Other / Custom...",
 ];
 const stepLabels = [
   "Details",
@@ -209,6 +219,7 @@ export function CreateGameScreen() {
 
   // Step 1 state
   const [selectedSport, setSelectedSport] = useState(mock ? "Soccer" : "");
+  const [customSportName, setCustomSportName] = useState("");
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [gameTitle, setGameTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
   const [address, setAddress] = useState(mock ? "Riverside Park, Field 3, Chicago" : "");
@@ -358,11 +369,15 @@ export function CreateGameScreen() {
 
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const effectiveSport = selectedSport === "Other / Custom..."
+    ? customSportName.trim()
+    : selectedSport;
+
   const handleCreateGame = useCallback(async () => {
     setCreateError(null);
     const result = await saveGame({
       title: gameTitle,
-      sport: selectedSport,
+      sport: effectiveSport,
       gameType: gameType as "casual" | "competitive",
       maxPlayers: parseInt(maxPlayers) || 12,
       totalCost: parseFloat(totalCost) || 0,
@@ -389,11 +404,11 @@ export function CreateGameScreen() {
     setTimeout(() => {
       navigate("/");
     }, 2000);
-  }, [navigate, gameTitle, selectedSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
+  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
-    selectedSport !== "" && gameTitle.trim() !== "" && gameType !== "";
+    effectiveSport !== "" && gameTitle.trim() !== "" && gameType !== "";
   const isStep2Valid = timeOptions.every(
     (o) => o.date !== "" && o.startTime !== "" && o.endTime !== ""
   );
@@ -491,6 +506,8 @@ export function CreateGameScreen() {
               <StepDetails
                 selectedSport={selectedSport}
                 setSelectedSport={setSelectedSport}
+                customSportName={customSportName}
+                setCustomSportName={setCustomSportName}
                 sportDropdownOpen={sportDropdownOpen}
                 setSportDropdownOpen={setSportDropdownOpen}
                 gameTitle={gameTitle}
@@ -542,7 +559,7 @@ export function CreateGameScreen() {
             )}
             {currentStep === 5 && (
               <StepReview
-                selectedSport={selectedSport}
+                selectedSport={effectiveSport}
                 gameTitle={gameTitle}
                 address={address}
                 gameType={gameType}
@@ -577,6 +594,8 @@ export function CreateGameScreen() {
 function StepDetails({
   selectedSport,
   setSelectedSport,
+  customSportName,
+  setCustomSportName,
   sportDropdownOpen,
   setSportDropdownOpen,
   gameTitle,
@@ -593,6 +612,8 @@ function StepDetails({
 }: {
   selectedSport: string;
   setSelectedSport: (v: string) => void;
+  customSportName: string;
+  setCustomSportName: (v: string) => void;
   sportDropdownOpen: boolean;
   setSportDropdownOpen: (v: boolean) => void;
   gameTitle: string;
@@ -636,7 +657,7 @@ function StepDetails({
           />
         </button>
         {sportDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-md3-extra-small shadow-md3-3 border border-outline-variant z-20 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-md3-extra-small shadow-md3-3 border border-outline-variant z-20 overflow-hidden max-h-60 overflow-y-auto">
             {sports.map((sport) => (
               <button
                 key={sport}
@@ -656,6 +677,18 @@ function StepDetails({
           </div>
         )}
       </div>
+
+      {/* Custom sport input */}
+      {selectedSport === "Other / Custom..." && (
+        <div className="mb-4">
+          <OutlinedTextField
+            label="Sport Name"
+            placeholder="e.g. Kickball, Dodgeball..."
+            value={customSportName}
+            onChange={setCustomSportName}
+          />
+        </div>
+      )}
 
       {/* Game Title */}
       <OutlinedTextField

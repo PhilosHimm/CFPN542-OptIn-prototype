@@ -58,6 +58,14 @@ export const SPORT_MINIMUMS: Record<string, number> = {
   Pickleball: 4,
   "Flag Football": 8,
   Softball: 9,
+  Hockey: 10,
+  Baseball: 9,
+  Rugby: 14,
+  Badminton: 2,
+  "Ultimate Frisbee": 14,
+  Lacrosse: 10,
+  Golf: 1,
+  Cricket: 11,
 };
 
 export function getMinPlayers(sport: string): number {
@@ -108,11 +116,21 @@ export function isGameVotable(game: Game): boolean {
 // ─── Demo game data ───────────────────────────────────────
 
 const SPORT_HERO_IMAGES: Record<string, string> = {
-  Soccer:     "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-  Basketball: "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
-  Volleyball: "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-  Tennis:     "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  Pickleball: "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Soccer:           "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+  Basketball:       "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+  Volleyball:       "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+  Tennis:           "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Pickleball:       "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Hockey:           "https://images.unsplash.com/photo-1515703407324-5f753afd8be8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Baseball:         "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Rugby:            "https://images.unsplash.com/photo-1580974852861-29a31dc3df43?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Badminton:        "https://images.unsplash.com/photo-1613918431703-aa50889e3be8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  "Flag Football":  "https://images.unsplash.com/photo-1566577134770-3d85bb3a9cc4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Softball:         "https://images.unsplash.com/photo-1529768167801-9173d94c2a42?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  "Ultimate Frisbee": "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Lacrosse:         "https://images.unsplash.com/photo-1605152276897-4f618f831968?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Golf:             "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+  Cricket:          "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
 };
 
 function p(ids: string[]): Player[] {
@@ -604,8 +622,21 @@ export async function saveGame(input: {
   }
 
   const sportEmojis: Record<string, string> = {
-    Soccer: "\u26BD", Basketball: "\uD83C\uDFC0", Volleyball: "\uD83C\uDFD0",
-    Tennis: "\uD83C\uDFBE", "Flag Football": "\uD83C\uDFC8", Softball: "\u26BE",
+    Soccer: "\u26BD",
+    Basketball: "\uD83C\uDFC0",
+    Volleyball: "\uD83C\uDFD0",
+    Tennis: "\uD83C\uDFBE",
+    Pickleball: "\uD83C\uDFD3",
+    "Flag Football": "\uD83C\uDFC8",
+    Softball: "\u26BE",
+    Hockey: "\uD83C\uDFD2",
+    Baseball: "\u26BE",
+    Rugby: "\uD83C\uDFC9",
+    Badminton: "\uD83C\uDFF8",
+    "Ultimate Frisbee": "\uD83E\uDD4F",
+    Lacrosse: "\uD83E\uDD4D",
+    Golf: "\u26F3",
+    Cricket: "\uD83C\uDFCF",
   };
 
   // Only use group_id if it's a valid UUID (mock IDs like "g1" are not valid)
