@@ -20,8 +20,6 @@ const BIO_EXAMPLES = [
   "Tennis beginner, doubles preferred 🎾",
 ];
 
-export const ONBOARDING_KEY = "optin_onboarding_complete";
-
 export function Onboarding() {
   const navigate = useNavigate();
   const { user, profile, isDemo, loading, updateProfile } = useAuth();
@@ -40,8 +38,8 @@ export function Onboarding() {
   const [saving, setSaving] = useState(false);
 
   if (!loading && !isDemo && !user) return <Navigate to="/login" replace />;
-  if (!loading && localStorage.getItem(ONBOARDING_KEY))
-    return <Navigate to="/" replace />;
+  // Already completed onboarding (username is set in DB) — skip
+  if (!loading && profile?.username) return <Navigate to="/" replace />;
 
   const firstName = profile?.name?.split(" ")[0] ?? "there";
   const initials =
@@ -56,7 +54,11 @@ export function Onboarding() {
 
   const validateUsername = () => {
     const trimmed = username.trim();
-    if (trimmed && !/^[a-z0-9_]{3,20}$/.test(trimmed)) {
+    if (!trimmed) {
+      setUsernameError("Username is required");
+      return false;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(trimmed)) {
       setUsernameError("3–20 characters: letters, numbers, underscores only");
       return false;
     }
@@ -71,8 +73,9 @@ export function Onboarding() {
 
   const handleComplete = async () => {
     setSaving(true);
-    await updateProfile({ color: selectedColor, username: username.trim() || null, bio });
-    localStorage.setItem(ONBOARDING_KEY, "true");
+    // Saving a non-null username is what marks onboarding as complete (checked in Layout).
+    // No localStorage needed — this is DB-persisted, so it survives sign-out/sign-in.
+    await updateProfile({ color: selectedColor, username: username.trim(), bio });
     navigate("/");
   };
 

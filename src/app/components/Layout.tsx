@@ -2,10 +2,9 @@ import { useState, useEffect } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "../contexts/AuthContext";
-import { ONBOARDING_KEY } from "../pages/Onboarding";
 
 export function Layout() {
-  const { user, loading, isDemo, sessionExpired } = useAuth();
+  const { user, profile, loading, isDemo, sessionExpired } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -34,7 +33,10 @@ export function Layout() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!localStorage.getItem(ONBOARDING_KEY)) {
+  // Send new real users to onboarding until they set a username.
+  // This is DB-persisted, so it isn't cleared on sign-out like localStorage was.
+  // Demo users skip onboarding (their profile always has a username set).
+  if (!isDemo && profile !== null && !profile?.username) {
     return <Navigate to="/onboarding" replace />;
   }
 
