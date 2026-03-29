@@ -1122,11 +1122,6 @@ export function GameViewScreen() {
         </div>
 
         {/* Bottom Action */}
-        {game.status === "proposal" && (
-          <button className="w-full h-[52px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors min-h-[52px]">
-            Confirm My Votes
-          </button>
-        )}
         {isConfirmed && (
           <div className="flex gap-3">
             <button className="flex-1 h-[52px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors min-h-[52px]">

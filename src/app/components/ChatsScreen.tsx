@@ -30,7 +30,7 @@ import {
   sendMessageRequest,
   type MessageRequestItem,
 } from "../services/friendships.service";
-import { demoConversations, type DemoConversation } from "../data/games";
+import { demoConversations, type DemoConversation, type ChatMessage } from "../data/games";
 import { ChatView } from "./ChatView";
 
 type UserOption = {
@@ -47,11 +47,43 @@ type ChatSession = {
   id: string;
   isGroup: boolean;
   name: string;
+  initials: string;
+  color: string;
   avatar?: string;
   lastMessage: string;
   timestamp: string;
   participants: string[];
+  messages: ChatMessage[];
+  unread: number;
 };
+
+function sessionToConvo(session: ChatSession): DemoConversation {
+  return {
+    id: session.id,
+    type: session.isGroup ? "group" : "direct",
+    name: session.name,
+    initials: session.initials,
+    color: session.color,
+    lastMessage: session.lastMessage,
+    lastMessageTime: session.timestamp,
+    unread: session.unread,
+    messages: session.messages,
+  };
+}
+
+function requestToConvo(request: MessageRequestItem): DemoConversation {
+  return {
+    id: request.id,
+    type: "direct",
+    name: request.requesterName,
+    initials: request.requesterName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+    color: "#6B7280",
+    lastMessage: "Wants to message you",
+    lastMessageTime: "",
+    unread: 1,
+    messages: [],
+  };
+}
 
 export function ChatsScreen() {
   const location = useLocation();
@@ -63,10 +95,22 @@ export function ChatsScreen() {
   // Demo mode: mutable copy of conversations so sending messages works
   const [demoConvos, setDemoConvos] = useState<DemoConversation[]>(demoConversations);
 
-  // Live mode: persistent chat sessions
+  // Live mode: persistent chat sessions (migrate old entries that pre-date the messages/unread fields)
   const [chats, setChats] = useState<ChatSession[]>(() => {
     const saved = localStorage.getItem("optin_mock_chats");
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed: ChatSession[] = JSON.parse(saved);
+      return parsed.map((c) => ({
+        ...c,
+        messages: c.messages ?? [],
+        unread: c.unread ?? 0,
+        initials: c.initials ?? c.name?.charAt(0)?.toUpperCase() ?? "?",
+        color: c.color ?? "#007AFF",
+      }));
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
@@ -257,12 +301,17 @@ export function ChatsScreen() {
         id: newId,
         isGroup,
         name: chatName,
+        initials: chatName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+        color: isGroup ? "#007AFF" : (selectedChatUsers[0].color ?? "#007AFF"),
         avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""),
         lastMessage: "Chat created",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         participants: selectedChatUsers.map((u) => u.id),
+        messages: [],
+        unread: 0,
       };
       setChats((prev) => [newSession, ...prev]);
+      setActiveChatId(newId);
     }
 
     setIsSheetOpen(false);
@@ -282,10 +331,14 @@ export function ChatsScreen() {
         id: Date.now().toString(),
         isGroup: false,
         name: request.requesterName,
+        initials: request.requesterName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+        color: "#6B7280",
         avatar: request.requesterAvatar,
         lastMessage: "You accepted the message request",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         participants: [request.requesterId],
+        messages: [],
+        unread: 0,
       };
       setChats((prev) => [newSession, ...prev]);
     }
@@ -301,43 +354,91 @@ export function ChatsScreen() {
     setRequestActionId(null);
   };
 
-  // Send a message in the active conversation
+  // Send a message in the active conversation (works for both demo and live mode)
   const handleSendMessage = (conversationId: string, content: string) => {
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const newMsg = {
+    const newMsg: ChatMessage = {
       id: Date.now().toString(),
-      senderId: "me",
+      senderId: profile?.id ?? "me",
       senderName: profile?.name || "You",
-      senderInitials: profile?.initials || "M",
+      senderInitials: profile?.initials || "?",
       senderColor: profile?.color || "#007AFF",
       content,
       timestamp: now,
-      isMe: true as const,
+      isMe: true,
     };
-    setDemoConvos((prev) =>
-      prev.map((c) =>
-        c.id === conversationId
-          ? { ...c, messages: [...c.messages, newMsg], lastMessage: content, lastMessageTime: "Just now" }
-          : c
-      )
-    );
+    if (isDemo) {
+      setDemoConvos((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, messages: [...c.messages, newMsg], lastMessage: content, lastMessageTime: "Just now" }
+            : c
+        )
+      );
+    } else {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, messages: [...c.messages, newMsg], lastMessage: content, timestamp: "Just now" }
+            : c
+        )
+      );
+    }
   };
 
   // Show chat view when a conversation is open
   if (activeChatId) {
-    const convo = demoConvos.find((c) => c.id === activeChatId);
-    if (convo) {
-      return (
-        <ChatView
-          conversation={convo}
-          onBack={() => setActiveChatId(null)}
-          onSendMessage={handleSendMessage}
-          onDelete={(id) => {
-            setDemoConvos((prev) => prev.filter((c) => c.id !== id));
-            setActiveChatId(null);
-          }}
-        />
-      );
+    if (isDemo) {
+      const convo = demoConvos.find((c) => c.id === activeChatId);
+      if (convo) {
+        return (
+          <ChatView
+            conversation={convo}
+            onBack={() => setActiveChatId(null)}
+            onSendMessage={handleSendMessage}
+            onDelete={(id) => {
+              setDemoConvos((prev) => prev.filter((c) => c.id !== id));
+              setActiveChatId(null);
+            }}
+          />
+        );
+      }
+    } else {
+      // Live mode: check regular chats first
+      const chat = chats.find((c) => c.id === activeChatId);
+      if (chat) {
+        return (
+          <ChatView
+            conversation={sessionToConvo(chat)}
+            onBack={() => setActiveChatId(null)}
+            onSendMessage={handleSendMessage}
+            onDelete={(id) => {
+              setChats((prev) => prev.filter((c) => c.id !== id));
+              setActiveChatId(null);
+            }}
+          />
+        );
+      }
+      // Live mode: check incoming requests
+      const request = incomingRequests.find((r) => r.id === activeChatId);
+      if (request) {
+        return (
+          <ChatView
+            conversation={requestToConvo(request)}
+            onBack={() => setActiveChatId(null)}
+            onSendMessage={() => {}}
+            isRequest
+            onAccept={async () => {
+              await handleAcceptRequest(request);
+              setActiveChatId(null);
+            }}
+            onDecline={async () => {
+              await handleDeclineRequest(request);
+              setActiveChatId(null);
+            }}
+          />
+        );
+      }
     }
   }
 
@@ -347,7 +448,9 @@ export function ChatsScreen() {
   const currentDemoConvos = activeTab === "direct" ? demoDirects : demoGroups;
 
   // Live-mode chats split by type
-  const currentChats = chats.filter((c) => (activeTab === "groups" ? c.isGroup : !c.isGroup));
+  const liveDirects = chats.filter((c) => !c.isGroup);
+  const liveGroups = chats.filter((c) => c.isGroup);
+  const currentChats = activeTab === "groups" ? liveGroups : liveDirects;
 
   const totalUnread = demoConvos.reduce((sum, c) => sum + c.unread, 0);
 
@@ -494,11 +597,16 @@ export function ChatsScreen() {
             className={`flex-1 pb-3 text-label-lg font-medium relative transition-colors ${activeTab === "direct" ? "text-primary" : "text-on-surface-variant"}`}
           >
             Direct
-            {isDemo && demoDirects.reduce((s, c) => s + c.unread, 0) > 0 && (
-              <span className="ml-1.5 bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {demoDirects.reduce((s, c) => s + c.unread, 0)}
-              </span>
-            )}
+            {(() => {
+              const count = isDemo
+                ? demoDirects.reduce((s, c) => s + c.unread, 0)
+                : incomingRequests.length + liveDirects.reduce((s, c) => s + c.unread, 0);
+              return count > 0 ? (
+                <span className="ml-1.5 bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {count}
+                </span>
+              ) : null;
+            })()}
             {activeTab === "direct" && <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-primary rounded-md3-full" />}
           </button>
           <button
@@ -506,11 +614,16 @@ export function ChatsScreen() {
             className={`flex-1 pb-3 text-label-lg font-medium relative transition-colors ${activeTab === "groups" ? "text-primary" : "text-on-surface-variant"}`}
           >
             Groups
-            {isDemo && demoGroups.reduce((s, c) => s + c.unread, 0) > 0 && (
-              <span className="ml-1.5 bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {demoGroups.reduce((s, c) => s + c.unread, 0)}
-              </span>
-            )}
+            {(() => {
+              const count = isDemo
+                ? demoGroups.reduce((s, c) => s + c.unread, 0)
+                : liveGroups.reduce((s, c) => s + c.unread, 0);
+              return count > 0 ? (
+                <span className="ml-1.5 bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {count}
+                </span>
+              ) : null;
+            })()}
             {activeTab === "groups" && <div className="absolute bottom-0 left-1/4 right-1/4 h-[3px] bg-primary rounded-md3-full" />}
           </button>
         </div>
@@ -518,35 +631,33 @@ export function ChatsScreen() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Incoming message requests (live mode only) */}
-        {!isDemo && activeTab === "direct" && incomingRequests.length > 0 && (
-          <div className="px-4 pt-4">
-            <div className="rounded-md3-large border border-outline-variant/80 bg-surface-container-low p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-label-lg font-medium text-on-surface">Message requests</p>
-                <span className="text-label-sm text-on-surface-variant">{incomingRequests.length}</span>
-              </div>
-              <div className="space-y-2">
-                {incomingRequests.map((request) => (
-                  <div key={request.id} className="flex items-center gap-3 rounded-md3-medium bg-surface p-2">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={request.requesterAvatar} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-medium">{request.requesterName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-body-md font-medium text-on-surface truncate">{request.requesterName}</p>
-                      <p className="text-label-sm text-on-surface-variant">Wants to message you</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button type="button" variant="outline" className="h-8 px-3 rounded-md3-full" onClick={() => handleDeclineRequest(request)} disabled={requestActionId === request.id}>Decline</Button>
-                      <Button type="button" className="h-8 px-3 rounded-md3-full" onClick={() => handleAcceptRequest(request)} disabled={requestActionId === request.id}>Accept</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {/* Inline request items — shown at the top of the Direct tab in live mode */}
+        {!isDemo && activeTab === "direct" && incomingRequests.map((request) => (
+          <div
+            key={request.id}
+            className="flex items-center gap-4 px-4 py-3 hover:bg-surface-container-low cursor-pointer transition-colors active:bg-surface-container"
+            onClick={() => setActiveChatId(request.id)}
+          >
+            <div className="relative flex-shrink-0">
+              <Avatar className="w-14 h-14">
+                <AvatarImage src={request.requesterAvatar} />
+                <AvatarFallback className="bg-surface-container-high text-on-surface-variant font-medium text-title-md">
+                  {request.requesterName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              {/* Blue dot indicating unread/pending */}
+              <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary rounded-full border-2 border-surface" />
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-baseline mb-0.5">
+                <h3 className="text-body-lg font-semibold text-on-surface truncate pr-2">{request.requesterName}</h3>
+                <span className="text-label-sm text-primary font-medium flex-shrink-0">Request</span>
+              </div>
+              <p className="text-body-md text-on-surface-variant truncate">Wants to message you</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-on-surface-variant/40 flex-shrink-0" />
           </div>
-        )}
+        ))}
 
         {/* Demo conversation list */}
         {isDemo && currentDemoConvos.length > 0 && (
@@ -617,23 +728,30 @@ export function ChatsScreen() {
               <div
                 key={chat.id}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-surface-container-low cursor-pointer transition-colors active:bg-surface-container"
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={() => {
+                  setChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c));
+                  setActiveChatId(chat.id);
+                }}
               >
-                <Avatar className="w-14 h-14 border border-outline-variant/30 font-medium flex-shrink-0">
-                  {chat.avatar ? (
-                    <AvatarImage src={chat.avatar} />
-                  ) : (
-                    <AvatarFallback className={chat.isGroup ? "bg-tertiary-container text-on-tertiary-container" : "bg-primary-container text-on-primary-container"}>
-                      {chat.isGroup ? <Users className="w-6 h-6" /> : chat.name.charAt(0)}
-                    </AvatarFallback>
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-white font-medium"
+                    style={{ backgroundColor: chat.color }}
+                  >
+                    {chat.isGroup ? <Users className="w-6 h-6" /> : chat.initials}
+                  </div>
+                  {chat.unread > 0 && (
+                    <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-on-primary">{chat.unread}</span>
+                    </div>
                   )}
-                </Avatar>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-0.5">
-                    <h3 className="text-body-lg font-medium text-on-surface truncate pr-2">{chat.name}</h3>
-                    <span className="text-label-sm text-on-surface-variant flex-shrink-0">{chat.timestamp}</span>
+                    <h3 className={`text-body-lg truncate pr-2 ${chat.unread > 0 ? "font-semibold text-on-surface" : "font-medium text-on-surface"}`}>{chat.name}</h3>
+                    <span className={`text-label-sm flex-shrink-0 ${chat.unread > 0 ? "text-primary font-medium" : "text-on-surface-variant"}`}>{chat.timestamp}</span>
                   </div>
-                  <p className="text-body-md text-on-surface-variant truncate">{chat.lastMessage}</p>
+                  <p className={`text-body-md truncate ${chat.unread > 0 ? "text-on-surface font-medium" : "text-on-surface-variant"}`}>{chat.lastMessage}</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -660,7 +778,8 @@ export function ChatsScreen() {
         )}
 
         {/* Empty state */}
-        {((isDemo && currentDemoConvos.length === 0) || (!isDemo && currentChats.length === 0)) && (
+        {((isDemo && currentDemoConvos.length === 0) ||
+          (!isDemo && currentChats.length === 0 && (activeTab !== "direct" || incomingRequests.length === 0))) && (
           <div className="flex flex-col items-center justify-center py-16 px-6">
             <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
               <MessageCircle className="w-7 h-7 text-on-surface-variant" />

@@ -11,7 +11,8 @@
       "mcp__9248f51e-902e-461a-b23e-07390c3f53b4__execute_sql",
       "mcp__9248f51e-902e-461a-b23e-07390c3f53b4__apply_migration",
       "Bash(npm run:*)",
-      "mcp__554b8310-fec0-4fb4-b4cf-cba6690695b7__notion-create-pages"
+      "mcp__554b8310-fec0-4fb4-b4cf-cba6690695b7__notion-create-pages",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }
