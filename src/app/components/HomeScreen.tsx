@@ -20,18 +20,22 @@ function buildSchedule(allGames: Game[], todayStr: string) {
   const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed" || g.status === "completed");
   const dateStatusMap: Record<string, "proposal" | "confirmed" | "completed"> = {};
   for (const game of upcoming) {
-    for (const opt of game.timeOptions) {
-      if (opt.date < todayStr && game.status !== "completed") continue;
-      const isConfirmedOpt = game.status === "confirmed" && game.confirmedOptionId === opt.id;
-      const isCompletedOpt = game.status === "completed" && game.confirmedOptionId === opt.id;
-      if (isConfirmedOpt) {
-        dateStatusMap[opt.date] = "confirmed";
-      } else if (isCompletedOpt) {
-        if (dateStatusMap[opt.date] !== "confirmed") {
-          dateStatusMap[opt.date] = "completed";
+    if (game.status === "confirmed" || game.status === "completed") {
+      const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+      if (!confirmedOpt) continue;
+      if (game.status === "confirmed") {
+        dateStatusMap[confirmedOpt.date] = "confirmed";
+      } else {
+        if (dateStatusMap[confirmedOpt.date] !== "confirmed") {
+          dateStatusMap[confirmedOpt.date] = "completed";
         }
-      } else if (!dateStatusMap[opt.date]) {
-        dateStatusMap[opt.date] = "proposal";
+      }
+    } else {
+      for (const opt of game.timeOptions) {
+        if (opt.date < todayStr) continue;
+        if (!dateStatusMap[opt.date]) {
+          dateStatusMap[opt.date] = "proposal";
+        }
       }
     }
   }

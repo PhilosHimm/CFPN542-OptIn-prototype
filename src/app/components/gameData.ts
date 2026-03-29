@@ -70,12 +70,14 @@ export function getMinPlayers(sport: string): number {
  *  - confirmed + confirmed date past → completed (game already happened)
  */
 function applyAutoTransitions(games: Game[]): { games: Game[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const transitions: { id: string; newStatus: "cancelled" | "completed" }[] = [];
   const updated = games.map((g) => {
     if (g.status === "proposal") {
+      const deadlinePassed = g.votingDeadline ? new Date(g.votingDeadline) < now : false;
       const allPast = g.timeOptions.length > 0 && g.timeOptions.every((o) => o.date < todayStr);
-      if (allPast) {
+      if (deadlinePassed && allPast) {
         transitions.push({ id: g.id, newStatus: "cancelled" });
         return { ...g, status: "cancelled" as GameStatus };
       }
@@ -510,6 +512,21 @@ function mapDbGameToGame(g: any): Game {
 const GAME_SELECT =
   "*, game_options(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
 
+/** Persists auto-transition status updates to Supabase */
+async function persistTransitions(transitions: { id: string; newStatus: "cancelled" | "completed" }[]): Promise<void> {
+  if (transitions.length === 0) return;
+  const results = await Promise.all(
+    transitions.map(({ id, newStatus }) =>
+      supabase!.from("games").update({ status: newStatus }).eq("id", id)
+    )
+  );
+  for (const result of results) {
+    if (result.error) {
+      console.error("Failed to update game status in Supabase", result.error);
+    }
+  }
+}
+
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
   if (isDemoMode()) return applyAutoTransitions(DEMO_GAMES).games;
@@ -522,7 +539,9 @@ export async function fetchAllGames(): Promise<Game[]> {
 
   if (error || !data) return [];
 
-  return data.map(mapDbGameToGame);
+  const { games, transitions } = applyAutoTransitions(data.map(mapDbGameToGame));
+  await persistTransitions(transitions);
+  return games;
 }
 
 /** Fetch a single game by ID — returns demo game in demo mode */
@@ -541,7 +560,9 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
 
   if (error || !data) return undefined;
 
-  return applyAutoTransitions([mapDbGameToGame(data)]).games[0];
+  const { games, transitions } = applyAutoTransitions([mapDbGameToGame(data)]);
+  await persistTransitions(transitions);
+  return games[0];
 }
 
 // Check if a string looks like a valid UUID
