@@ -456,6 +456,16 @@ function mapDbGameToGame(g: any): Game {
     ? `${formatTime12h(displayOpt.start_time)} - ${formatTime12h(displayOpt.end_time)}`
     : "";
 
+  // Build real roster from game_players joined with profiles
+  const gamePlayers = (g.game_players || []) as any[];
+  const roster: Player[] = gamePlayers
+    .filter((p: any) => p.status !== "declined")
+    .map((p: any) => ({
+      id: p.user_id,
+      name: p.profiles?.name ?? "Player",
+      avatar: p.profiles?.avatar_url ?? "",
+    }));
+
   return {
     id: g.id,
     title: g.title,
@@ -475,45 +485,44 @@ function mapDbGameToGame(g: any): Game {
     confirmedOptionId: g.confirmed_option_id || undefined,
     cancellationReason: g.cancellation_reason || undefined,
     createdBy: g.created_by || "",
-    roster: Array.from({ length: g.current_players || 0 }, (_, i) => ({
-      id: `player-${i}`,
-      name: `Player ${i + 1}`,
-      avatar: "",
-    })),
-    timeOptions: opts.map((o: any) => ({
-      id: o.id,
-      date: o.date,
-      startTime: o.start_time,
-      endTime: o.end_time,
-      location: o.location,
-      votes: {
-        in: Array.from({ length: o.in_votes || 0 }, (_, i) => `voter-${i}`),
-        maybe: Array.from({ length: o.maybe_votes || 0 }, (_, i) => `maybe-${i}`),
-        out: Array.from({ length: o.out_votes || 0 }, (_, i) => `out-${i}`),
-      },
-    })),
+    roster,
+    // Build votes from individual vote rows — real user_ids, not synthetic counters
+    timeOptions: opts.map((o: any) => {
+      const voteRows = (o.votes || []) as Array<{ value: string; user_id: string }>;
+      return {
+        id: o.id,
+        date: o.date,
+        startTime: o.start_time,
+        endTime: o.end_time,
+        location: o.location,
+        votes: {
+          in: voteRows.filter((v) => v.value === "in").map((v) => v.user_id),
+          maybe: voteRows.filter((v) => v.value === "maybe").map((v) => v.user_id),
+          out: voteRows.filter((v) => v.value === "out").map((v) => v.user_id),
+        },
+      };
+    }),
   };
 }
+
+// Supabase select string — fetches individual vote rows and real player profiles
+// so mapDbGameToGame can build genuine voter ID arrays and a real roster.
+const GAME_SELECT =
+  "*, game_options(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
 
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
   if (isDemoMode()) return applyAutoTransitions(DEMO_GAMES).games;
+  if (!supabase) return [];
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from("games")
-    .select("*, game_options(*)")
+    .select(GAME_SELECT)
     .order("created_at", { ascending: false });
 
-  if (error) {
+  if (error || !data) return [];
 
-    return applyAutoTransitions(DEMO_GAMES).games;
-  }
-
-  const { games, transitions } = applyAutoTransitions((data || []).map(mapDbGameToGame));
-  for (const { id, newStatus } of transitions) {
-    supabase!.from("games").update({ status: newStatus }).eq("id", id);
-  }
-  return games;
+  return data.map(mapDbGameToGame);
 }
 
 /** Fetch a single game by ID — returns demo game in demo mode */
@@ -522,17 +531,15 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
     const game = DEMO_GAMES.find((g) => g.id === id);
     return game ? applyAutoTransitions([game]).games[0] : undefined;
   }
+  if (!supabase) return undefined;
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from("games")
-    .select("*, game_options(*)")
+    .select(GAME_SELECT)
     .eq("id", id)
     .single();
 
-  if (error || !data) {
-    const demo = DEMO_GAMES.find((g) => g.id === id);
-    return demo ? applyAutoTransitions([demo]).games[0] : undefined;
-  }
+  if (error || !data) return undefined;
 
   return applyAutoTransitions([mapDbGameToGame(data)]).games[0];
 }
@@ -735,12 +742,107 @@ export async function completeGame(gameId: string, attendeeUserIds: string[] = [
 
 export async function clearVotesForOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("votes").delete().eq("option_id", optionId);
+  if (!supabase) return false;
+  const { error } = await supabase.from("votes").delete().eq("option_id", optionId);
   if (!error) {
-    await supabase!
+    await supabase
       .from("game_options")
       .update({ in_votes: 0, maybe_votes: 0, out_votes: 0 })
       .eq("id", optionId);
   }
   return !error;
+}
+
+// ─── Vote helpers ─────────────────────────────────────────────────────────────
+
+/** Re-count votes for an option and sync the aggregate columns on game_options. */
+async function syncVoteCounts(optionId: string): Promise<void> {
+  if (!supabase) return;
+  const { data: rows } = await supabase
+    .from("votes")
+    .select("value")
+    .eq("option_id", optionId);
+  if (!rows) return;
+  const counts = { in_votes: 0, maybe_votes: 0, out_votes: 0 };
+  for (const r of rows) {
+    if (r.value === "in") counts.in_votes++;
+    else if (r.value === "maybe") counts.maybe_votes++;
+    else if (r.value === "out") counts.out_votes++;
+  }
+  await supabase.from("game_options").update(counts).eq("id", optionId);
+}
+
+/**
+ * Upsert a vote for the current user on a game option.
+ * Returns true on success, false in demo mode or on error.
+ */
+export async function castVote(
+  optionId: string,
+  userId: string,
+  value: "in" | "maybe" | "out"
+): Promise<boolean> {
+  if (isDemoMode()) return false;
+  if (!supabase) return false;
+
+  const { error } = await supabase.from("votes").upsert(
+    { option_id: optionId, user_id: userId, value },
+    { onConflict: "option_id,user_id" }
+  );
+  if (error) return false;
+
+  await syncVoteCounts(optionId);
+  return true;
+}
+
+/**
+ * Remove the current user's vote from a game option (un-vote).
+ * Returns true on success, false in demo mode or on error.
+ */
+export async function deleteVote(optionId: string, userId: string): Promise<boolean> {
+  if (isDemoMode()) return false;
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from("votes")
+    .delete()
+    .eq("option_id", optionId)
+    .eq("user_id", userId);
+  if (error) return false;
+
+  await syncVoteCounts(optionId);
+  return true;
+}
+
+/**
+ * Load the current user's votes for all options of a game.
+ * Returns a map of optionId → vote value, or {} in demo mode.
+ */
+export async function getUserVotes(
+  gameId: string,
+  userId: string
+): Promise<Record<string, "in" | "maybe" | "out">> {
+  if (isDemoMode()) return {};
+  if (!supabase) return {};
+
+  // Get all option IDs for this game
+  const { data: opts } = await supabase
+    .from("game_options")
+    .select("id")
+    .eq("game_id", gameId);
+  if (!opts || opts.length === 0) return {};
+
+  const optionIds = opts.map((o: { id: string }) => o.id);
+
+  const { data: voteRows } = await supabase
+    .from("votes")
+    .select("option_id, value")
+    .eq("user_id", userId)
+    .in("option_id", optionIds);
+  if (!voteRows) return {};
+
+  const result: Record<string, "in" | "maybe" | "out"> = {};
+  for (const row of voteRows) {
+    result[row.option_id] = row.value as "in" | "maybe" | "out";
+  }
+  return result;
 }

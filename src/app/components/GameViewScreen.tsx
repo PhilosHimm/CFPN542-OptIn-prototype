@@ -36,12 +36,16 @@ import {
   unconfirmGame,
   completeGame,
   clearVotesForOption,
+  castVote,
+  deleteVote,
+  getUserVotes,
   isGameVotable,
   getMinPlayers,
   type Game,
   type VoteOption,
   type Player,
 } from "./gameData";
+import { isDemoMode } from "@/lib/supabase";
 
 // ─── Helpers ──────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -540,14 +544,19 @@ export function GameViewScreen() {
 
   useEffect(() => {
     if (!id) return;
-    fetchGameById(id).then((g) => {
+    fetchGameById(id).then(async (g) => {
       if (g) {
         setGame(g);
         applyAutoTransitions(g);
+        // Load the current user's existing votes so buttons reflect prior choices
+        if (user && !isDemoMode()) {
+          const existing = await getUserVotes(id, user.id);
+          setVotes(existing);
+        }
       }
       setLoading(false);
     });
-  }, [id, applyAutoTransitions]);
+  }, [id, applyAutoTransitions, user]);
 
   // Handlers for advanced game operations
   const handleProposeSubmit = async () => {
@@ -714,23 +723,44 @@ export function GameViewScreen() {
   const voteCooldown = useRef<Set<string>>(new Set());
 
   const handleVote = useCallback(
-    (optionId: string, vote: "in" | "maybe" | "out") => {
+    async (optionId: string, vote: "in" | "maybe" | "out") => {
       // Debounce: ignore rapid clicks on the same option
       if (voteCooldown.current.has(optionId)) return;
       voteCooldown.current.add(optionId);
       setTimeout(() => voteCooldown.current.delete(optionId), 400);
 
+      // Determine the new vote state optimistically
+      const prevVotes = votes;
+      const isToggleOff = prevVotes[optionId] === vote;
+
+      // Optimistic update — reflect immediately in UI
       setVotes((prev) => {
-        // Toggle off if same vote
-        if (prev[optionId] === vote) {
+        if (isToggleOff) {
           const next = { ...prev };
           delete next[optionId];
           return next;
         }
         return { ...prev, [optionId]: vote };
       });
+
+      // Persist to Supabase (no-op in demo mode)
+      if (!isDemoMode() && user) {
+        const success = isToggleOff
+          ? await deleteVote(optionId, user.id)
+          : await castVote(optionId, user.id, vote);
+
+        if (!success) {
+          // Revert optimistic update on failure
+          setVotes(prevVotes);
+          toast.error("Failed to save your vote — please try again.");
+          return;
+        }
+
+        // Refresh game data to get accurate vote counts from DB
+        refreshGame();
+      }
     },
-    []
+    [votes, user, refreshGame]
   );
 
   // Sort options by "in" count descending for proposal status
