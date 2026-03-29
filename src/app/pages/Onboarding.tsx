@@ -75,7 +75,13 @@ export function Onboarding() {
     setSaving(true);
     // Saving a non-null username is what marks onboarding as complete (checked in Layout).
     // No localStorage needed — this is DB-persisted, so it survives sign-out/sign-in.
-    await updateProfile({ color: selectedColor, username: username.trim(), bio });
+    const { error } = await updateProfile({ color: selectedColor, username: username.trim(), bio });
+    if (error) {
+      setSaving(false);
+      setUsernameError(error.includes("unique") ? "Username is already taken" : `Save failed: ${error}`);
+      setStep(2);
+      return;
+    }
     navigate("/");
   };
 
