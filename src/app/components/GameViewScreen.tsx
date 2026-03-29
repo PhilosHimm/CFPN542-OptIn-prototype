@@ -631,12 +631,12 @@ export function GameViewScreen() {
       setShowMinPlayerWarning({ optionId, inCount, minRequired });
       return;
     }
-    try {
-      await confirmGame(game.id, optionId);
+    const ok = await confirmGame(game.id, optionId);
+    if (ok) {
       refreshGame();
       toast.success("Game confirmed!");
-    } catch (e: any) {
-      toast.error("Failed to confirm game: " + e.message);
+    } else {
+      toast.error("Failed to confirm game — please try again.");
     }
   }, [game, refreshGame]);
 
@@ -1042,8 +1042,8 @@ export function GameViewScreen() {
             </button>
           )}
 
-          {/* Confirm Game — host only, proposal with at least one option with votes, voting still open */}
-          {isHost && game.status === "proposal" && !isVotingClosed && sortedOptions.length > 0 && sortedOptions[0].votes.in.length > 0 && (
+          {/* Confirm Game — host only, proposal with at least one option, voting still open */}
+          {isHost && game.status === "proposal" && !isVotingClosed && sortedOptions.length > 0 && (
             <button
               onClick={() => handleConfirmGame(sortedOptions[0].id)}
               className="w-full h-12 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-2 mt-2 hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
@@ -1373,12 +1373,12 @@ export function GameViewScreen() {
                     onClick={async () => {
                       const { optionId } = showMinPlayerWarning;
                       setShowMinPlayerWarning(null);
-                      try {
-                        await confirmGame(game!.id, optionId);
+                      const ok = await confirmGame(game!.id, optionId);
+                      if (ok) {
                         refreshGame();
                         toast.success("Game confirmed!");
-                      } catch (e: any) {
-                        toast.error("Failed to confirm: " + e.message);
+                      } else {
+                        toast.error("Failed to confirm — please try again.");
                       }
                     }}
                     className="flex-1 h-12 bg-primary text-on-primary rounded-full text-label-lg font-medium"
