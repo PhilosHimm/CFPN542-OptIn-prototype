@@ -539,9 +539,7 @@ export async function fetchAllGames(): Promise<Game[]> {
 
   if (error || !data) return [];
 
-  const { games, transitions } = applyAutoTransitions(data.map(mapDbGameToGame));
-  await persistTransitions(transitions);
-  return games;
+  return data.map(mapDbGameToGame);
 }
 
 /** Fetch a single game by ID — returns demo game in demo mode */
@@ -552,6 +550,10 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
   }
   if (!supabase) return undefined;
 
+  // Run server-side auto-transition before reading — SECURITY DEFINER so any
+  // authenticated user can trigger confirmed→completed and proposal→cancelled.
+  await supabase.rpc("auto_transition_game", { p_game_id: id });
+
   const { data, error } = await supabase
     .from("games")
     .select(GAME_SELECT)
@@ -560,9 +562,16 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
 
   if (error || !data) return undefined;
 
-  const { games, transitions } = applyAutoTransitions([mapDbGameToGame(data)]);
-  await persistTransitions(transitions);
-  return games[0];
+  return mapDbGameToGame(data);
+}
+
+/**
+ * Call the server-side auto_transition_game RPC for a game.
+ * Works for any authenticated user (SECURITY DEFINER bypasses RLS).
+ */
+export async function autoTransitionGame(gameId: string): Promise<void> {
+  if (isDemoMode() || !supabase) return;
+  await supabase.rpc("auto_transition_game", { p_game_id: gameId });
 }
 
 // Check if a string looks like a valid UUID
