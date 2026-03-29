@@ -36,6 +36,38 @@ export async function getPlayers(): Promise<Player[]> {
   }
 }
 
+export async function getProfilesByIds(ids: string[]): Promise<ProfileSearchResult[]> {
+  if (!ids.length) return [];
+
+  if (isDemoMode()) {
+    return mockPlayers
+      .filter((p) => ids.includes(p.id))
+      .map((p) => ({ id: p.id, name: p.name, color: p.color }));
+  }
+
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, username, color, email, avatar_url")
+      .in("id", ids);
+
+    if (error || !data) return [];
+
+    return data.map((profile: any) => ({
+      id: profile.id,
+      name: profile.name,
+      username: profile.username,
+      color: profile.color,
+      email: profile.email,
+      avatar_url: profile.avatar_url,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function searchProfiles(
   query: string,
   excludeUserId?: string

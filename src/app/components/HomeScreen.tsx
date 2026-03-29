@@ -7,16 +7,35 @@ import { useAuth } from "../contexts/AuthContext";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function buildSchedule(allGames: Game[]) {
-  const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed");
-  const dateStatusMap: Record<string, "proposal" | "confirmed"> = {};
+function isGameExpired(game: Game, todayStr: string): boolean {
+  if (game.timeOptions.length === 0) return false;
+  if (game.status === "confirmed") {
+    const confirmed = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+    return !confirmed || confirmed.date < todayStr;
+  }
+  return game.timeOptions.every((o) => o.date < todayStr);
+}
+
+function buildSchedule(allGames: Game[], todayStr: string) {
+  const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed" || g.status === "completed");
+  const dateStatusMap: Record<string, "proposal" | "confirmed" | "completed"> = {};
   for (const game of upcoming) {
-    for (const opt of game.timeOptions) {
-      const isConfirmedOpt = game.status === "confirmed" && game.confirmedOptionId === opt.id;
-      if (isConfirmedOpt) {
-        dateStatusMap[opt.date] = "confirmed";
-      } else if (!dateStatusMap[opt.date]) {
-        dateStatusMap[opt.date] = "proposal";
+    if (game.status === "confirmed" || game.status === "completed") {
+      const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+      if (!confirmedOpt) continue;
+      if (game.status === "confirmed") {
+        dateStatusMap[confirmedOpt.date] = "confirmed";
+      } else {
+        if (dateStatusMap[confirmedOpt.date] !== "confirmed") {
+          dateStatusMap[confirmedOpt.date] = "completed";
+        }
+      }
+    } else {
+      for (const opt of game.timeOptions) {
+        if (opt.date < todayStr) continue;
+        if (!dateStatusMap[opt.date]) {
+          dateStatusMap[opt.date] = "proposal";
+        }
       }
     }
   }
@@ -74,9 +93,9 @@ export function HomeScreen() {
 
   const getGamesForDate = (dateStr: string) => {
     return allGames.filter((g) => {
-      if (g.status === "completed" || g.status === "cancelled") return false;
+      if (g.status === "cancelled") return false;
       return g.timeOptions.some((opt) => {
-        if (g.status === "confirmed") {
+        if (g.status === "confirmed" || g.status === "completed") {
           return g.confirmedOptionId === opt.id && opt.date === dateStr;
         }
         return opt.date === dateStr;
@@ -90,6 +109,7 @@ export function HomeScreen() {
 
   const upcomingGames = allGames.filter((g) => {
     if (g.status === "completed" || g.status === "cancelled") return false;
+    if (isGameExpired(g, todayStr)) return false;
     if (isDefaultView) {
       return !gamesToday.some((tg) => tg.id === g.id);
     }
@@ -97,7 +117,7 @@ export function HomeScreen() {
   });
 
   const completedGames = allGames.filter((g) => g.status === "completed");
-  const scheduleItems = buildSchedule(allGames);
+  const scheduleItems = buildSchedule(allGames, todayStr);
   const firstName = profile?.name?.split(" ")[0] || "there";
 
   const renderEmptyState = () => (
@@ -158,9 +178,11 @@ export function HomeScreen() {
                   isSelected ? "ring-2 ring-primary ring-inset" : ""
                 } ${
                   item.status === "confirmed"
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-primary-container text-on-primary-container"
                     : item.status === "proposal"
                     ? "bg-tertiary-container text-on-tertiary-container"
+                    : item.status === "completed"
+                    ? "bg-surface-container text-on-surface-variant"
                     : item.isToday
                     ? "bg-surface-container text-on-surface"
                     : "bg-surface-container-low text-on-surface-variant"
@@ -171,7 +193,11 @@ export function HomeScreen() {
                 </span>
                 <span className="text-title-lg font-medium">{item.date}</span>
                 {item.status && (
-                  <span className="w-1 h-1 rounded-full bg-current opacity-60 mt-0.5" />
+                  <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
+                    item.status === "confirmed" ? "bg-primary" : 
+                    item.status === "proposal" ? "bg-tertiary" : 
+                    "bg-on-surface-variant"
+                  }`} />
                 )}
               </div>
             );
@@ -204,7 +230,7 @@ export function HomeScreen() {
                     location={game.location}
                     players={`${game.roster.length}/${game.maxPlayers}`}
                     isFull={game.roster.length >= game.maxPlayers}
-                    variant={game.status === "proposal" ? "vote" : "confirmed"}
+                    variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))}
               </div>
@@ -225,7 +251,7 @@ export function HomeScreen() {
                     location={game.location}
                     players={`${game.roster.length}/${game.maxPlayers}`}
                     isFull={game.roster.length >= game.maxPlayers}
-                    variant={game.status === "proposal" ? "vote" : "confirmed"}
+                    variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))
               ) : (
@@ -249,7 +275,7 @@ export function HomeScreen() {
                   location={game.location}
                   players={`${game.roster.length}/${game.maxPlayers}`}
                   isFull={game.roster.length >= game.maxPlayers}
-                  variant={game.status === "proposal" ? "vote" : "confirmed"}
+                  variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                 />
               ))
             ) : (

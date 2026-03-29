@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import {
   fetchGameById,
+  autoTransitionGame,
   addGameOption,
   updateGameOption,
   deleteGameOption,
@@ -34,14 +35,17 @@ import {
   cancelGame,
   confirmGame,
   unconfirmGame,
-  completeGame,
   clearVotesForOption,
+  castVote,
+  deleteVote,
+  getUserVotes,
   isGameVotable,
   getMinPlayers,
   type Game,
   type VoteOption,
   type Player,
 } from "./gameData";
+import { isDemoMode } from "@/lib/supabase";
 
 // ─── Helpers ──────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -513,41 +517,22 @@ export function GameViewScreen() {
     });
   }, [id]);
 
-  // ─── Auto-transitions (Tasks 1, 2, 3) ───────────────────
-  const applyAutoTransitions = useCallback(async (g: Game) => {
-    // Task 2: confirmed → completed if confirmed option date has passed
-    if (g.status === "confirmed" && g.confirmedOptionId) {
-      const opt = g.timeOptions.find((o) => o.id === g.confirmedOptionId);
-      if (opt) {
-        const gameEnd = new Date(`${opt.date}T${opt.endTime || "23:59"}`);
-        if (gameEnd < new Date()) {
-          await completeGame(g.id, opt.votes.in);
-          refreshGame();
-          return;
-        }
-      }
-    }
-    // Task 3: proposal → cancelled if deadline passed AND all options past-dated
-    if (g.status === "proposal") {
-      const deadlinePassed = g.votingDeadline ? new Date(g.votingDeadline) < new Date() : false;
-      const allPast = g.timeOptions.every((o) => new Date(o.date + "T00:00") < new Date());
-      if (deadlinePassed && allPast) {
-        await cancelGame(g.id, "Not enough players");
-        refreshGame();
-      }
-    }
-  }, [refreshGame]);
-
   useEffect(() => {
     if (!id) return;
-    fetchGameById(id).then((g) => {
+    // fetchGameById calls auto_transition_game RPC internally (SECURITY DEFINER),
+    // so the game status is always up-to-date regardless of who is viewing.
+    fetchGameById(id).then(async (g) => {
       if (g) {
         setGame(g);
-        applyAutoTransitions(g);
+        // Load this user's existing votes so buttons reflect prior choices
+        if (user && !isDemoMode()) {
+          const existing = await getUserVotes(id, user.id);
+          setVotes(existing);
+        }
       }
       setLoading(false);
     });
-  }, [id, applyAutoTransitions]);
+  }, [id, user]);
 
   // Handlers for advanced game operations
   const handleProposeSubmit = async () => {
@@ -677,14 +662,37 @@ export function GameViewScreen() {
     }
   };
 
-  // Task 1: deadline expiry → auto state transition
+  // Deadline expiry → server-side auto-transition, then show tie-break UI if needed
   const handleDeadlineExpiry = useCallback(async () => {
     if (!game || game.status !== "proposal") return;
+
+    if (!isDemoMode()) {
+      // auto_transition_game RPC handles cancel and single-winner confirm server-side.
+      // Any authenticated user can call it (SECURITY DEFINER bypasses RLS).
+      await autoTransitionGame(game.id);
+      const updated = await fetchGameById(game.id);
+      if (updated) {
+        setGame(updated);
+        // If still proposal after transition, there's a tie — show tiebreak for host
+        if (updated.status === "proposal" && updated.createdBy === game.createdBy) {
+          const opts = [...updated.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
+          const maxVotes = opts[0]?.votes.in.length ?? 0;
+          if (maxVotes > 0) {
+            const tied = opts.filter((o) => o.votes.in.length === maxVotes);
+            if (tied.length > 1) {
+              setTiedOptions(tied);
+              setShowTieBreak(true);
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    // Demo mode: client-side logic only
     const opts = [...game.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
     const maxVotes = opts.length > 0 ? opts[0].votes.in.length : 0;
     if (maxVotes === 0) {
-      await cancelGame(game.id, "Not enough players");
-      refreshGame();
       toast.info("Voting closed with no attendees — game cancelled.");
       return;
     }
@@ -695,7 +703,7 @@ export function GameViewScreen() {
       setTiedOptions(topOptions);
       setShowTieBreak(true);
     }
-  }, [game, refreshGame, handleConfirmWithChecks]);
+  }, [game, handleConfirmWithChecks]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -714,23 +722,44 @@ export function GameViewScreen() {
   const voteCooldown = useRef<Set<string>>(new Set());
 
   const handleVote = useCallback(
-    (optionId: string, vote: "in" | "maybe" | "out") => {
+    async (optionId: string, vote: "in" | "maybe" | "out") => {
       // Debounce: ignore rapid clicks on the same option
       if (voteCooldown.current.has(optionId)) return;
       voteCooldown.current.add(optionId);
       setTimeout(() => voteCooldown.current.delete(optionId), 400);
 
+      // Determine the new vote state optimistically
+      const prevVotes = votes;
+      const isToggleOff = prevVotes[optionId] === vote;
+
+      // Optimistic update — reflect immediately in UI
       setVotes((prev) => {
-        // Toggle off if same vote
-        if (prev[optionId] === vote) {
+        if (isToggleOff) {
           const next = { ...prev };
           delete next[optionId];
           return next;
         }
         return { ...prev, [optionId]: vote };
       });
+
+      // Persist to Supabase (no-op in demo mode)
+      if (!isDemoMode() && user) {
+        const success = isToggleOff
+          ? await deleteVote(optionId, user.id)
+          : await castVote(optionId, user.id, vote);
+
+        if (!success) {
+          // Revert optimistic update on failure
+          setVotes(prevVotes);
+          toast.error("Failed to save your vote — please try again.");
+          return;
+        }
+
+        // Refresh game data to get accurate vote counts from DB
+        refreshGame();
+      }
     },
-    []
+    [votes, user, refreshGame]
   );
 
   // Sort options by "in" count descending for proposal status

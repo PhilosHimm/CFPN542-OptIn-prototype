@@ -70,18 +70,20 @@ export function CalendarScreen() {
 
   // Map game dates to calendar days
   const eventDatesMap = useMemo(() => {
-    const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean }> = {};
+    const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean; hasCompleted: boolean }> = {};
     games.forEach((game) => {
       const isConfirmed = !!game.confirmedOptionId;
-      const relevantOptions = isConfirmed
+      const isCompleted = game.status === "completed";
+      const relevantOptions = (isConfirmed || isCompleted)
         ? game.timeOptions.filter((opt) => opt.id === game.confirmedOptionId)
         : game.timeOptions;
       relevantOptions.forEach((opt) => {
         const d = new Date(opt.date + "T00:00:00");
         if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
           const day = d.getDate();
-          if (!map[day]) map[day] = { hasConfirmed: false, hasProposal: false };
-          if (isConfirmed) map[day].hasConfirmed = true;
+          if (!map[day]) map[day] = { hasConfirmed: false, hasProposal: false, hasCompleted: false };
+          if (isCompleted) map[day].hasCompleted = true;
+          else if (isConfirmed) map[day].hasConfirmed = true;
           else map[day].hasProposal = true;
         }
       });
@@ -199,12 +201,15 @@ export function CalendarScreen() {
                     <span className="text-label-lg">{day}</span>
                   </div>
                   {eventInfo && !isSelected && (
-                    <div className="absolute bottom-0 flex gap-[3px] items-center">
+                    <div className="absolute bottom-1 flex gap-[3px] items-center">
                       {eventInfo.hasProposal && (
-                        <div className="w-[5px] h-[5px] rounded-full bg-[#2196A6]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-tertiary" />
                       )}
                       {eventInfo.hasConfirmed && (
-                        <div className="w-[5px] h-[5px] rounded-full bg-primary" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
+                      {eventInfo.hasCompleted && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-on-surface-variant" />
                       )}
                     </div>
                   )}
