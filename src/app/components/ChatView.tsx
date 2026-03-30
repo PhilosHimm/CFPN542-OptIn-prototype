@@ -79,7 +79,9 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
       };
       setMessages(prev => [...prev, tempMsg]);
     }
-    
+
+    onSendMessage(conversation.id, text);
+    setInput("");
     inputRef.current?.focus();
   };
 
