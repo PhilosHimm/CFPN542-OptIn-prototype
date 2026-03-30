@@ -17,18 +17,24 @@ export interface ChatMessage {
   isSystem: boolean;
 }
 
-export async function getDirectMessages(): Promise<Message[]> {
+export async function getDirectMessages(currentUserId?: string): Promise<Message[]> {
   if (isDemoMode()) return mockDirectMessages;
-  return fetchConversations("direct");
+  return fetchConversations("direct", currentUserId);
 }
 
-export async function getGroupMessages(): Promise<Message[]> {
+export async function getGroupMessages(currentUserId?: string): Promise<Message[]> {
   if (isDemoMode()) return mockGroupMessages;
-  return fetchConversations("group");
+  return fetchConversations("group", currentUserId);
 }
 
-async function fetchConversations(type: "direct" | "group"): Promise<Message[]> {
+async function fetchConversations(type: "direct" | "group", currentUserId?: string): Promise<Message[]> {
   if (!supabase) return [];
+
+  // Try to grab current user from session if not provided
+  if (!currentUserId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    currentUserId = session?.user?.id;
+  }
 
   try {
     const { data, error } = await supabase
@@ -37,6 +43,7 @@ async function fetchConversations(type: "direct" | "group"): Promise<Message[]> 
       .eq("type", type)
       .order("updated_at", { ascending: false });
 
+    if (error) console.error("fetchConversations error:", error);
     if (error || !data || data.length === 0) return [];
 
     return data.map((conv: any) => {
@@ -55,16 +62,22 @@ async function fetchConversations(type: "direct" | "group"): Promise<Message[]> 
       let color = "#007AFF";
 
       if (type === "direct" && members.length > 0) {
-        // Pick the first member whose profile exists (ideally the other person)
-        const memberWithProfile = members.find((m: any) => m.profiles);
-        if (memberWithProfile?.profiles) {
-          name = memberWithProfile.profiles.name || name;
-          initials = memberWithProfile.profiles.initials || initials;
-          color = memberWithProfile.profiles.color || color;
+        // Pick the other member's profile
+        let otherMember = members.find((m: any) => m.user_id !== currentUserId && m.profiles);
+        // Fallback to first member who has a profile if logic above fails (shouldn't if > 1 members)
+        if (!otherMember) {
+          otherMember = members.find((m: any) => m.profiles);
+        }
+        if (otherMember?.profiles) {
+          name = otherMember.profiles.name || name;
+          initials = otherMember.profiles.initials || initials;
+          color = otherMember.profiles.color || color;
         }
       }
 
-      const totalUnread = members.reduce((sum: number, m: any) => sum + (m.unread_count || 0), 0);
+      // Calculate unread count specifically for the current user
+      const currentUserMember = members.find((m: any) => m.user_id === currentUserId);
+      const unreadCount = currentUserMember?.unread_count || 0;
 
       return {
         id: conv.id,
@@ -74,7 +87,7 @@ async function fetchConversations(type: "direct" | "group"): Promise<Message[]> 
         color,
         lastMessage: lastMsg?.content || "No messages yet",
         timestamp: lastMsg ? formatTimestamp(lastMsg.created_at) : "",
-        unread: totalUnread,
+        unread: unreadCount,
         isSystemMessage: lastMsg?.is_system || false,
       };
     });
@@ -236,19 +249,22 @@ export async function createConversation(
   if (isDemoMode() || !supabase) return Date.now().toString();
 
   try {
-    const { data: conv, error: convError } = await supabase
+    // Generate an ID up-front so we don't have to rely on a .select() which fails RLS
+    // since the user isn't a part of the conversation yet.
+    const newConvId = crypto.randomUUID();
+
+    const { error: convError } = await supabase
       .from("conversations")
       .insert({
+        id: newConvId,
         type: isGroup ? "group" : "direct",
         name: isGroup ? name : null,
-      })
-      .select()
-      .single();
+      });
 
-    if (convError || !conv) throw convError;
+    if (convError) throw convError;
 
     const membersToInsert = participantIds.map((id) => ({
-      conversation_id: conv.id,
+      conversation_id: newConvId,
       user_id: id,
     }));
 
@@ -258,7 +274,7 @@ export async function createConversation(
 
     if (memError) throw memError;
 
-    return conv.id;
+    return newConvId;
   } catch (err) {
     console.error("Failed to create conversation", err);
     return null;

@@ -101,9 +101,12 @@ export function ChatsScreen() {
 
   useEffect(() => {
     if (isDemo || !profile?.id) return;
-    
+
     // Load conversations from Supabase
-    Promise.all([getDirectMessages(), getGroupMessages()]).then(([direct, group]) => {
+    Promise.all([
+      getDirectMessages(profile.id),
+      getGroupMessages(profile.id)
+    ]).then(([direct, group]) => {
       const liveChats = [...direct, ...group].map((m) => ({
         id: m.id,
         isGroup: m.type === "group",
@@ -299,24 +302,27 @@ export function ChatsScreen() {
     } else {
       const participantIds = [profile.id, ...selectedChatUsers.map((u) => u.id)];
       createServiceConv(isGroup, chatName, participantIds).then((newId) => {
-        if (newId) {
-          const newSession: ChatSession = {
-            id: newId,
-            isGroup,
-            name: chatName,
-            initials: chatName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
-            color: isGroup ? "#007AFF" : (selectedChatUsers[0].color ?? "#007AFF"),
-            avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""),
-            lastMessage: "Chat created",
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            participants: participantIds,
-            messages: [],
-            unread: 0,
-          };
-          setChats((prev) => [newSession, ...prev]);
-          setActiveChatId(newId);
-        }
-      });
+          if (newId) {
+            const newSession: ChatSession = {
+              id: newId,
+              isGroup,
+              name: chatName,
+              initials: chatName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+              color: isGroup ? "#007AFF" : (selectedChatUsers[0].color ?? "#007AFF"),
+              avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""), 
+              lastMessage: "Chat created",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              participants: participantIds,
+              messages: [],
+              unread: 0,
+            };
+            setChats((prev) => [newSession, ...prev]);
+            setActiveChatId(newId);
+          } else {
+            console.error("Failed to create conversation");
+            setComposerFeedback("Failed to start chat.");
+          }
+        });
     }
 
     setIsSheetOpen(false);

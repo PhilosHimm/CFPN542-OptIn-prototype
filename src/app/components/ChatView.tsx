@@ -54,7 +54,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
     return () => {
       if (sub) sub.unsubscribe();
     };
-  }, [conversation.id, isDemo, isRequest, profile, conversation.messages]);
+  }, [conversation.id, isDemo, isRequest, profile]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
