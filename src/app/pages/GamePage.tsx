@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import { getGameById, getGroups, castVote, getUserVotes } from "../services/games.service";
+import { getGameById, getGroups, castVote, getUserVotes, subscribeToVotes } from "../services/games.service";
 import type { Game, Group, VoteValue } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
@@ -68,6 +68,24 @@ export function GamePage() {
       });
     }
   }, [game?.id, profile?.id]);
+
+  // Subscribe to realtime vote changes so all users see live updates
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!game || game.options.length === 0) return;
+
+    const optionIds = game.options.map((o) => o.id);
+    const sub = subscribeToVotes(optionIds, () => {
+      // Debounce to coalesce rapid votes from multiple users
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => fetchGame(), 500);
+    });
+
+    return () => {
+      sub.unsubscribe();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [game?.id]);
 
   // Re-fetch on window focus (visibilitychange)
   useEffect(() => {
@@ -173,6 +191,7 @@ export function GamePage() {
     try {
       if (profile) {
         await castVote(optionId, profile.id, vote);
+        await fetchGame();
       }
     } finally {
       setTimeout(() => setVotingOptionId(null), 500);
@@ -187,6 +206,7 @@ export function GamePage() {
       try {
         if (profile) {
           await castVote(optionId, profile.id, "maybe", maybeReason);
+          await fetchGame();
         }
       } finally {
         setTimeout(() => setVotingOptionId(null), 500);

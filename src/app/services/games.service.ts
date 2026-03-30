@@ -572,4 +572,41 @@ export async function cancelGame(gameId: string, reason?: string): Promise<{ err
   }
 }
 
+export function subscribeToVotes(
+  optionIds: string[],
+  onVoteChange: () => void
+): { unsubscribe: () => void } {
+  if (isDemoMode()) return { unsubscribe: () => {} };
+  if (!supabase) return { unsubscribe: () => {} };
+
+  try {
+    const optionIdSet = new Set(optionIds);
+    const channel = supabase
+      .channel(`votes:game-${optionIds[0]}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "votes",
+        },
+        (payload) => {
+          const optionId = (payload.new as any)?.option_id ?? (payload.old as any)?.option_id;
+          if (optionId && optionIdSet.has(optionId)) {
+            onVoteChange();
+          }
+        }
+      )
+      .subscribe();
+
+    return {
+      unsubscribe: () => {
+        supabase?.removeChannel(channel);
+      },
+    };
+  } catch {
+    return { unsubscribe: () => {} };
+  }
+}
+
 export { sports };
