@@ -947,6 +947,15 @@ export function GameViewScreen() {
           >
             {game.gameType === "competitive" ? "\uD83C\uDFC6 Competitive" : "\uD83C\uDF89 Casual"}
           </span>
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md3-full text-label-md font-medium leading-none ${
+              isHost
+                ? "bg-secondary-container text-on-secondary-container"
+                : "bg-surface-variant text-on-surface-variant"
+            }`}
+          >
+            {isHost ? "👑 Host" : "🎫 Invitee"}
+          </span>
           {game.totalCost > 0 && (
             <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-container rounded-md3-full">
               <DollarSign className="w-3.5 h-3.5 text-on-primary-container" />

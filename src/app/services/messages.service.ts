@@ -157,7 +157,8 @@ export async function sendMessage(
 
 export function subscribeToMessages(
   conversationId: string,
-  onMessage: (message: any) => void
+  currentUserId: string,
+  onMessage: (message: ChatMessage) => void
 ) {
   if (isDemoMode()) return { unsubscribe: () => {} };
 
@@ -174,7 +175,29 @@ export function subscribeToMessages(
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => onMessage(payload.new)
+        async (payload) => {
+          if (!supabase) return;
+          // Fetch the inserted message with profile data
+          const { data, error } = await supabase
+            .from("messages")
+            .select("*, profiles:sender_id(name, initials, color)")
+            .eq("id", payload.new.id)
+            .single();
+
+          if (!error && data) {
+            onMessage({
+              id: data.id,
+              senderId: data.sender_id,
+              senderName: data.profiles?.name || "Unknown",
+              senderInitials: data.profiles?.initials || "?",
+              senderColor: data.profiles?.color || "#999",
+              content: data.content,
+              timestamp: formatTimestamp(data.created_at),
+              isMe: data.sender_id === currentUserId,
+              isSystem: data.is_system,
+            });
+          }
+        }
       )
       .subscribe();
 
@@ -204,4 +227,40 @@ function formatTimestamp(isoString: string): string {
   if (diffHours < 48) return "Yesterday";
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+export async function createConversation(
+  isGroup: boolean,
+  name: string,
+  participantIds: string[]
+): Promise<string | null> {
+  if (isDemoMode() || !supabase) return Date.now().toString();
+
+  try {
+    const { data: conv, error: convError } = await supabase
+      .from("conversations")
+      .insert({
+        type: isGroup ? "group" : "direct",
+        name: isGroup ? name : null,
+      })
+      .select()
+      .single();
+
+    if (convError || !conv) throw convError;
+
+    const membersToInsert = participantIds.map((id) => ({
+      conversation_id: conv.id,
+      user_id: id,
+    }));
+
+    const { error: memError } = await supabase
+      .from("conversation_members")
+      .insert(membersToInsert);
+
+    if (memError) throw memError;
+
+    return conv.id;
+  } catch (err) {
+    console.error("Failed to create conversation", err);
+    return null;
+  }
 }

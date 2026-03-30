@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getDirectMessages, getGroupMessages, getChatMessages, sendMessage as sendChatMessage, type ChatMessage } from "../services/messages.service";
+import { getDirectMessages, getGroupMessages, getChatMessages, sendMessage as sendChatMessage, subscribeToMessages, type ChatMessage } from "../services/messages.service";
 import type { Message } from "../data/games";
 
 type Tab = "groups" | "direct";
@@ -36,9 +36,30 @@ export function Messages() {
   }, []);
 
   useEffect(() => {
-    if (openConvo && profile) {
-      getChatMessages(openConvo, profile.id).then(setChatMessages);
-    }
+    if (!openConvo || !profile) return;
+
+    let sub: { unsubscribe: () => void } | null = null;
+
+    // Initial fetch
+    getChatMessages(openConvo, profile.id).then((initialMsgs) => {
+      setChatMessages(initialMsgs);
+      
+      // Subscribe to real-time updates
+      sub = subscribeToMessages(openConvo, profile.id, (newMsg) => {
+        setChatMessages((prev) => {
+          // Check to prevent actual duplicates
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          
+          // Remove optimistic message if this is the confirmed real one
+          const filtered = prev.filter(m => !(m.id.startsWith("temp-") && m.content === newMsg.content));
+          return [...filtered, newMsg];
+        });
+      });
+    });
+
+    return () => {
+      if (sub) sub.unsubscribe();
+    };
   }, [openConvo, profile]);
 
   const messages = activeTab === "groups" ? groupMsgs : directMsgs;

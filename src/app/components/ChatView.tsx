@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Users, MoreHorizontal, BellOff, Trash2, Ban, MessageCircle } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { getChatMessages, subscribeToMessages } from "../services/messages.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,13 +16,15 @@ interface ChatViewProps {
   onBack: () => void;
   onSendMessage: (conversationId: string, content: string) => void;
   onDelete?: (conversationId: string) => void;
-  /** When true, renders accept/decline UI instead of the message input */
+  /** When true, renders accept/decline UI instead of the message input */      
   isRequest?: boolean;
   onAccept?: () => Promise<void> | void;
   onDecline?: () => Promise<void> | void;
 }
 
 export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequest, onAccept, onDecline }: ChatViewProps) {
+  const { profile, isDemo } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>(conversation.messages || []);
   const [input, setInput] = useState("");
   const [muted, setMuted] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -29,14 +33,53 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // If demo mode, just use passed messages
+    if (isDemo || isRequest || !profile) {
+      setMessages(conversation.messages || []);
+      return;
+    }
+
+    let sub: { unsubscribe: () => void } | null = null;
+    getChatMessages(conversation.id, profile.id).then((initialMsgs) => {
+      setMessages(initialMsgs);
+      sub = subscribeToMessages(conversation.id, profile.id, (newMsg) => {
+        setMessages((prev) => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          const filtered = prev.filter(m => !(m.id.startsWith("temp-") && m.content === newMsg.content));
+          return [...filtered, newMsg];
+        });
+      });
+    });
+
+    return () => {
+      if (sub) sub.unsubscribe();
+    };
+  }, [conversation.id, isDemo, isRequest, profile, conversation.messages]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [conversation.messages.length]);
+  }, [messages.length]);
 
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
-    onSendMessage(conversation.id, text);
-    setInput("");
+    
+    if (!isDemo && profile) {
+      // Optimistic message
+      const tempMsg: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        senderId: profile.id,
+        senderName: "You",
+        senderInitials: profile.initials,
+        senderColor: profile.color,
+        content: text,
+        timestamp: "Just now",
+        isMe: true,
+        isSystem: false,
+      };
+      setMessages(prev => [...prev, tempMsg]);
+    }
+    
     inputRef.current?.focus();
   };
 
@@ -134,7 +177,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {isRequest && conversation.messages.length === 0 ? (
+        {isRequest && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 pb-8">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-medium"
@@ -144,12 +187,12 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
             </div>
             <p className="text-title-md font-medium text-on-surface">{conversation.name}</p>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full">
-              <MessageCircle className="w-3.5 h-3.5 text-on-surface-variant" />
+              <MessageCircle className="w-3.5 h-3.5 text-on-surface-variant" /> 
               <p className="text-label-md text-on-surface-variant">Wants to message you on OptIn</p>
             </div>
           </div>
         ) : (
-          conversation.messages.map((msg) => (
+          messages.map((msg) => (
             <MessageBubble key={msg.id} msg={msg} />
           ))
         )}

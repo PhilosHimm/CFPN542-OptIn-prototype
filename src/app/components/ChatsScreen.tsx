@@ -31,6 +31,7 @@ import {
   type MessageRequestItem,
 } from "../services/friendships.service";
 import { demoConversations, type DemoConversation, type ChatMessage } from "../data/games";
+  import { getDirectMessages, getGroupMessages, sendMessage as sendServiceMessage, createConversation as createServiceConv } from "../services/messages.service";
 import { ChatView } from "./ChatView";
 
 type UserOption = {
@@ -95,29 +96,29 @@ export function ChatsScreen() {
   // Demo mode: mutable copy of conversations so sending messages works
   const [demoConvos, setDemoConvos] = useState<DemoConversation[]>(demoConversations);
 
-  // Live mode: persistent chat sessions (migrate old entries that pre-date the messages/unread fields)
-  const [chats, setChats] = useState<ChatSession[]>(() => {
-    const saved = localStorage.getItem("optin_mock_chats");
-    if (!saved) return [];
-    try {
-      const parsed: ChatSession[] = JSON.parse(saved);
-      return parsed.map((c) => ({
-        ...c,
-        messages: c.messages ?? [],
-        unread: c.unread ?? 0,
-        initials: c.initials ?? c.name?.charAt(0)?.toUpperCase() ?? "?",
-        color: c.color ?? "#007AFF",
-      }));
-    } catch {
-      return [];
-    }
-  });
+// Live mode: persistent chat sessions
+  const [chats, setChats] = useState<ChatSession[]>([]);
 
   useEffect(() => {
-    if (!isDemo) {
-      localStorage.setItem("optin_mock_chats", JSON.stringify(chats));
-    }
-  }, [chats, isDemo]);
+    if (isDemo || !profile?.id) return;
+    
+    // Load conversations from Supabase
+    Promise.all([getDirectMessages(), getGroupMessages()]).then(([direct, group]) => {
+      const liveChats = [...direct, ...group].map((m) => ({
+        id: m.id,
+        isGroup: m.type === "group",
+        name: m.name,
+        initials: m.initials,
+        color: m.color,
+        lastMessage: m.lastMessage,
+        timestamp: m.timestamp,
+        participants: [],
+        messages: [],
+        unread: m.unread,
+      }));
+      setChats(liveChats);
+    });
+  }, [isDemo, profile?.id]);
 
   // Create chat sheet state
   const [searchQuery, setSearchQuery] = useState("");
@@ -280,9 +281,8 @@ export function ChatsScreen() {
       ? selectedChatUsers.map((u) => u.name.split(" ")[0]).join(", ")
       : selectedChatUsers[0].name;
 
-    const newId = Date.now().toString();
-
     if (isDemo) {
+      const newId = Date.now().toString();
       const newConvo: DemoConversation = {
         id: newId,
         type: isGroup ? "group" : "direct",
@@ -297,21 +297,26 @@ export function ChatsScreen() {
       setDemoConvos((prev) => [newConvo, ...prev]);
       setActiveChatId(newId);
     } else {
-      const newSession: ChatSession = {
-        id: newId,
-        isGroup,
-        name: chatName,
-        initials: chatName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
-        color: isGroup ? "#007AFF" : (selectedChatUsers[0].color ?? "#007AFF"),
-        avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""),
-        lastMessage: "Chat created",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        participants: selectedChatUsers.map((u) => u.id),
-        messages: [],
-        unread: 0,
-      };
-      setChats((prev) => [newSession, ...prev]);
-      setActiveChatId(newId);
+      const participantIds = [profile.id, ...selectedChatUsers.map((u) => u.id)];
+      createServiceConv(isGroup, chatName, participantIds).then((newId) => {
+        if (newId) {
+          const newSession: ChatSession = {
+            id: newId,
+            isGroup,
+            name: chatName,
+            initials: chatName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+            color: isGroup ? "#007AFF" : (selectedChatUsers[0].color ?? "#007AFF"),
+            avatar: isGroup ? "" : (selectedChatUsers[0].avatar ?? ""),
+            lastMessage: "Chat created",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            participants: participantIds,
+            messages: [],
+            unread: 0,
+          };
+          setChats((prev) => [newSession, ...prev]);
+          setActiveChatId(newId);
+        }
+      });
     }
 
     setIsSheetOpen(false);
@@ -355,7 +360,7 @@ export function ChatsScreen() {
   };
 
   // Send a message in the active conversation (works for both demo and live mode)
-  const handleSendMessage = (conversationId: string, content: string) => {
+  const handleSendMessage = async (conversationId: string, content: string) => {
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -376,6 +381,7 @@ export function ChatsScreen() {
         )
       );
     } else {
+      // Optimistic UI for chat list
       setChats((prev) =>
         prev.map((c) =>
           c.id === conversationId
@@ -383,6 +389,9 @@ export function ChatsScreen() {
             : c
         )
       );
+      if (profile?.id) {
+        await sendServiceMessage(conversationId, profile.id, content);
+      }
     }
   };
 
