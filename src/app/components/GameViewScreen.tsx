@@ -1105,21 +1105,23 @@ export function GameViewScreen() {
         <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} />
 
         {/* Group Info */}
-        <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-label-md text-on-surface-variant mb-1 leading-none">
-                Group
-              </p>
-              <p className="text-body-md font-medium text-on-surface leading-none">
-                {game.group}
-              </p>
+        {game.group && (
+          <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-label-md text-on-surface-variant mb-1 leading-none">
+                  Group
+                </p>
+                <p className="text-body-md font-medium text-on-surface leading-none">
+                  {game.group}
+                </p>
+              </div>
+              <button className="px-4 py-2 rounded-md3-full bg-secondary-container text-label-lg font-medium text-on-secondary-container min-h-[48px]">
+                View Group
+              </button>
             </div>
-            <button className="px-4 py-2 rounded-md3-full bg-secondary-container text-label-lg font-medium text-on-secondary-container min-h-[48px]">
-              View Group
-            </button>
           </div>
-        </div>
+        )}
 
         {/* Bottom Action */}
         {isConfirmed && (

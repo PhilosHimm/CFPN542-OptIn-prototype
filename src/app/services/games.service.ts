@@ -20,6 +20,11 @@ export async function getGames(): Promise<Game[]> {
   if (!supabase) return [];
 
   try {
+    // Fire and forget auto-transition to keep game statuses up to date
+    supabase.rpc("auto_transition_all_games").then((res) => {
+      if (res.error) console.error("Failed to transition games:", res.error);
+    });
+
     const { data: gamesData, error } = await supabase
       .from("games")
       .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
@@ -76,6 +81,11 @@ export async function getGameById(id: string): Promise<Game | null> {
   if (!supabase) return null;
 
   try {
+    // Fire and forget auto-transition for this specific game
+    supabase.rpc("auto_transition_game", { p_game_id: id }).then((res) => {
+      if (res.error) console.error("Failed to transition game:", res.error);
+    });
+
     const { data, error } = await supabase
       .from("games")
       .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
@@ -206,11 +216,16 @@ export async function createGame(input: CreateGameInput): Promise<{ id: string; 
     return { id: `game-${Date.now()}`, error: null };
   }
   if (!supabase) return { id: "", error: "Unable to connect to the database. Please try again later." };
+  if (!input.timeOptions || input.timeOptions.length === 0) {
+    return { id: "", error: "You must provide at least one time option." };
+  }
 
   try {
     const sportData = sports.find((s) => s.name === input.sport);
-    const perPersonCost = input.totalCost > 0 && input.invitedPlayerIds.length > 0
-      ? input.totalCost / input.invitedPlayerIds.length
+    // Include creator in the split (length + 1)
+    const totalPlayersAtCreation = input.invitedPlayerIds.length + 1;
+    const perPersonCost = input.totalCost > 0 
+      ? input.totalCost / totalPlayersAtCreation
       : 0;
 
     const votingDeadline = new Date();
@@ -303,22 +318,8 @@ export async function castVote(
 
     if (error) return { error: error.message };
 
-    // Update vote counts on the option
-    const { data: votes } = await supabase
-      .from("votes")
-      .select("value")
-      .eq("option_id", optionId);
-
-    if (votes) {
-      const inVotes = votes.filter((v: any) => v.value === "in").length;
-      const maybeVotes = votes.filter((v: any) => v.value === "maybe").length;
-      const outVotes = votes.filter((v: any) => v.value === "out").length;
-
-      await supabase
-        .from("game_options")
-        .update({ in_votes: inVotes, maybe_votes: maybeVotes, out_votes: outVotes })
-        .eq("id", optionId);
-    }
+    // The fn_sync_vote_counts database trigger automatically updates game_options
+    // counts, making vote casting atomic and free of race conditions.
 
     return { error: null };
   } catch (err) {
@@ -532,6 +533,42 @@ export async function getUserVotes(
   } catch (err) {
 
     return {};
+  }
+}
+
+export async function confirmGame(gameId: string, optionId: string): Promise<{ error: string | null }> {
+  if (isDemoMode() || !supabase) return { error: null };
+  try {
+    const { error } = await supabase
+      .from("games")
+      .update({
+        status: "confirmed",
+        confirmed_option_id: optionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", gameId);
+
+    return { error: error?.message || null };
+  } catch (err: any) {
+    return { error: err.message };
+  }
+}
+
+export async function cancelGame(gameId: string, reason?: string): Promise<{ error: string | null }> {
+  if (isDemoMode() || !supabase) return { error: null };
+  try {
+    const { error } = await supabase
+      .from("games")
+      .update({
+        status: "cancelled",
+        cancellation_reason: reason || "Cancelled by host",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", gameId);
+
+    return { error: error?.message || null };
+  } catch (err: any) {
+    return { error: err.message };
   }
 }
 
