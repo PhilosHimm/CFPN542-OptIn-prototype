@@ -305,9 +305,10 @@ export async function castVote(
   if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    // Upsert vote
+    // Upsert vote (provide id so INSERT always has a PK value)
     const { error } = await supabase.from("votes").upsert(
       {
+        id: crypto.randomUUID(),
         option_id: optionId,
         user_id: userId,
         value,
@@ -316,7 +317,10 @@ export async function castVote(
       { onConflict: "option_id,user_id" }
     );
 
-    if (error) return { error: error.message };
+    if (error) {
+      toast.error("Vote failed to save. Please try again.");
+      return { error: error.message };
+    }
 
     // The fn_sync_vote_counts database trigger automatically updates game_options
     // counts, making vote casting atomic and free of race conditions.

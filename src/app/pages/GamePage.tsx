@@ -187,11 +187,17 @@ export function GamePage() {
       return;
     }
     setVotingOptionId(optionId);
+    const prevVote = votes[optionId] ?? null;
     setVotes((prev) => ({ ...prev, [optionId]: vote }));
     try {
       if (profile) {
-        await castVote(optionId, profile.id, vote);
-        await fetchGame();
+        const { error } = await castVote(optionId, profile.id, vote);
+        if (error) {
+          // Revert optimistic update on failure
+          setVotes((prev) => ({ ...prev, [optionId]: prevVote }));
+        } else {
+          await fetchGame();
+        }
       }
     } finally {
       setTimeout(() => setVotingOptionId(null), 500);
@@ -202,11 +208,16 @@ export function GamePage() {
     if (showMaybeSheet) {
       const optionId = showMaybeSheet;
       setVotingOptionId(optionId);
+      const prevVote = votes[optionId] ?? null;
       setVotes((prev) => ({ ...prev, [optionId]: "maybe" }));
       try {
         if (profile) {
-          await castVote(optionId, profile.id, "maybe", maybeReason);
-          await fetchGame();
+          const { error } = await castVote(optionId, profile.id, "maybe", maybeReason);
+          if (error) {
+            setVotes((prev) => ({ ...prev, [optionId]: prevVote }));
+          } else {
+            await fetchGame();
+          }
         }
       } finally {
         setTimeout(() => setVotingOptionId(null), 500);

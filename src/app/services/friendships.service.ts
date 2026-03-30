@@ -1,4 +1,5 @@
 import { supabase, isDemoMode } from "@/lib/supabase";
+import { createConversation } from "./messages.service";
 import { players as mockPlayers } from "../data/games";
 
 export interface MessageRequestItem {
@@ -227,7 +228,7 @@ export async function sendMessageRequest(
 export async function acceptMessageRequest(
   requestId: string,
   currentUserId: string
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; conversationId?: string }> {
   if (!requestId || !currentUserId) return { error: "Invalid request" };
 
   if (isDemoMode()) {
@@ -252,7 +253,9 @@ export async function acceptMessageRequest(
       saveDemoFriends(friendships);
     }
 
-    return { error: null };
+    // Create a demo conversation so messages have somewhere to go
+    const convId = await createConversation(false, "", [currentUserId, request.requesterId]);
+    return { error: null, conversationId: convId ?? undefined };
   }
 
   if (!supabase) return { error: "Unable to connect" };
@@ -285,7 +288,9 @@ export async function acceptMessageRequest(
     return { error: friendshipError.message };
   }
 
-  return { error: null };
+  // Create a conversation between the two users so they can start chatting
+  const convId = await createConversation(false, "", [currentUserId, requestRow.requester_id]);
+  return { error: null, conversationId: convId ?? undefined };
 }
 
 export async function declineMessageRequest(
