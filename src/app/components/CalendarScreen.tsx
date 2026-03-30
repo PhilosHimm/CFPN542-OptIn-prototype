@@ -70,19 +70,21 @@ export function CalendarScreen() {
 
   // Map game dates to calendar days
   const eventDatesMap = useMemo(() => {
-    const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean; hasCompleted: boolean }> = {};
+    const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean; hasCompleted: boolean; hasCancelled: boolean }> = {};
     games.forEach((game) => {
-      const isConfirmed = !!game.confirmedOptionId;
+      const isConfirmed = game.status === "confirmed";
       const isCompleted = game.status === "completed";
-      const relevantOptions = (isConfirmed || isCompleted)
+      const isCancelled = game.status === "cancelled";
+      const relevantOptions = (isConfirmed || isCompleted || isCancelled)
         ? game.timeOptions.filter((opt) => opt.id === game.confirmedOptionId)
         : game.timeOptions;
       relevantOptions.forEach((opt) => {
         const d = new Date(opt.date + "T00:00:00");
         if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
           const day = d.getDate();
-          if (!map[day]) map[day] = { hasConfirmed: false, hasProposal: false, hasCompleted: false };
-          if (isCompleted) map[day].hasCompleted = true;
+          if (!map[day]) map[day] = { hasConfirmed: false, hasProposal: false, hasCompleted: false, hasCancelled: false };
+          if (isCancelled) map[day].hasCancelled = true;
+          else if (isCompleted) map[day].hasCompleted = true;
           else if (isConfirmed) map[day].hasConfirmed = true;
           else map[day].hasProposal = true;
         }
@@ -202,14 +204,17 @@ export function CalendarScreen() {
                   </div>
                   {eventInfo && !isSelected && (
                     <div className="absolute bottom-1 flex gap-[3px] items-center">
-                      {eventInfo.hasProposal && (
+                      {eventInfo.hasProposal && !eventInfo.hasCancelled && (
                         <div className="w-1.5 h-1.5 rounded-full bg-tertiary" />
                       )}
-                      {eventInfo.hasConfirmed && (
+                      {eventInfo.hasConfirmed && !eventInfo.hasCancelled && (
                         <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                       )}
-                      {eventInfo.hasCompleted && (
+                      {eventInfo.hasCompleted && !eventInfo.hasCancelled && (
                         <div className="w-1.5 h-1.5 rounded-full bg-on-surface-variant" />
+                      )}
+                      {eventInfo.hasCancelled && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-error" />
                       )}
                     </div>
                   )}
@@ -269,6 +274,8 @@ export function CalendarScreen() {
                         ? "vote"
                         : game.status === "confirmed"
                         ? "confirmed"
+                        : game.status === "cancelled"
+                        ? "cancelled"
                         : "completed"
                     }
                   />

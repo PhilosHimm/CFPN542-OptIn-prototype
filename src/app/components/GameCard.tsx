@@ -9,7 +9,7 @@ interface GameCardProps {
   location: string;
   players: string;
   isFull: boolean;
-  variant: "vote" | "confirmed" | "completed";
+  variant: "vote" | "confirmed" | "completed" | "cancelled";
 }
 
 export function GameCard({
@@ -39,6 +39,11 @@ export function GameCard({
       label: "Completed",
       chipBg: "bg-surface-variant",
       chipText: "text-on-surface-variant",
+    },
+    cancelled: {
+      label: "Cancelled",
+      chipBg: "bg-error-container",
+      chipText: "text-on-error-container",
     },
   }[variant];
 
@@ -99,6 +104,10 @@ export function GameCard({
         ) : variant === "confirmed" ? (
           <span className="px-6 py-2.5 bg-secondary-container text-on-secondary-container rounded-md3-full text-label-lg font-medium">
             View Details
+          </span>
+        ) : variant === "cancelled" ? (
+          <span className="px-6 py-2.5 bg-error-container text-on-error-container rounded-md3-full text-label-lg font-medium">
+            Cancelled
           </span>
         ) : (
           <span className="px-6 py-2.5 bg-surface-variant text-on-surface-variant rounded-md3-full text-label-lg font-medium">

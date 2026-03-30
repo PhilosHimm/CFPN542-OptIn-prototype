@@ -170,7 +170,7 @@ export function Calendar() {
           </h2>
           {selectedGames.length > 0 && (
             <button 
-              onClick={() => navigate("/create")}
+              onClick={() => navigate(`/create?date=${selectedDate}`)}
               aria-label="Create new game"
               className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center active:scale-90 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
@@ -189,7 +189,7 @@ export function Calendar() {
               <p className="text-xs font-medium text-black/55 mt-1">No games on this date.</p>
             </div>
             <button
-              onClick={() => navigate("/create")}
+              onClick={() => navigate(`/create?date=${selectedDate}`)}
               className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:outline-none"
             >
               Create Game
@@ -269,7 +269,7 @@ export function Calendar() {
                   <p className="text-xs font-medium text-black/55 mt-1">Games you create or join will appear here.</p>
                 </div>
                 <button
-                  onClick={() => navigate("/create")}
+                  onClick={() => navigate(`/create?date=${selectedDate}`)}
                   className="mt-2 px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-md active:scale-95 transition-all"
                 >
                   Create Game

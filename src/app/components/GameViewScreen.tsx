@@ -19,7 +19,9 @@ import {
   Edit3,
   Ban,
   X,
-  Calendar
+  Calendar,
+  Copy,
+  UserPlus
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
@@ -32,6 +34,7 @@ import {
   updateGameOption,
   deleteGameOption,
   updateGameVotingDeadline,
+  updateGameVisibility,
   cancelGame,
   confirmGame,
   unconfirmGame,
@@ -41,6 +44,7 @@ import {
   getUserVotes,
   isGameVotable,
   getMinPlayers,
+  removePlayerFromGame,
   type Game,
   type VoteOption,
   type Player,
@@ -400,11 +404,16 @@ function OptionCard({
 function RosterSection({
   roster,
   maxPlayers,
+  isHost,
+  onRemovePlayer,
 }: {
   roster: Player[];
   maxPlayers: number;
+  isHost: boolean;
+  onRemovePlayer?: (playerId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const visibleRoster = expanded ? roster : roster.slice(0, 4);
 
   return (
@@ -413,12 +422,23 @@ function RosterSection({
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-primary" />
           <h3 className="text-body-md font-medium text-on-surface leading-none">
-            Roster
+            Invited Players
           </h3>
         </div>
-        <span className="text-label-lg font-medium text-primary leading-none">
-          {roster.length}/{maxPlayers}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-label-lg font-medium text-primary leading-none">
+            {roster.length}/{maxPlayers}
+          </span>
+          {isHost && roster.length > 0 && (
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className={`p-1.5 rounded-md3-full ${isEditing ? 'bg-primary text-on-primary' : 'bg-surface-variant text-on-surface-variant'}`}
+              title={isEditing ? "Done editing" : "Edit players"}
+            >
+              {isEditing ? <CheckCircle2 className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -444,9 +464,19 @@ function RosterSection({
             <span className="text-body-md text-on-surface leading-none flex-1">
               {player.name}
             </span>
-            <div className="w-5 h-5 rounded-md3-full bg-primary-container flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5 text-on-primary-container" />
-            </div>
+            {isEditing ? (
+              <button
+                onClick={() => onRemovePlayer?.(player.id)}
+                className="w-8 h-8 rounded-md3-full bg-error-container flex items-center justify-center flex-shrink-0 hover:bg-error transition-colors text-on-error-container hover:text-on-error"
+                title="Remove player"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="w-5 h-5 rounded-md3-full bg-primary-container flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-on-primary-container" />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -483,8 +513,11 @@ export function GameViewScreen() {
 
   // Form states
   const [showProposeTime, setShowProposeTime] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showEditTime, setShowEditTime] = useState<VoteOption | null>(null);
   const [showDeadline, setShowDeadline] = useState(false);
+  const [showVisibilitySheet, setShowVisibilitySheet] = useState(false);
+  const [visibilitySelected, setVisibilitySelected] = useState<"Public" | "Group Only" | "Private">("Public");
 
   // Propose/Edit form values
   const [formDate, setFormDate] = useState("");
@@ -601,6 +634,23 @@ export function GameViewScreen() {
     }
   };
 
+  const handleVisibilitySubmit = async () => {
+    if (!game) return;
+    try {
+      const success = await updateGameVisibility(game.id, visibilitySelected);
+      if (success) {
+        toast.success("Visibility updated!");
+        setShowVisibilitySheet(false);
+        refreshGame();
+      } else {
+        toast.error("Failed to update visibility");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error updating visibility.");
+    }
+  };
+
   // Task 11: cancel with reason sheet
   const handleCancelGame = () => {
     if (!game) return;
@@ -705,21 +755,29 @@ export function GameViewScreen() {
     }
   }, [game, handleConfirmWithChecks]);
 
-  const handleShare = useCallback(async () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: game?.title, url });
-      } catch { /* user dismissed */ }
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Game link copied!");
-    }
-  }, [game?.title]);
+  const handleShare = useCallback(() => {
+    setShowShareModal(true);
+  }, []);
 
   // User vote state: { optionId -> "in" | "maybe" | "out" }
   const [votes, setVotes] = useState<Record<string, "in" | "maybe" | "out">>({});
   const voteCooldown = useRef<Set<string>>(new Set());
+
+  const handleRemovePlayer = async (playerId: string) => {
+    if (!game || !user) return;
+    
+    // In demo mode or if it works, update local state
+    const success = await removePlayerFromGame(game.id, playerId);
+    if (success) {
+      setGame(prev => prev ? {
+        ...prev,
+        roster: prev.roster.filter(p => p.id !== playerId)
+      } : prev);
+      toast.success("Player removed from game.");
+    } else {
+      toast.error("Failed to remove player.");
+    }
+  };
 
   const handleVote = useCallback(
     async (optionId: string, vote: "in" | "maybe" | "out") => {
@@ -1102,7 +1160,12 @@ export function GameViewScreen() {
         )}
 
         {/* Roster */}
-        <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} />
+        <RosterSection 
+          roster={game.roster} 
+          maxPlayers={game.maxPlayers} 
+          isHost={isHost}
+          onRemovePlayer={handleRemovePlayer}
+        />
 
         {/* Group Info */}
         {game.group && (
@@ -1145,7 +1208,7 @@ export function GameViewScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowHostMenu(false)}
-              className="fixed inset-0 bg-black/60 z-40"
+              className="fixed inset-0 bg-black/60 z-[60]"
             />
             <motion.div
               initial={{ y: "100%" }}
@@ -1155,12 +1218,14 @@ export function GameViewScreen() {
               role="dialog"
               aria-modal="true"
               aria-label="Host Options"
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] max-h-[85vh] flex flex-col z-[70] shadow-md3-5"
             >
-              <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
-              <h2 className="text-title-lg font-semibold text-on-surface mb-6">Host Options</h2>
+              <div className="p-6 pb-2 shrink-0 border-b border-outline-variant/30 flex flex-col items-center">
+                <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mb-6" />
+                <h2 className="text-title-lg font-semibold text-on-surface w-full text-left">Host Options</h2>
+              </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="flex-1 overflow-y-auto p-6 pb-safe mb-8 flex flex-col gap-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
                 {/* Proposal-only actions */}
                 {game.status === "proposal" && (
                   <>
@@ -1189,6 +1254,18 @@ export function GameViewScreen() {
                     </button>
                   </>
                 )}
+
+                <button
+                  onClick={() => {
+                    setShowHostMenu(false);
+                    setVisibilitySelected((game.visibility as "Public" | "Group Only" | "Private") || "Public");
+                    setShowVisibilitySheet(true);
+                  }}
+                  className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
+                >
+                  <Settings className="w-5 h-5 text-primary" />
+                  <span className="text-body-lg font-medium text-on-surface">Change Visibility</span>
+                </button>
 
                 {/* Confirmed-only actions (Task 4 — undo confirm) */}
                 {game.status === "confirmed" && (() => {
@@ -1229,7 +1306,7 @@ export function GameViewScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowCancelSheet(false)}
-              className="fixed inset-0 bg-black/60 z-40"
+              className="fixed inset-0 bg-black/60 z-[60]"
             />
             <motion.div
               initial={{ y: "100%" }}
@@ -1239,7 +1316,7 @@ export function GameViewScreen() {
               role="dialog"
               aria-modal="true"
               aria-label="Cancel Game"
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-[61] p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
               <h2 className="text-title-lg font-semibold text-on-surface mb-2">Cancel Game</h2>
@@ -1282,7 +1359,7 @@ export function GameViewScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowTieBreak(false)}
-              className="fixed inset-0 bg-black/60 z-40"
+              className="fixed inset-0 bg-black/60 z-[60]"
             />
             <motion.div
               initial={{ y: "100%" }}
@@ -1292,7 +1369,7 @@ export function GameViewScreen() {
               role="dialog"
               aria-modal="true"
               aria-label="Tie Breaker"
-              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-50 p-6 pb-8 shadow-md3-5"
+              className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-[61] p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
               <h2 className="text-title-lg font-semibold text-on-surface mb-2">Tie Breaker</h2>
@@ -1336,9 +1413,9 @@ export function GameViewScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowMinPlayerWarning(null)}
-              className="fixed inset-0 bg-black/60 z-40"
+              className="fixed inset-0 bg-black/60 z-[60]"
             />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1549,6 +1626,139 @@ export function GameViewScreen() {
                   className="w-full h-12 bg-primary text-on-primary rounded-full font-medium mt-2"
                 >
                   Save Deadline
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShareModal(false)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-title-lg font-semibold text-on-surface">Share Game</h2>
+                <button onClick={() => setShowShareModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant transition-colors active:scale-95">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    if (game?.visibility === "Public") {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success("Game link copied!");
+                      setShowShareModal(false);
+                    }
+                  }}
+                  disabled={game?.visibility !== "Public"}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-colors ${game?.visibility !== "Public" ? "bg-surface-variant/50 opacity-50 cursor-not-allowed" : "bg-surface-variant hover:bg-surface-variant/80 active:bg-surface-variant/60"}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-on-surface/5 flex items-center justify-center">
+                    <Copy className="w-5 h-5 text-on-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-on-surface text-body-lg">Copy link</p>
+                    <p className="text-body-sm text-on-surface-variant">
+                      {game?.visibility !== "Public" ? "Requires public open access game" : "Anyone with the link can join"}
+                    </p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    toast.success("Direct invite opened!");
+                    setShowShareModal(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-surface-variant text-left hover:bg-surface-variant/80 active:bg-surface-variant/60 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-on-surface/5 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-on-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-on-surface text-body-lg">Direct invite</p>
+                    <p className="text-body-sm text-on-surface-variant">Send an invite to specific players</p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    toast.success("Group invite opened!");
+                    setShowShareModal(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-surface-variant text-left hover:bg-surface-variant/80 active:bg-surface-variant/60 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-on-surface/5 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-on-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-on-surface text-body-lg">Group invite</p>
+                    <p className="text-body-sm text-on-surface-variant">Share this game directly with a group</p>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Visibility Sheet */}
+      <AnimatePresence>
+        {showVisibilitySheet && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVisibilitySheet(false)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-title-lg font-semibold text-on-surface">Change Visibility</h2>
+                <button onClick={() => setShowVisibilitySheet(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {["Public", "Group Only", "Private"].map((vis) => (
+                  <button
+                    key={vis}
+                    onClick={() => {
+                      setVisibilitySelected(vis as any);
+                    }}
+                    className={`w-full flex items-center p-4 rounded-xl shadow-sm text-left gap-3 ${visibilitySelected === vis ? 'bg-primary text-on-primary ring-2 ring-primary ring-offset-2 ring-offset-surface' : 'bg-surface-container text-on-surface'}`}
+                  >
+                    <span className="text-body-lg font-medium">{vis}{vis === 'Public' ? ' Game' : ''}</span>
+                  </button>
+                ))}
+                
+                <button
+                  onClick={handleVisibilitySubmit}
+                  className="w-full h-12 bg-primary text-on-primary rounded-full font-medium mt-4 md3-state-primary"
+                >
+                  Save Changes
                 </button>
               </div>
             </motion.div>

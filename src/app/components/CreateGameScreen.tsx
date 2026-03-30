@@ -13,6 +13,7 @@ import {
   Search,
   Users,
   Eye,
+  Lock,
   CheckCircle2,
   X,
 } from "lucide-react";
@@ -383,7 +384,7 @@ export function CreateGameScreen() {
       totalCost: parseFloat(totalCost) || 0,
       location: address,
       groupId: assignedGroup,
-      visibility: visibility,
+      visibility: visibility === "public" ? "Public" : visibility === "group" ? "Group Only" : "Private",
       createdBy: profile?.id || user?.id || "",
       votingPeriodHours: votingPeriodType === "custom" ? parseInt(customVotingHours) || 24 : votingPeriodType,
       timeOptions: timeOptions.map((o) => ({
@@ -1529,11 +1530,12 @@ function StepReview({
           </h3>
           <span className="text-label-sm text-on-surface-variant">Optional</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           {(
             [
-              { key: "public" as const, label: "Public", icon: Eye },
+              { key: "public" as const, label: "Public Game", icon: Eye },
               { key: "group" as const, label: "Group Only", icon: Users },
+              { key: "private" as const, label: "Private Game", icon: Lock },
             ] as const
           ).map((item) => {
             const Icon = item.icon;
@@ -1542,14 +1544,14 @@ function StepReview({
               <button
                 key={item.key}
                 onClick={() => setVisibility(isActive ? "" : item.key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-md3-full text-label-lg font-medium transition-colors min-h-[40px] ${
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-md3-full text-label-lg font-medium transition-colors min-h-[40px] ${
                   isActive
                     ? "bg-secondary-container text-on-secondary-container"
                     : "bg-surface text-on-surface-variant border border-outline"
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="leading-none">{item.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="leading-none text-[13px] sm:text-base">{item.label}</span>
               </button>
             );
           })}

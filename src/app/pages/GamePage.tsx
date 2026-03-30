@@ -175,7 +175,7 @@ export function GamePage() {
         await castVote(optionId, profile.id, vote);
       }
     } finally {
-      setVotingOptionId(null);
+      setTimeout(() => setVotingOptionId(null), 500);
     }
   };
 
@@ -189,7 +189,7 @@ export function GamePage() {
           await castVote(optionId, profile.id, "maybe", maybeReason);
         }
       } finally {
-        setVotingOptionId(null);
+        setTimeout(() => setVotingOptionId(null), 500);
       }
     }
     setShowMaybeSheet(null);

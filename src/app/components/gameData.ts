@@ -44,6 +44,7 @@ export interface Game {
   createdBy: string;
   date: string;
   time: string;
+  visibility?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -158,7 +159,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "Riverside Community Courts",
     gameType: "casual", status: "proposal",
-    maxPlayers: 10, totalCost: 40, splitCost: true,
+    maxPlayers: 10, totalCost: 40, splitCost: true, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Tue, Mar 25", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(14), createdBy: "Sam Wilson",
@@ -181,7 +182,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Volleyball", sportEmoji: "🏐",
     location: "Beach Volleyball Courts — Court 1",
     gameType: "casual", status: "proposal",
-    maxPlayers: 8, totalCost: 20, splitCost: true,
+    maxPlayers: 8, totalCost: 20, splitCost: true, visibility: "Public",
     group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
     date: "Fri, Mar 28", time: "5:30 PM - 7:30 PM",
     votingDeadline: deadline(6), createdBy: "Taylor Smith",
@@ -201,7 +202,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Pickleball", sportEmoji: "🏓",
     location: "Westside Pickleball Club — Courts 3 & 4",
     gameType: "competitive", status: "proposal",
-    maxPlayers: 8, totalCost: 32, splitCost: true,
+    maxPlayers: 8, totalCost: 32, splitCost: true, visibility: "Public",
     group: "g4", heroImage: SPORT_HERO_IMAGES.Pickleball,
     date: "Thu, Mar 27", time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(38), createdBy: "Alex Rivera",
@@ -221,7 +222,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Tennis", sportEmoji: "🎾",
     location: "Lakeside Tennis Center — Court 2",
     gameType: "casual", status: "proposal",
-    maxPlayers: 4, totalCost: 24, splitCost: true,
+    maxPlayers: 4, totalCost: 24, splitCost: true, visibility: "Public",
     group: "g4", heroImage: SPORT_HERO_IMAGES.Tennis,
     date: "Sat, Mar 29", time: "8:00 AM - 10:00 AM",
     votingDeadline: deadline(62), createdBy: "Riley Park",
@@ -243,7 +244,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Soccer", sportEmoji: "⚽",
     location: "Lakeside Park — Pitch 3",
     gameType: "casual", status: "confirmed",
-    maxPlayers: 14, totalCost: 0, splitCost: false,
+    maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
     date: "Sat, Mar 29", time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-2), createdBy: "Riley Park",
@@ -261,7 +262,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "City Gym — Main Court",
     gameType: "casual", status: "confirmed",
-    maxPlayers: 12, totalCost: 50, splitCost: true,
+    maxPlayers: 12, totalCost: 50, splitCost: true, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Wed, Mar 26", time: "7:30 PM - 9:30 PM",
     votingDeadline: deadline(-1), createdBy: "Jordan Kim",
@@ -279,7 +280,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Volleyball", sportEmoji: "🏐",
     location: "Rec Center — Gym 1",
     gameType: "competitive", status: "confirmed",
-    maxPlayers: 12, totalCost: 60, splitCost: true,
+    maxPlayers: 12, totalCost: 60, splitCost: true, visibility: "Public",
     group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
     date: "Thu, Mar 27", time: "8:00 PM - 10:00 PM",
     votingDeadline: deadline(-3), createdBy: "Casey Torres",
@@ -299,7 +300,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "Riverside Community Courts",
     gameType: "casual", status: "completed",
-    maxPlayers: 10, totalCost: 0, splitCost: false,
+    maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Sun, Mar 16", time: "9:00 AM - 11:00 AM",
     votingDeadline: deadline(-192), createdBy: "Jordan Kim",
@@ -317,7 +318,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Soccer", sportEmoji: "⚽",
     location: "Lakeside Park — Pitch 1",
     gameType: "casual", status: "completed",
-    maxPlayers: 14, totalCost: 0, splitCost: false,
+    maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
     date: "Sat, Mar 15", time: "11:00 AM - 1:00 PM",
     votingDeadline: deadline(-216), createdBy: "Alex Rivera",
@@ -335,7 +336,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Volleyball", sportEmoji: "🏐",
     location: "Rec Center — Gym 2",
     gameType: "casual", status: "completed",
-    maxPlayers: 8, totalCost: 24, splitCost: true,
+    maxPlayers: 8, totalCost: 24, splitCost: true, visibility: "Public",
     group: "g3", heroImage: SPORT_HERO_IMAGES.Volleyball,
     date: "Fri, Mar 14", time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(-240), createdBy: "Taylor Smith",
@@ -353,7 +354,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "Riverside Community Courts",
     gameType: "competitive", status: "completed",
-    maxPlayers: 10, totalCost: 0, splitCost: false,
+    maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Tue, Mar 11", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-312), createdBy: "Sam Wilson",
@@ -371,7 +372,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Soccer", sportEmoji: "⚽",
     location: "Greenfield Soccer Park — Pitch 2",
     gameType: "casual", status: "completed",
-    maxPlayers: 16, totalCost: 28, splitCost: true,
+    maxPlayers: 16, totalCost: 28, splitCost: true, visibility: "Public",
     group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
     date: "Sun, Mar 9", time: "2:00 PM - 4:30 PM",
     votingDeadline: deadline(-360), createdBy: "Casey Torres",
@@ -389,7 +390,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "Riverside Community Courts",
     gameType: "casual", status: "completed",
-    maxPlayers: 10, totalCost: 0, splitCost: false,
+    maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Tue, Mar 4", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-480), createdBy: "Marcus Johnson",
@@ -407,7 +408,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Tennis", sportEmoji: "🎾",
     location: "Lakeside Tennis Center — Court 1",
     gameType: "competitive", status: "completed",
-    maxPlayers: 4, totalCost: 48, splitCost: true,
+    maxPlayers: 4, totalCost: 48, splitCost: true, visibility: "Public",
     group: "g4", heroImage: SPORT_HERO_IMAGES.Tennis,
     date: "Sun, Mar 1", time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-552), createdBy: "Riley Park",
@@ -427,7 +428,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Soccer", sportEmoji: "⚽",
     location: "Greenfield Soccer Park — Pitch 1",
     gameType: "casual", status: "cancelled",
-    maxPlayers: 14, totalCost: 0, splitCost: false,
+    maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: SPORT_HERO_IMAGES.Soccer,
     date: "Sun, Mar 22", time: "1:00 PM - 3:00 PM",
     votingDeadline: deadline(-48), createdBy: "Morgan Lee",
@@ -444,7 +445,7 @@ export const DEMO_GAMES: Game[] = [
     sport: "Basketball", sportEmoji: "🏀",
     location: "City Gym — Court B",
     gameType: "casual", status: "cancelled",
-    maxPlayers: 10, totalCost: 30, splitCost: true,
+    maxPlayers: 10, totalCost: 30, splitCost: true, visibility: "Public",
     group: "g1", heroImage: SPORT_HERO_IMAGES.Basketball,
     date: "Thu, Mar 20", time: "9:00 PM - 11:00 PM",
     votingDeadline: deadline(-96), createdBy: "Drew Chen",
@@ -505,6 +506,7 @@ function mapDbGameToGame(g: any): Game {
     confirmedOptionId: g.confirmed_option_id || undefined,
     cancellationReason: g.cancellation_reason || undefined,
     createdBy: g.created_by || "",
+    visibility: g.visibility || "Public",
     roster,
     // Build votes from individual vote rows — real user_ids, not synthetic counters
     timeOptions: opts.map((o: any) => {
@@ -754,6 +756,16 @@ export async function updateGameVotingDeadline(gameId: string, deadline: string)
   return !error;
 }
 
+export async function updateGameVisibility(gameId: string, visibility: "Public" | "Group Only" | "Private"): Promise<boolean> {
+  if (isDemoMode()) {
+    const idx = DEMO_GAMES.findIndex((g) => g.id === gameId);
+    if (idx !== -1) DEMO_GAMES[idx].visibility = visibility;
+    return true;
+  }
+  const { error } = await supabase!.from("games").update({ visibility }).eq("id", gameId);
+  return !error;
+}
+
 export async function cancelGame(gameId: string, reason?: string): Promise<boolean> {
   if (isDemoMode()) return false;
   const { error } = await supabase!
@@ -872,6 +884,29 @@ export async function deleteVote(optionId: string, userId: string): Promise<bool
 
   await syncVoteCounts(optionId);
   return true;
+}
+
+/**
+ * Host action to remove a player from the confirmed game roster.
+ * This deletes the player's presence in game_players.
+ */
+export async function removePlayerFromGame(gameId: string, playerId: string): Promise<boolean> {
+  if (isDemoMode()) {
+    const game = DEMO_GAMES.find((g) => g.id === gameId);
+    if (game) {
+      game.roster = game.roster.filter((p) => p.id !== playerId);
+    }
+    return true;
+  }
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from("game_players")
+    .delete()
+    .eq("game_id", gameId)
+    .eq("user_id", playerId);
+
+  return !error;
 }
 
 /**

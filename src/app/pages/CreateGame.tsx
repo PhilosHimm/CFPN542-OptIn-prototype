@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -94,6 +94,7 @@ function TextField({
 
 export function CreateGame() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const [step, setStep] = useState<Step>(1);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -109,8 +110,10 @@ export function CreateGame() {
   const [gameType, setGameType] = useState<"Casual" | "Competitive">("Casual");
   const [maxPlayers, setMaxPlayers] = useState("10");
 
+  const initialDate = searchParams.get("date") || "";
+
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>([
-    { id: "t1", date: "", startTime: "", endTime: "", location: "" },
+    { id: "t1", date: initialDate, startTime: "", endTime: "", location: "" },
   ]);
 
   const [totalCost, setTotalCost] = useState("");
@@ -784,11 +787,10 @@ export function CreateGame() {
               <label className="text-[11px] font-bold text-black/55 uppercase tracking-widest block border-b border-black/5 pb-2">
                 Visibility
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-3">
                 {[
-                  { id: "Public", icon: Globe },
-                  { id: "Group Only", icon: Users2 },
-                  { id: "Private", icon: Lock },
+                  { id: "Public", title: "Public Game", desc: "Open access. Anyone with the link can join.", icon: Globe },
+                  { id: "Private", title: "Private Game", desc: "Invite only. Not shareable via public link.", icon: Lock },
                 ].map((v) => {
                   const isSelected = visibility === v.id;
                   const Icon = v.icon;
@@ -796,14 +798,20 @@ export function CreateGame() {
                     <button
                       key={v.id}
                       onClick={() => setVisibility(v.id)}
-                      className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl transition-all ${
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all border-2 text-left ${
                         isSelected
-                          ? "bg-primary text-white shadow-lg"
-                          : "bg-black/5 text-black/55"
+                          ? "border-primary bg-primary/5 text-primary shadow-sm"
+                          : "border-transparent bg-black/5 text-black/70 hover:bg-black/10"
                       }`}
                     >
-                      <Icon className="w-5 h-5" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{v.id}</span>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isSelected ? "bg-primary/20 text-primary" : "bg-black/10 text-black/55"}`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold ${isSelected ? "text-primary" : "text-black/80"}`}>{v.title}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${isSelected ? "text-primary/70" : "text-black/50"}`}>{v.desc}</p>
+                      </div>
+                      {isSelected && <CheckCircle className="w-6 h-6 text-primary" />}
                     </button>
                   );
                 })}

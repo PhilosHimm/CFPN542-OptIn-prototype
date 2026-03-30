@@ -1,0 +1,11 @@
+--- src/app/components/GameViewScreen.tsx
++++ src/app/components/GameViewScreen.tsx
+@@ -1159,7 +1159,7 @@
+         ) : null}
+ 
+         {/* Confirmed Roster Section */}
+-        <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} />
++        <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} isHost={isHost} />
+       </div>
+ 
+       {/* Actions Bar (Host settings, Join info, etc) */}
