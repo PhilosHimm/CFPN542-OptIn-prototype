@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import { getGameById, getGroups, castVote, getUserVotes, subscribeToVotes } from "../services/games.service";
+import { getGameById, getGroups, castVote, getUserVotes, subscribeToVotes, subscribeToGamePlayers } from "../services/games.service";
 import type { Game, Group, VoteValue } from "../data/games";
 import { SportIcon } from "../components/SportIcon";
 
@@ -86,6 +86,18 @@ export function GamePage() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [game?.id]);
+
+  // Subscribe to game_players changes (player joins/leaves) for live player count updates
+  useEffect(() => {
+    if (!id) return;
+    const playerSub = subscribeToGamePlayers(id, () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => fetchGame(), 500);
+    });
+    return () => {
+      playerSub.unsubscribe();
+    };
+  }, [id, fetchGame]);
 
   // Re-fetch on window focus (visibilitychange)
   useEffect(() => {
@@ -485,18 +497,22 @@ export function GamePage() {
         <div className="ios-card space-y-5">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-black/90">Joined Players</h3>
-            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">{game.currentPlayers}/{game.maxPlayers} Spots</span>
+            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">
+              {game.maxPlayers ? `${game.currentPlayers}/${game.maxPlayers} Spots` : `${game.currentPlayers} Spots Filled`}
+            </span>
           </div>
 
-          <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-              style={{ width: `${(game.currentPlayers / game.maxPlayers) * 100}%` }}
-            />
-          </div>
+          {game.maxPlayers ? (
+            <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                style={{ width: `${(game.currentPlayers / Math.max(1, game.maxPlayers)) * 100}%` }}
+              />
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-6 gap-3">
-            {Array.from({ length: game.maxPlayers }).map((_, i) => {
+            {Array.from({ length: game.maxPlayers || game.currentPlayers + 1 }).map((_, i) => {
               const isFilled = i < game.currentPlayers;
               const initials = ["AR", "JK", "TS", "ML", "CT", "RP", "DC", "SW", "SW", "M"];
               return (

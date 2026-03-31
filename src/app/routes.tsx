@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Outlet } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Layout } from "./components/Layout";
+import { ChatsScreen } from "./components/ChatsScreen";
 
 // Route-level code splitting: each page is loaded on demand rather than
 // bundled into the initial JS chunk. This reduces the time-to-interactive
@@ -9,7 +10,6 @@ import { Layout } from "./components/Layout";
 const HomeScreen = lazy(() => import("./components/HomeScreen").then((m) => ({ default: m.HomeScreen })));
 const CalendarScreen = lazy(() => import("./components/CalendarScreen").then((m) => ({ default: m.CalendarScreen })));
 const CreateGameScreen = lazy(() => import("./components/CreateGameScreen").then((m) => ({ default: m.CreateGameScreen })));
-const ChatsScreen = lazy(() => import("./components/ChatsScreen").then((m) => ({ default: m.ChatsScreen })));
 const ProfileScreen = lazy(() => import("./components/ProfileScreen").then((m) => ({ default: m.ProfileScreen })));
 const GameViewScreen = lazy(() => import("./components/GameViewScreen").then((m) => ({ default: m.GameViewScreen })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));

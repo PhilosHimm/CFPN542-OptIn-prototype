@@ -225,7 +225,7 @@ export function CreateGameScreen() {
   const [gameTitle, setGameTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
   const [address, setAddress] = useState(mock ? "Riverside Park, Field 3, Chicago" : "");
   const [gameType, setGameType] = useState<"casual" | "competitive" | "">(mock ? "casual" : "");
-  const [maxPlayers, setMaxPlayers] = useState(mock ? "12" : "12");
+  const [maxPlayers, setMaxPlayers] = useState(mock ? "12" : "");
 
   // Step 2 state
   const defaultDate = new Date().toISOString().split("T")[0];
@@ -380,7 +380,7 @@ export function CreateGameScreen() {
       title: gameTitle,
       sport: effectiveSport,
       gameType: gameType as "casual" | "competitive",
-      maxPlayers: parseInt(maxPlayers) || 12,
+      maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
       totalCost: parseFloat(totalCost) || 0,
       location: address,
       groupId: assignedGroup,

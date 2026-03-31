@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Bell, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { Bell, ChevronRight, Plus, CalendarDays, X } from "lucide-react";
 import { GameCard } from "./GameCard";
-import { fetchAllGames, type Game } from "./gameData";
+import { fetchAllGames, type Game, DEMO_REFERENCE_DATE } from "./gameData";
 import { useAuth } from "../contexts/AuthContext";
+import { getInvites, respondToInvite, type GameInvite } from "../services/games.service";
+import { supabase, isDemoMode } from "@/lib/supabase";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -16,7 +18,7 @@ function isGameExpired(game: Game, todayStr: string): boolean {
   return game.timeOptions.every((o) => o.date < todayStr);
 }
 
-function buildSchedule(allGames: Game[], todayStr: string) {
+function buildSchedule(allGames: Game[], todayStr: string, today: Date = new Date()) {
   const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed" || g.status === "completed");
   const dateStatusMap: Record<string, "proposal" | "confirmed" | "completed"> = {};
   for (const game of upcoming) {
@@ -39,7 +41,6 @@ function buildSchedule(allGames: Game[], todayStr: string) {
       }
     }
   }
-  const today = new Date();
   const start = new Date(today);
   start.setDate(start.getDate() - start.getDay()); // start of current week
   return Array.from({ length: 9 }, (_, i) => {
@@ -68,9 +69,16 @@ export function HomeScreen() {
   const { profile } = useAuth();
   const [allGames, setAllGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [invites, setInvites] = useState<GameInvite[]>([]);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
-  const todayObj = new Date();
-  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
+  const todayObj = isDemoMode()
+    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z")
+    : new Date();
+  const todayStr = isDemoMode()
+    ? DEMO_REFERENCE_DATE
+    : `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
 
   useEffect(() => {
@@ -90,6 +98,34 @@ export function HomeScreen() {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
+
+  // Fetch pending invites when profile resolves
+  useEffect(() => {
+    if (profile) getInvites(profile.id).then(setInvites);
+  }, [profile?.id]);
+
+  // Subscribe to new invite inserts in real-time
+  useEffect(() => {
+    if (!profile || isDemoMode() || !supabase) return;
+    const channel = supabase
+      .channel(`invites:user-${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "game_players",
+          filter: `user_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if ((payload.new as any)?.status === "invited") {
+            getInvites(profile.id).then(setInvites);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase?.removeChannel(channel); };
+  }, [profile?.id]);
 
   const getGamesForDate = (dateStr: string) => {
     return allGames.filter((g) => {
@@ -117,7 +153,7 @@ export function HomeScreen() {
   });
 
   const completedGames = allGames.filter((g) => g.status === "completed");
-  const scheduleItems = buildSchedule(allGames, todayStr);
+  const scheduleItems = buildSchedule(allGames, todayStr, todayObj);
   const firstName = profile?.name?.split(" ")[0] || "there";
 
   const renderEmptyState = () => (
@@ -150,8 +186,15 @@ export function HomeScreen() {
               Hello {firstName}, Ready to play?
             </h1>
           </div>
-          <button className="w-10 h-10 rounded-md3-full flex items-center justify-center bg-surface-container-low hover:bg-on-surface/8 transition-colors min-w-[48px] min-h-[48px]">
+          <button
+            aria-label="Notifications"
+            onClick={() => setShowNotifications(true)}
+            className="relative w-10 h-10 rounded-md3-full flex items-center justify-center bg-surface-container-low hover:bg-on-surface/8 transition-colors min-w-[48px] min-h-[48px]"
+          >
             <Bell className="w-5 h-5 text-on-surface-variant" />
+            {invites.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-error border-2 border-surface rounded-full" aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>
@@ -228,8 +271,8 @@ export function HomeScreen() {
                     date={game.date}
                     time={game.time}
                     location={game.location}
-                    players={`${game.roster.length}/${game.maxPlayers}`}
-                    isFull={game.roster.length >= game.maxPlayers}
+                    players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
+                    isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
                     variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))}
@@ -249,8 +292,8 @@ export function HomeScreen() {
                     date={game.date}
                     time={game.time}
                     location={game.location}
-                    players={`${game.roster.length}/${game.maxPlayers}`}
-                    isFull={game.roster.length >= game.maxPlayers}
+                    players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
+                    isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
                     variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))
@@ -273,8 +316,8 @@ export function HomeScreen() {
                   date={game.date}
                   time={game.time}
                   location={game.location}
-                  players={`${game.roster.length}/${game.maxPlayers}`}
-                  isFull={game.roster.length >= game.maxPlayers}
+                  players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
+                  isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
                   variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
                 />
               ))
@@ -309,13 +352,108 @@ export function HomeScreen() {
                 date={game.date}
                 time={game.time}
                 location={game.location}
-                players={`${game.roster.length}/${game.maxPlayers}`}
-                isFull={game.roster.length >= game.maxPlayers}
+                players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
+                isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
                 variant="completed"
               />
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Notifications Panel ───────────────────────────────── */}
+      {showNotifications && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setShowNotifications(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notifications"
+            onKeyDown={(e) => e.key === "Escape" && setShowNotifications(false)}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-surface rounded-t-3xl z-50 p-6 pb-[calc(4rem+env(safe-area-inset-bottom))] shadow-2xl outline-none"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-title-lg font-medium text-on-surface">Notifications</h2>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-on-surface-variant" />
+              </button>
+            </div>
+
+            {invites.length === 0 ? (
+              <div className="flex flex-col items-center py-10 gap-3 text-center">
+                <Bell className="w-12 h-12 text-on-surface/10" />
+                <p className="text-body-lg font-medium text-on-surface-variant">No new notifications</p>
+                <p className="text-body-md text-on-surface-variant/70">You're all caught up!</p>
+              </div>
+            ) : (
+              <div className="space-y-3 overflow-y-auto max-h-96">
+                {invites.map((invite) => (
+                  <div key={invite.gameId} className="bg-surface-container rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: invite.sportColor }}
+                      >
+                        <span className="text-lg">{invite.sportEmoji}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-label-sm font-medium text-primary uppercase tracking-wider mb-0.5">Game Invite</p>
+                        <p className="text-body-lg font-medium text-on-surface truncate">{invite.title}</p>
+                        {invite.bestOptionDisplayDate && (
+                          <p className="text-body-sm text-on-surface-variant">
+                            {invite.bestOptionDisplayDate}
+                            {invite.bestOptionStartTime ? ` @ ${invite.bestOptionStartTime}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={respondingTo === invite.gameId}
+                        onClick={async () => {
+                          if (!profile) return;
+                          setRespondingTo(invite.gameId);
+                          await respondToInvite(invite.gameId, profile.id, true);
+                          const [updatedInvites, updatedGames] = await Promise.all([
+                            getInvites(profile.id),
+                            fetchAllGames(),
+                          ]);
+                          setInvites(updatedInvites);
+                          setAllGames(updatedGames);
+                          setRespondingTo(null);
+                        }}
+                        className="flex-1 h-10 rounded-full bg-primary text-on-primary font-medium text-label-lg disabled:opacity-50 active:opacity-80 transition-opacity"
+                      >
+                        {respondingTo === invite.gameId ? "..." : "Accept"}
+                      </button>
+                      <button
+                        disabled={respondingTo === invite.gameId}
+                        onClick={async () => {
+                          if (!profile) return;
+                          setRespondingTo(invite.gameId);
+                          await respondToInvite(invite.gameId, profile.id, false);
+                          getInvites(profile.id).then(setInvites);
+                          setRespondingTo(null);
+                        }}
+                        className="flex-1 h-10 rounded-full bg-surface-container-high text-on-surface-variant font-medium text-label-lg disabled:opacity-50 active:opacity-80 transition-opacity"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

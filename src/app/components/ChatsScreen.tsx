@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router";
-import { toast } from "sonner";
 import { Plus, MessageCircle, Search as SearchIcon, Check, Users, ChevronRight, Clock3, MoreVertical, Trash2 } from "lucide-react";
 import {
   Sheet,
@@ -337,10 +336,10 @@ export function ChatsScreen() {
   const handleAcceptRequest = async (request: MessageRequestItem) => {
     if (!profile || requestActionId) return;
     setRequestActionId(request.id);
-    const { error, conversationId } = await acceptMessageRequest(request.id, profile.id);
-    if (!error && conversationId) {
+    const { error } = await acceptMessageRequest(request.id, profile.id);
+    if (!error) {
       const newSession: ChatSession = {
-        id: conversationId,
+        id: Date.now().toString(),
         isGroup: false,
         name: request.requesterName,
         initials: request.requesterName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
@@ -348,7 +347,7 @@ export function ChatsScreen() {
         avatar: request.requesterAvatar,
         lastMessage: "You accepted the message request",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        participants: [profile.id, request.requesterId],
+        participants: [request.requesterId],
         messages: [],
         unread: 0,
       };
@@ -397,10 +396,7 @@ export function ChatsScreen() {
         )
       );
       if (profile?.id) {
-        const { error } = await sendServiceMessage(conversationId, profile.id, content);
-        if (error) {
-          toast.error("Message failed to send. Please try again.");
-        }
+        await sendServiceMessage(conversationId, profile.id, content);
       }
     }
   };

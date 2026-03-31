@@ -22,7 +22,7 @@ export interface Game {
   sportColor: string;
   status: GameStatus;
   gameType: "Casual" | "Competitive";
-  maxPlayers: number;
+  maxPlayers: number | null;
   currentPlayers: number;
   createdBy: string;
   groupId: string;

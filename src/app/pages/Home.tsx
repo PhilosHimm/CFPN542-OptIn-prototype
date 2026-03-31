@@ -14,9 +14,11 @@ import {
 import { SportIcon } from "../components/SportIcon";
 import { UserAvatar } from "../components/UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
-import { getGames, getGroups, createGroup } from "../services/games.service";
+import { getGames, getGroups, createGroup, getInvites, respondToInvite } from "../services/games.service";
 import { sports } from "../services/games.service";
+import type { GameInvite } from "../services/games.service";
 import type { Game, Group, GameStatus } from "../data/games";
+import { supabase, isDemoMode } from "@/lib/supabase";
 
 function isGameExpired(game: Game): boolean {
   const today = new Date().toISOString().split("T")[0];
@@ -49,11 +51,40 @@ export function Home() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupSport, setNewGroupSport] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
-
+  const [invites, setInvites] = useState<GameInvite[]>([]);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
   useEffect(() => {
     getGames().then(setGames);
     getGroups().then(setGroups);
-  }, []);
+    if (profile) getInvites(profile.id).then(setInvites);
+  }, [profile?.id]);
+
+  // Subscribe to new invite inserts for the current user
+  useEffect(() => {
+    if (!profile || isDemoMode() || !supabase) return;
+
+    const channel = supabase
+      .channel(`invites:user-${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "game_players",
+          filter: `user_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if ((payload.new as any)?.status === "invited") {
+            getInvites(profile.id).then(setInvites);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [profile?.id]);
 
   const upcomingGames = games.filter((g) => g.status !== "completed" && g.status !== "cancelled" && !isGameExpired(g));
   const completedGames = games.filter((g) => g.status === "completed");
@@ -88,7 +119,9 @@ export function Home() {
             className="relative w-11 h-11 glass rounded-full flex items-center justify-center text-black/70 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" aria-hidden="true" />
+            {invites.length > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" aria-hidden="true" />
+            )}
           </button>
           <button 
             onClick={() => navigate("/profile")}
@@ -327,7 +360,7 @@ export function Home() {
             onKeyDown={(e) => e.key === "Escape" && setShowNotifications(false)}
             tabIndex={-1}
             ref={(el) => el?.focus()}
-            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl outline-none"
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-[calc(4rem+env(safe-area-inset-bottom))] shadow-2xl outline-none"
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-black/90">Notifications</h2>
@@ -338,11 +371,71 @@ export function Home() {
                 <X className="w-4 h-4 text-black/50" />
               </button>
             </div>
-            <div className="flex flex-col items-center py-10 gap-3 text-center">
-              <Bell className="w-12 h-12 text-black/10" />
-              <p className="font-bold text-black/55">No new notifications</p>
-              <p className="text-sm text-black/50">You're all caught up!</p>
-            </div>
+            {invites.length === 0 ? (
+              <div className="flex flex-col items-center py-10 gap-3 text-center">
+                <Bell className="w-12 h-12 text-black/10" />
+                <p className="font-bold text-black/55">No new notifications</p>
+                <p className="text-sm text-black/50">You're all caught up!</p>
+              </div>
+            ) : (
+              <div className="space-y-3 overflow-y-auto max-h-96">
+                {invites.map((invite) => (
+                  <div key={invite.gameId} className="ios-card p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: invite.sportColor }}
+                      >
+                        <span className="text-lg">{invite.sportEmoji}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">Game Invite</p>
+                        <p className="font-bold text-black/90 truncate">{invite.title}</p>
+                        {invite.bestOptionDisplayDate && (
+                          <p className="text-xs font-medium text-black/55">
+                            {invite.bestOptionDisplayDate}
+                            {invite.bestOptionStartTime ? ` @ ${invite.bestOptionStartTime}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={respondingTo === invite.gameId}
+                        onClick={async () => {
+                          if (!profile) return;
+                          setRespondingTo(invite.gameId);
+                          await respondToInvite(invite.gameId, profile.id, true);
+                          const [updatedInvites, updatedGames] = await Promise.all([
+                            getInvites(profile.id),
+                            getGames(),
+                          ]);
+                          setInvites(updatedInvites);
+                          setGames(updatedGames);
+                          setRespondingTo(null);
+                        }}
+                        className="flex-1 py-2.5 rounded-2xl bg-emerald-500 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all"
+                      >
+                        {respondingTo === invite.gameId ? "..." : "Accept"}
+                      </button>
+                      <button
+                        disabled={respondingTo === invite.gameId}
+                        onClick={async () => {
+                          if (!profile) return;
+                          setRespondingTo(invite.gameId);
+                          await respondToInvite(invite.gameId, profile.id, false);
+                          getInvites(profile.id).then(setInvites);
+                          setRespondingTo(null);
+                        }}
+                        className="flex-1 py-2.5 rounded-2xl bg-black/5 text-black/60 font-bold text-sm disabled:opacity-50 active:scale-95 transition-all"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -361,7 +454,7 @@ export function Home() {
             onKeyDown={(e) => e.key === "Escape" && setShowCreateGroup(false)}
             tabIndex={-1}
             ref={(el) => el?.focus()}
-            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-10 shadow-2xl outline-none"
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-lg bg-white rounded-t-3xl z-50 p-6 pb-[calc(4rem+env(safe-area-inset-bottom))] shadow-2xl outline-none"
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-black/90">Create Group</h2>

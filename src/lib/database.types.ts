@@ -64,7 +64,7 @@ export interface Database {
           sport_color: string;
           status: "proposal" | "confirmed" | "completed" | "cancelled";
           game_type: "Casual" | "Competitive";
-          max_players: number;
+          max_players: number | null;
           current_players: number;
           created_by: string;
           group_id: string;

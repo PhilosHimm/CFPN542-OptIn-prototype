@@ -197,7 +197,7 @@ interface CreateGameInput {
   title: string;
   sport: string;
   gameType: "Casual" | "Competitive";
-  maxPlayers: number;
+  maxPlayers: number | null;
   groupId: string;
   totalCost: number;
   visibility: string;
@@ -305,10 +305,9 @@ export async function castVote(
   if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    // Upsert vote (provide id so INSERT always has a PK value)
+    // Upsert vote
     const { error } = await supabase.from("votes").upsert(
       {
-        id: crypto.randomUUID(),
         option_id: optionId,
         user_id: userId,
         value,
@@ -317,10 +316,7 @@ export async function castVote(
       { onConflict: "option_id,user_id" }
     );
 
-    if (error) {
-      toast.error("Vote failed to save. Please try again.");
-      return { error: error.message };
-    }
+    if (error) return { error: error.message };
 
     // The fn_sync_vote_counts database trigger automatically updates game_options
     // counts, making vote casting atomic and free of race conditions.
@@ -558,6 +554,24 @@ export async function confirmGame(gameId: string, optionId: string): Promise<{ e
   }
 }
 
+export async function deleteGame(gameId: string): Promise<{ error: string | null }> {
+  if (isDemoMode() || !supabase) {
+    const idx = mockGames.findIndex((g) => g.id === gameId);
+    if (idx !== -1) mockGames.splice(idx, 1);
+    return { error: null };
+  }
+  try {
+    const { error } = await supabase
+      .from("games")
+      .delete()
+      .eq("id", gameId);
+
+    return { error: error?.message || null };
+  } catch (err: any) {
+    return { error: err.message };
+  }
+}
+
 export async function cancelGame(gameId: string, reason?: string): Promise<{ error: string | null }> {
   if (isDemoMode() || !supabase) return { error: null };
   try {
@@ -576,24 +590,115 @@ export async function cancelGame(gameId: string, reason?: string): Promise<{ err
   }
 }
 
+export interface GameInvite {
+  gamePlayerId: string;
+  gameId: string;
+  title: string;
+  sport: string;
+  sportColor: string;
+  sportEmoji: string;
+  bestOptionDisplayDate: string | null;
+  bestOptionStartTime: string | null;
+}
+
+export async function getInvites(userId: string): Promise<GameInvite[]> {
+  if (isDemoMode()) return [];
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("game_players")
+      .select(`
+        id,
+        game_id,
+        games (
+          id,
+          title,
+          sport,
+          sport_color,
+          sport_emoji,
+          confirmed_option_id,
+          game_options ( id, display_date, start_time, in_votes )
+        )
+      `)
+      .eq("user_id", userId)
+      .eq("status", "invited");
+    if (error || !data) return [];
+    return (data as any[]).map((row) => {
+      const game = row.games;
+      if (!game) return null;
+      const options: any[] = game.game_options || [];
+      let bestOption: any = null;
+      if (game.confirmed_option_id) {
+        bestOption = options.find((o: any) => o.id === game.confirmed_option_id) || null;
+      }
+      if (!bestOption && options.length > 0) {
+        bestOption = [...options].sort((a: any, b: any) => b.in_votes - a.in_votes)[0];
+      }
+      return {
+        gamePlayerId: row.id,
+        gameId: game.id,
+        title: game.title,
+        sport: game.sport,
+        sportColor: game.sport_color,
+        sportEmoji: game.sport_emoji,
+        bestOptionDisplayDate: bestOption?.display_date ?? null,
+        bestOptionStartTime: bestOption?.start_time ?? null,
+      } as GameInvite;
+    }).filter(Boolean) as GameInvite[];
+  } catch {
+    return [];
+  }
+}
+
+export async function respondToInvite(
+  gameId: string,
+  userId: string,
+  accept: boolean
+): Promise<{ error: string | null }> {
+  if (isDemoMode()) return { error: null };
+  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  return accept ? joinGame(gameId, userId) : leaveGame(gameId, userId);
+}
+
+export function subscribeToGamePlayers(
+  gameId: string,
+  onPlayerChange: () => void
+): { unsubscribe: () => void } {
+  if (isDemoMode()) return { unsubscribe: () => {} };
+  if (!supabase) return { unsubscribe: () => {} };
+  try {
+    const channel = supabase
+      .channel(`game_players:game-${gameId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "game_players",
+          filter: `game_id=eq.${gameId}`,
+        },
+        () => { onPlayerChange(); }
+      )
+      .subscribe();
+    return { unsubscribe: () => { supabase?.removeChannel(channel); } };
+  } catch {
+    return { unsubscribe: () => {} };
+  }
+}
+
 export function subscribeToVotes(
   optionIds: string[],
   onVoteChange: () => void
 ): { unsubscribe: () => void } {
   if (isDemoMode()) return { unsubscribe: () => {} };
   if (!supabase) return { unsubscribe: () => {} };
-
   try {
     const optionIdSet = new Set(optionIds);
     const channel = supabase
       .channel(`votes:game-${optionIds[0]}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "votes",
-        },
+        { event: "*", schema: "public", table: "votes" },
         (payload) => {
           const optionId = (payload.new as any)?.option_id ?? (payload.old as any)?.option_id;
           if (optionId && optionIdSet.has(optionId)) {
@@ -602,14 +707,27 @@ export function subscribeToVotes(
         }
       )
       .subscribe();
-
-    return {
-      unsubscribe: () => {
-        supabase?.removeChannel(channel);
-      },
-    };
+    return { unsubscribe: () => { supabase?.removeChannel(channel); } };
   } catch {
     return { unsubscribe: () => {} };
+  }
+}
+
+export async function getPlayerStatusForGame(
+  gameId: string,
+  userId: string
+): Promise<"invited" | "joined" | "declined" | null> {
+  if (isDemoMode() || !supabase) return null;
+  try {
+    const { data } = await supabase
+      .from("game_players")
+      .select("status")
+      .eq("game_id", gameId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return (data?.status as "invited" | "joined" | "declined") ?? null;
+  } catch {
+    return null;
   }
 }
 

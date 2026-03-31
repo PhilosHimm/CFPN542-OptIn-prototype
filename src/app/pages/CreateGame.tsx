@@ -108,7 +108,7 @@ export function CreateGame() {
   const [gameTitle, setGameTitle] = useState("");
   const [address, setAddress] = useState("");
   const [gameType, setGameType] = useState<"Casual" | "Competitive">("Casual");
-  const [maxPlayers, setMaxPlayers] = useState("10");
+  const [maxPlayers, setMaxPlayers] = useState("");
 
   const initialDate = searchParams.get("date") || "";
 
@@ -177,10 +177,12 @@ export function CreateGame() {
         toast.error("Please enter a game title");
         return;
       }
-      const mp = parseInt(maxPlayers);
-      if (!mp || mp < 2 || mp > 100) {
-        toast.error("Max players must be between 2 and 100");
-        return;
+      if (maxPlayers) {
+        const mp = parseInt(maxPlayers);
+        if (mp < 2 || mp > 100) {
+          toast.error("Max players must be between 2 and 100");
+          return;
+        }
       }
     }
 
@@ -222,7 +224,7 @@ export function CreateGame() {
         title: gameTitle,
         sport: selectedSport,
         gameType,
-        maxPlayers: parseInt(maxPlayers) || 10,
+        maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
         groupId: "g1",
         totalCost: parseFloat(totalCost) || 0,
         visibility,

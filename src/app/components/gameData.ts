@@ -73,14 +73,31 @@ export function getMinPlayers(sport: string): number {
   return SPORT_MINIMUMS[sport] ?? 2;
 }
 
+/** Fixed reference date for demo mode — all demo games are on/after this date. */
+export const DEMO_REFERENCE_DATE = "2026-03-24"; // Monday; demo games span Tue 25 – Sat 29
+
+/** Returns the current Date, substituting the fixed demo reference date in demo mode. */
+function demoAwareNow(): Date {
+  return isDemoMode()
+    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z")
+    : new Date();
+}
+
+/** Returns today as a YYYY-MM-DD string, substituting the fixed demo date in demo mode. */
+function demoAwareTodayStr(): string {
+  if (isDemoMode()) return DEMO_REFERENCE_DATE;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Applies automatic status transitions for expired games:
  *  - proposal  + all dates past → cancelled  (voting closed, never confirmed)
  *  - confirmed + confirmed date past → completed (game already happened)
  */
 function applyAutoTransitions(games: Game[]): { games: Game[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const now = demoAwareNow();
+  const todayStr = demoAwareTodayStr();
   const transitions: { id: string; newStatus: "cancelled" | "completed" }[] = [];
   const updated = games.map((g) => {
     if (g.status === "proposal") {
@@ -106,7 +123,7 @@ function applyAutoTransitions(games: Game[]): { games: Game[]; transitions: { id
 /** Returns true if the game has at least one option whose date is today or in the future. */
 export function isGameVotable(game: Game): boolean {
   if (game.status !== "proposal") return false;
-  const today = new Date();
+  const today = demoAwareNow();
   today.setHours(0, 0, 0, 0);
   return game.timeOptions.some((opt) => {
     const optDate = new Date(opt.date + "T00:00:00");
@@ -148,7 +165,10 @@ function votes(ins: string[], maybes: string[] = [], outs: string[] = []) {
 }
 
 function deadline(hoursFromNow: number): string {
-  return new Date(Date.now() + hoursFromNow * 3600_000).toISOString();
+  const base = isDemoMode()
+    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z").getTime()
+    : Date.now();
+  return new Date(base + hoursFromNow * 3600_000).toISOString();
 }
 
 export const DEMO_GAMES: Game[] = [
@@ -604,7 +624,7 @@ export async function saveGame(input: {
   title: string;
   sport: string;
   gameType: "casual" | "competitive";
-  maxPlayers: number;
+  maxPlayers: number | null;
   totalCost: number;
   location: string;
   groupId: string;
@@ -763,6 +783,16 @@ export async function updateGameVisibility(gameId: string, visibility: "Public" 
     return true;
   }
   const { error } = await supabase!.from("games").update({ visibility }).eq("id", gameId);
+  return !error;
+}
+
+export async function deleteGame(gameId: string): Promise<boolean> {
+  if (isDemoMode()) {
+    const idx = DEMO_GAMES.findIndex((g) => g.id === gameId);
+    if (idx !== -1) DEMO_GAMES.splice(idx, 1);
+    return true;
+  }
+  const { error } = await supabase!.from("games").delete().eq("id", gameId);
   return !error;
 }
 

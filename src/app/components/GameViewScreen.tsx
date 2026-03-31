@@ -36,6 +36,7 @@ import {
   updateGameVotingDeadline,
   updateGameVisibility,
   cancelGame,
+  deleteGame,
   confirmGame,
   unconfirmGame,
   clearVotesForOption,
@@ -50,6 +51,7 @@ import {
   type Player,
 } from "./gameData";
 import { isDemoMode } from "@/lib/supabase";
+import { getPlayerStatusForGame, respondToInvite } from "../services/games.service";
 
 // ─── Helpers ──────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -408,7 +410,7 @@ function RosterSection({
   onRemovePlayer,
 }: {
   roster: Player[];
-  maxPlayers: number;
+  maxPlayers: number | null;
   isHost: boolean;
   onRemovePlayer?: (playerId: string) => void;
 }) {
@@ -427,7 +429,7 @@ function RosterSection({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-label-lg font-medium text-primary leading-none">
-            {roster.length}/{maxPlayers}
+            {maxPlayers ? `${roster.length}/${maxPlayers}` : `${roster.length} joined`}
           </span>
           {isHost && roster.length > 0 && (
             <button
@@ -442,12 +444,14 @@ function RosterSection({
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-[6px] rounded-md3-full bg-surface-variant mb-3 overflow-hidden">
-        <div
-          className="h-full rounded-md3-full bg-primary transition-all"
-          style={{ width: `${Math.min(100, (roster.length / maxPlayers) * 100)}%` }}
-        />
-      </div>
+      {maxPlayers ? (
+        <div className="w-full h-[6px] rounded-md3-full bg-surface-variant mb-3 overflow-hidden">
+          <div
+            className="h-full rounded-md3-full bg-primary transition-all"
+            style={{ width: `${Math.min(100, (roster.length / maxPlayers) * 100)}%` }}
+          />
+        </div>
+      ) : null}
 
       {/* Player list */}
       <div className="flex flex-col gap-0">
@@ -543,12 +547,22 @@ export function GameViewScreen() {
   const [showCancelSheet, setShowCancelSheet] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
+  // Invite gate state
+  const [playerStatus, setPlayerStatus] = useState<"invited" | "joined" | "declined" | null>(null);
+  const [respondingToInvite, setRespondingToInvite] = useState(false);
+
   const refreshGame = useCallback(() => {
     if (!id) return;
-    fetchGameById(id).then((g) => {
-      if (g) setGame(g);
+    fetchGameById(id).then(async (g) => {
+      if (g) {
+        setGame(g);
+        if (user && !isDemoMode()) {
+          const status = await getPlayerStatusForGame(id, user.id);
+          setPlayerStatus(status);
+        }
+      }
     });
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     if (!id) return;
@@ -559,13 +573,36 @@ export function GameViewScreen() {
         setGame(g);
         // Load this user's existing votes so buttons reflect prior choices
         if (user && !isDemoMode()) {
-          const existing = await getUserVotes(id, user.id);
+          const [existing, status] = await Promise.all([
+            getUserVotes(id, user.id),
+            getPlayerStatusForGame(id, user.id)
+          ]);
           setVotes(existing);
+          setPlayerStatus(status);
         }
       }
       setLoading(false);
     });
   }, [id, user]);
+
+  const handleRespondToInvite = async (accept: boolean) => {
+    if (!game || !user) return;
+    setRespondingToInvite(true);
+    const { error } = await respondToInvite(game.id, user.id, accept);
+    setRespondingToInvite(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(accept ? "Invite accepted!" : "Invite declined.");
+      if (accept) {
+        setPlayerStatus("joined");
+      } else {
+        setPlayerStatus("declined");
+        navigate("/");
+      }
+      refreshGame();
+    }
+  };
 
   // Handlers for advanced game operations
   const handleProposeSubmit = async () => {
@@ -668,6 +705,21 @@ export function GameViewScreen() {
       toast.success("Game cancelled.");
     } catch (e: any) {
       toast.error("Failed to cancel game: " + e.message);
+    }
+  };
+
+  const handleDeleteGame = async () => {
+    if (!game) return;
+    if (window.confirm("Are you sure you want to completely delete this game? This cannot be undone and will remove it for all users.")) {
+      try {
+        const success = await deleteGame(game.id);
+        if (!success) throw new Error("Database error");
+        setShowHostMenu(false);
+        toast.success("Game permanently deleted.");
+        navigate("/");
+      } catch (e: any) {
+        toast.error("Failed to delete game: " + e.message);
+      }
     }
   };
 
@@ -830,6 +882,12 @@ export function GameViewScreen() {
     return opts;
   }, [game]);
 
+  // Stable 0-based index by creation order — doesn't shift when votes re-sort the list
+  const stableIndexMap = useMemo(() => {
+    if (!game) return {} as Record<string, number>;
+    return Object.fromEntries(game.timeOptions.map((opt, i) => [opt.id, i]));
+  }, [game]);
+
   const isReadOnly = game?.status === "completed" || game?.status === "cancelled";
   const isConfirmed = game?.status === "confirmed";
   const isVotingClosed = game ? !isGameVotable(game) && game.status === "proposal" : false;
@@ -867,6 +925,58 @@ export function GameViewScreen() {
         >
           Go Home
         </button>
+      </div>
+    );
+  }
+
+  // ─── Invite Gate ────────────────────────────────────────
+  if (playerStatus === "invited" && !isHost) {
+    return (
+      <div className="flex flex-col min-h-screen bg-surface max-w-lg mx-auto w-full relative">
+        <div className="relative h-[300px] overflow-hidden">
+          <ImageWithFallback
+            src={game.heroImage}
+            alt={game.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+          <button
+            onClick={() => navigate(-1)}
+            className="absolute top-[48px] left-4 w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
+          >
+            <ArrowLeft className="w-5 h-5 text-on-surface" />
+          </button>
+        </div>
+        <div className="px-6 py-8 flex flex-col items-center flex-1 -mt-10 bg-surface rounded-t-[32px] relative z-10 shadow-[0_-4px_24px_rgba(0,0,0,0.1)]">
+          <div className="w-16 h-16 bg-primary-container rounded-md3-full flex items-center justify-center mb-6 shadow-sm text-3xl">
+            {game.sportEmoji}
+          </div>
+          <h1 className="text-title-lg text-on-surface font-semibold text-center mb-4 leading-tight">
+            You've been invited to<br /> {game.title}
+          </h1>
+          <p className="text-body-lg text-on-surface-variant text-center mb-10 leading-relaxed px-2">
+            Accept the invite to view game details, vote on times, and see who else is going.
+          </p>
+
+          <div className="w-full space-y-3 mt-auto mb-6">
+            <button
+              onClick={() => handleRespondToInvite(true)}
+              disabled={respondingToInvite}
+              className={`w-full h-[56px] text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 flex items-center justify-center gap-2 transition-all ${
+                respondingToInvite ? "bg-primary/70 cursor-not-allowed" : "bg-primary hover:shadow-md3-2 active:bg-primary/90"
+              }`}
+            >
+              {respondingToInvite ? "Accepting..." : "Accept Invite"}
+            </button>
+            <button
+              onClick={() => handleRespondToInvite(false)}
+              disabled={respondingToInvite}
+              className="w-full h-[56px] bg-surface-container text-on-surface rounded-md3-full text-label-lg font-medium shadow-sm hover:bg-surface-container-high transition-colors"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -990,7 +1100,7 @@ export function GameViewScreen() {
             <div className="flex items-center gap-3">
               <Users className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
               <span className="text-body-md text-on-surface leading-normal">
-                {game.roster.length}/{game.maxPlayers} players
+                {game.maxPlayers ? `${game.roster.length}/${game.maxPlayers} players` : `${game.roster.length} players`}
               </span>
             </div>
             {createdByPlayer && (
@@ -1071,11 +1181,11 @@ export function GameViewScreen() {
           )}
 
           <AnimatePresence>
-            {sortedOptions.map((option, index) => (
+            {sortedOptions.map((option) => (
               <OptionCard
                 key={option.id}
                 option={option}
-                index={index}
+                index={stableIndexMap[option.id] ?? 0}
                 isWinner={
                   (isConfirmed || isReadOnly) &&
                   option.id === game.confirmedOptionId
@@ -1299,6 +1409,14 @@ export function GameViewScreen() {
                 >
                   <Ban className="w-5 h-5 text-error" />
                   <span className="text-body-lg font-medium text-on-error-container">Cancel Game</span>
+                </button>
+
+                <button
+                  onClick={handleDeleteGame}
+                  className="w-full flex items-center p-4 bg-error rounded-xl shadow-sm text-left gap-3"
+                >
+                  <Ban className="w-5 h-5 text-on-error" />
+                  <span className="text-body-lg font-medium text-on-error">Delete Game</span>
                 </button>
               </div>
             </motion.div>
