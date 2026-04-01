@@ -31,6 +31,7 @@ import {
   fetchGameById,
   autoTransitionGame,
   addGameOption,
+  approveGameOption,
   updateGameOption,
   deleteGameOption,
   updateGameVotingDeadline,
@@ -260,6 +261,7 @@ function OptionCard({
   onVote,
   isHost,
   onEdit,
+  onShowVoters,
 }: {
   option: VoteOption;
   index: number;
@@ -270,6 +272,7 @@ function OptionCard({
   onVote: (optionId: string, vote: "in" | "maybe" | "out") => void;
   isHost?: boolean;
   onEdit?: (option: VoteOption) => void;
+  onShowVoters?: () => void;
 }) {
   const totalIn = option.votes.in.length;
   const totalMaybe = option.votes.maybe.length;
@@ -397,6 +400,16 @@ function OptionCard({
             </span>
           </div>
         </div>
+      )}
+
+      {/* See who voted */}
+      {onShowVoters && (totalIn + totalMaybe + totalOut > 0) && (
+        <button
+          onClick={onShowVoters}
+          className="mt-2 text-label-sm text-on-surface-variant underline underline-offset-2 min-h-[32px]"
+        >
+          See who voted
+        </button>
       )}
     </motion.div>
   );
@@ -547,6 +560,9 @@ export function GameViewScreen() {
   const [showCancelSheet, setShowCancelSheet] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
+  // Voter details modal
+  const [selectedOptionForVoters, setSelectedOptionForVoters] = useState<VoteOption | null>(null);
+
   // Invite gate state
   const [playerStatus, setPlayerStatus] = useState<"invited" | "joined" | "declined" | null>(null);
   const [respondingToInvite, setRespondingToInvite] = useState(false);
@@ -607,19 +623,32 @@ export function GameViewScreen() {
   // Handlers for advanced game operations
   const handleProposeSubmit = async () => {
     if (!game || !formDate || !formStart || !formEnd) return;
+    const status = isHost ? "approved" : "pending";
     try {
-      await addGameOption(game.id, {
-        date: formDate,
-        start_time: formStart,
-        end_time: formEnd,
-        location: formLocation || undefined,
-      });
+      await addGameOption(
+        game.id,
+        { date: formDate, start_time: formStart, end_time: formEnd, location: formLocation || undefined },
+        status,
+        user?.id,
+      );
       setShowProposeTime(false);
       refreshGame();
-      toast.success("New time option proposed!");
+      toast.success(isHost ? "New time option added!" : "Proposal sent to the host for approval!");
     } catch (e: any) {
       toast.error("Failed to propose time option: " + e.message);
     }
+  };
+
+  const handleApproveOption = async (optionId: string) => {
+    const ok = await approveGameOption(optionId);
+    if (ok) { refreshGame(); toast.success("Proposal approved!"); }
+    else toast.error("Failed to approve proposal.");
+  };
+
+  const handleDeclineOption = async (optionId: string) => {
+    const ok = await deleteGameOption(optionId);
+    if (ok) { refreshGame(); toast.success("Proposal declined."); }
+    else toast.error("Failed to decline proposal.");
   };
 
   const handleEditSubmit = async () => {
@@ -873,14 +902,21 @@ export function GameViewScreen() {
   );
 
   // Sort options by "in" count descending for proposal status
+  // Non-hosts only see approved options in the voting list
   const sortedOptions = useMemo(() => {
     if (!game) return [];
-    const opts = [...game.timeOptions];
+    const opts = game.timeOptions.filter((o) => isHost || (o.status ?? "approved") === "approved");
     if (game.status === "proposal") {
       opts.sort((a, b) => b.votes.in.length - a.votes.in.length);
     }
     return opts;
-  }, [game]);
+  }, [game, isHost]);
+
+  // Pending proposals — shown to host only
+  const pendingOptions = useMemo(() => {
+    if (!game || !isHost) return [];
+    return game.timeOptions.filter((o) => (o.status ?? "approved") === "pending");
+  }, [game, isHost]);
 
   // Stable 0-based index by creation order — doesn't shift when votes re-sort the list
   const stableIndexMap = useMemo(() => {
@@ -1202,9 +1238,64 @@ export function GameViewScreen() {
                   setFormEnd(opt.endTime);
                   setFormLocation(opt.location || "");
                 }}
+                onShowVoters={() => setSelectedOptionForVoters(option)}
               />
             ))}
           </AnimatePresence>
+
+          {/* Pending Proposals — host only */}
+          {isHost && pendingOptions.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-title-sm font-medium text-on-surface mb-2 leading-none">
+                Pending Proposals ({pendingOptions.length})
+              </h3>
+              {pendingOptions.map((option) => (
+                <motion.div
+                  key={option.id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="rounded-md3-large border-2 border-outline-variant bg-surface-container-low p-4 mb-3"
+                >
+                  <div className="flex flex-col gap-1 mb-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+                      <span className="text-body-md text-on-surface leading-normal">{formatDate(option.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+                      <span className="text-body-md text-on-surface leading-normal">
+                        {formatTime(option.startTime)} – {formatTime(option.endTime)}
+                      </span>
+                    </div>
+                    {option.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
+                        <span className="text-body-md text-on-surface leading-normal">{option.location}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApproveOption(option.id)}
+                      className="flex-1 h-10 bg-primary text-on-primary text-label-md font-medium rounded-full flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleDeclineOption(option.id)}
+                      className="flex-1 h-10 bg-error-container text-on-error-container text-label-md font-medium rounded-full flex items-center justify-center gap-1.5"
+                    >
+                      <CircleX className="w-4 h-4" />
+                      Decline
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
 
           {/* Propose new time */}
           {game.status === "proposal" && !isVotingClosed && (
@@ -1887,6 +1978,75 @@ export function GameViewScreen() {
                 >
                   Save Changes
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Voter Details Modal */}
+      <AnimatePresence>
+        {selectedOptionForVoters && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOptionForVoters(null)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="relative bg-surface rounded-t-3xl w-full max-w-lg shadow-md3-5 z-10 pb-safe"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-outline-variant" />
+              </div>
+              <div className="flex justify-between items-center px-6 py-3">
+                <h2 className="text-title-lg font-semibold text-on-surface">Who Voted</h2>
+                <button
+                  onClick={() => setSelectedOptionForVoters(null)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-6 pb-8 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+                {(
+                  [
+                    { label: "I'm In", ids: selectedOptionForVoters.votes.in, Icon: CheckCircle2, color: "text-primary" },
+                    { label: "Maybe", ids: selectedOptionForVoters.votes.maybe, Icon: CircleAlert, color: "text-secondary" },
+                    { label: "Can't", ids: selectedOptionForVoters.votes.out, Icon: CircleX, color: "text-error" },
+                  ] as const
+                ).map(({ label, ids, Icon, color }) => (
+                  <div key={label}>
+                    <div className={`flex items-center gap-1.5 mb-2 ${color}`}>
+                      <Icon className="w-4 h-4" />
+                      <span className="text-label-md font-medium leading-none">{label} · {ids.length}</span>
+                    </div>
+                    {ids.length === 0 ? (
+                      <p className="text-body-sm text-on-surface-variant pl-1">No votes yet</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {ids.map((uid) => {
+                          const player = game?.roster.find((p) => p.id === uid);
+                          const name = player?.name ?? uid;
+                          return (
+                            <div key={uid} className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-label-sm font-medium text-on-primary-container flex-shrink-0">
+                                {name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <span className="text-body-md text-on-surface leading-none">{name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </motion.div>
           </div>
