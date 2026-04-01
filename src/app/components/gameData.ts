@@ -14,6 +14,8 @@ export interface VoteOption {
   startTime: string;
   endTime: string;
   location: string;
+  status?: "pending" | "approved";
+  proposedBy?: string | null;
   votes: {
     in: string[];
     maybe: string[];
@@ -537,6 +539,8 @@ function mapDbGameToGame(g: any): Game {
         startTime: o.start_time,
         endTime: o.end_time,
         location: o.location,
+        status: (o.status ?? "approved") as "pending" | "approved",
+        proposedBy: o.proposed_by ?? null,
         votes: {
           in: voteRows.filter((v) => v.value === "in").map((v) => v.user_id),
           maybe: voteRows.filter((v) => v.value === "maybe").map((v) => v.user_id),
@@ -739,16 +743,32 @@ export async function saveGame(input: {
   return { id: gameId, error: null };
 }
 
-export async function addGameOption(gameId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
+export async function addGameOption(
+  gameId: string,
+  option: { date: string; start_time: string; end_time: string; location?: string },
+  status: "pending" | "approved" = "approved",
+  proposedBy?: string,
+): Promise<boolean> {
   if (isDemoMode()) return false;
   const { error } = await supabase!.from("game_options").insert({
     game_id: gameId,
     date: option.date,
-    display_date: option.date, // simple fallback
+    display_date: option.date,
     start_time: option.start_time,
     end_time: option.end_time,
     location: option.location || "",
+    status,
+    proposed_by: proposedBy ?? null,
   });
+  return !error;
+}
+
+export async function approveGameOption(optionId: string): Promise<boolean> {
+  if (isDemoMode()) return false;
+  const { error } = await supabase!
+    .from("game_options")
+    .update({ status: "approved" })
+    .eq("id", optionId);
   return !error;
 }
 
