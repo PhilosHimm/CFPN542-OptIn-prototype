@@ -567,6 +567,10 @@ export function GameViewScreen() {
   const [playerStatus, setPlayerStatus] = useState<"invited" | "joined" | "declined" | null>(null);
   const [respondingToInvite, setRespondingToInvite] = useState(false);
 
+  // Pending proposal action states
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+
   const refreshGame = useCallback(() => {
     if (!id) return;
     fetchGameById(id).then(async (g) => {
@@ -640,13 +644,17 @@ export function GameViewScreen() {
   };
 
   const handleApproveOption = async (optionId: string) => {
+    setApprovingId(optionId);
     const ok = await approveGameOption(optionId);
-    if (ok) { refreshGame(); toast.success("Proposal approved!"); }
+    setApprovingId(null);
+    if (ok) { refreshGame(); toast.success("Proposal approved — players can now vote on it."); }
     else toast.error("Failed to approve proposal.");
   };
 
   const handleDeclineOption = async (optionId: string) => {
+    setDecliningId(optionId);
     const ok = await deleteGameOption(optionId);
+    setDecliningId(null);
     if (ok) { refreshGame(); toast.success("Proposal declined."); }
     else toast.error("Failed to decline proposal.");
   };
@@ -1245,55 +1253,112 @@ export function GameViewScreen() {
 
           {/* Pending Proposals — host only */}
           {isHost && pendingOptions.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-title-sm font-medium text-on-surface mb-2 leading-none">
-                Pending Proposals ({pendingOptions.length})
-              </h3>
-              {pendingOptions.map((option) => (
-                <motion.div
-                  key={option.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="rounded-md3-large border-2 border-outline-variant bg-surface-container-low p-4 mb-3"
-                >
-                  <div className="flex flex-col gap-1 mb-3">
-                    <div className="flex items-center gap-2">
-                      <CalendarDays className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
-                      <span className="text-body-md text-on-surface leading-normal">{formatDate(option.date)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
-                      <span className="text-body-md text-on-surface leading-normal">
-                        {formatTime(option.startTime)} – {formatTime(option.endTime)}
-                      </span>
-                    </div>
-                    {option.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-on-surface-variant flex-shrink-0" />
-                        <span className="text-body-md text-on-surface leading-normal">{option.location}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApproveOption(option.id)}
-                      className="flex-1 h-10 bg-primary text-on-primary text-label-md font-medium rounded-full flex items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleDeclineOption(option.id)}
-                      className="flex-1 h-10 bg-error-container text-on-error-container text-label-md font-medium rounded-full flex items-center justify-center gap-1.5"
-                    >
-                      <CircleX className="w-4 h-4" />
-                      Decline
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+            <div className="mt-4 rounded-md3-large border border-amber-200 bg-amber-50/60 overflow-hidden">
+              {/* Section header */}
+              <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-amber-200/70">
+                <div className="w-6 h-6 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0">
+                  <CircleAlert className="w-3.5 h-3.5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-label-lg font-semibold text-amber-900 leading-none">
+                    {pendingOptions.length} Time Proposal{pendingOptions.length > 1 ? "s" : ""} Awaiting Review
+                  </p>
+                  <p className="text-body-sm text-amber-700/80 mt-0.5 leading-snug">
+                    Approve to add to voting, or decline to remove.
+                  </p>
+                </div>
+              </div>
+
+              {/* Proposal cards */}
+              <div className="p-3 flex flex-col gap-3">
+                <AnimatePresence initial={false}>
+                  {pendingOptions.map((option) => {
+                    const proposer = game.roster.find((p) => p.id === option.proposedBy);
+                    const proposerInitials = proposer?.name
+                      ? proposer.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+                      : "?";
+                    const isApproving = approvingId === option.id;
+                    const isDeclining = decliningId === option.id;
+                    const isBusy = isApproving || isDeclining;
+
+                    return (
+                      <motion.div
+                        key={option.id}
+                        layout
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        className="bg-white rounded-xl border border-amber-200/80 shadow-sm overflow-hidden"
+                      >
+                        {/* Proposer identity */}
+                        <div className="flex items-center gap-2.5 px-4 pt-3 pb-2.5 border-b border-amber-100">
+                          <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                            {proposer?.avatar ? (
+                              <img src={proposer.avatar} alt={proposer.name} className="w-7 h-7 rounded-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-amber-700">{proposerInitials}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-label-md font-semibold text-on-surface leading-none truncate">
+                              {proposer?.name ?? "A player"}
+                            </p>
+                            <p className="text-body-sm text-on-surface-variant leading-none mt-0.5">suggested a new time</p>
+                          </div>
+                        </div>
+
+                        {/* Proposed time details */}
+                        <div className="px-4 py-3 flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                            <span className="text-body-md text-on-surface font-medium leading-none">{formatDate(option.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                            <span className="text-body-md text-on-surface leading-none">
+                              {formatTime(option.startTime)} – {formatTime(option.endTime)}
+                            </span>
+                          </div>
+                          {option.location && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                              <span className="text-body-md text-on-surface leading-none truncate">{option.location}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 px-4 pb-3">
+                          <button
+                            onClick={() => handleApproveOption(option.id)}
+                            disabled={isBusy}
+                            className="flex-1 h-10 bg-primary text-on-primary text-label-md font-medium rounded-full flex items-center justify-center gap-1.5 disabled:opacity-50 transition-opacity"
+                          >
+                            {isApproving ? (
+                              <span className="w-4 h-4 border-2 border-on-primary/40 border-t-on-primary rounded-full animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
+                            {isApproving ? "Approving…" : "Approve"}
+                          </button>
+                          <button
+                            onClick={() => handleDeclineOption(option.id)}
+                            disabled={isBusy}
+                            className="flex-1 h-10 bg-error-container text-on-error-container text-label-md font-medium rounded-full flex items-center justify-center gap-1.5 disabled:opacity-50 transition-opacity"
+                          >
+                            {isDeclining ? (
+                              <span className="w-4 h-4 border-2 border-on-error-container/40 border-t-on-error-container rounded-full animate-spin" />
+                            ) : (
+                              <CircleX className="w-4 h-4" />
+                            )}
+                            {isDeclining ? "Declining…" : "Decline"}
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
             </div>
           )}
 

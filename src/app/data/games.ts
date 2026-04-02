@@ -34,6 +34,7 @@ export interface Game {
   perPersonCost: number;
   confirmedOptionId?: string;
   description?: string;
+  pendingProposalCount?: number;
 }
 
 export interface Group {

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { getGames, getGroups, getCalendarMarkers } from "../services/games.service";
 import type { Game, Group, GameStatus } from "../data/games";
+import { useAuth } from "../contexts/AuthContext";
 import { SportIcon } from "../components/SportIcon";
 
 function isGameExpired(game: Game): boolean {
@@ -35,15 +36,18 @@ function toDateStr(year: number, month: number, day: number) {
 
 export function Calendar() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [calendarMarkers, setCalendarMarkers] = useState<Record<string, { status: GameStatus; gameId: string }[]>>({});
 
   useEffect(() => {
-    getGames().then(setGames);
+    if (profile) {
+      getGames(profile.id).then(setGames);
+      getCalendarMarkers(profile.id).then(setCalendarMarkers);
+    }
     getGroups().then(setGroups);
-    getCalendarMarkers().then(setCalendarMarkers);
-  }, []);
+  }, [profile?.id]);
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());

@@ -54,7 +54,7 @@ export function Home() {
   const [invites, setInvites] = useState<GameInvite[]>([]);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   useEffect(() => {
-    getGames().then(setGames);
+    if (profile) getGames(profile.id).then(setGames);
     getGroups().then(setGroups);
     if (profile) getInvites(profile.id).then(setInvites);
   }, [profile?.id]);
@@ -248,7 +248,14 @@ export function Home() {
                         </p>
                       </div>
                     </div>
-                    <StatusBadge status={game.status} />
+                    <div className="flex flex-col items-end gap-1.5">
+                      <StatusBadge status={game.status} />
+                      {game.createdBy === profile?.id && (game.pendingProposalCount ?? 0) > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100">
+                          {game.pendingProposalCount} proposal{(game.pendingProposalCount ?? 0) > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {displayOption && (
@@ -408,7 +415,7 @@ export function Home() {
                           await respondToInvite(invite.gameId, profile.id, true);
                           const [updatedInvites, updatedGames] = await Promise.all([
                             getInvites(profile.id),
-                            getGames(),
+                            getGames(profile.id),
                           ]);
                           setInvites(updatedInvites);
                           setGames(updatedGames);

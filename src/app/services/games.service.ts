@@ -15,7 +15,7 @@ function showNetworkError(context: string) {
   toast.error(`Failed to load ${context}. Check your connection and try again.`);
 }
 
-export async function getGames(): Promise<Game[]> {
+export async function getGames(userId?: string): Promise<Game[]> {
   if (isDemoMode()) return mockGames;
   if (!supabase) return [];
 
@@ -25,10 +25,28 @@ export async function getGames(): Promise<Game[]> {
       if (res.error) console.error("Failed to transition games:", res.error);
     });
 
-    const { data: gamesData, error } = await supabase
+    let query = supabase
       .from("games")
       .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
       .order("created_at", { ascending: false });
+
+    if (userId) {
+      const { data: joinedRows } = await supabase
+        .from("game_players")
+        .select("game_id")
+        .eq("user_id", userId)
+        .eq("status", "joined");
+
+      const joinedGameIds = (joinedRows || []).map((r: any) => r.game_id);
+
+      if (joinedGameIds.length > 0) {
+        query = query.or(`created_by.eq.${userId},id.in.(${joinedGameIds.join(",")})`);
+      } else {
+        query = query.eq("created_by", userId);
+      }
+    }
+
+    const { data: gamesData, error } = await query;
 
     if (error || !gamesData) return mockGames;
 
@@ -67,6 +85,7 @@ export async function getGames(): Promise<Game[]> {
       perPersonCost: g.per_person_cost,
       confirmedOptionId: g.confirmed_option_id,
       description: g.description,
+      pendingProposalCount: (g.game_options || []).filter((o: any) => o.status === "pending").length,
     }));
   } catch {
     showNetworkError("games");
@@ -164,15 +183,41 @@ export async function getGroups(): Promise<Group[]> {
   }
 }
 
-export async function getCalendarMarkers(): Promise<Record<string, { status: GameStatus; gameId: string }[]>> {
+export async function getCalendarMarkers(userId?: string): Promise<Record<string, { status: GameStatus; gameId: string }[]>> {
   if (isDemoMode()) return mockCalendarMarkers;
   if (!supabase) return {};
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("game_options")
       .select("date, game_id, games!inner(id, status)")
       .order("date");
+
+    if (userId) {
+      const [{ data: joinedRows }, { data: createdRows }] = await Promise.all([
+        supabase
+          .from("game_players")
+          .select("game_id")
+          .eq("user_id", userId)
+          .eq("status", "joined"),
+        supabase
+          .from("games")
+          .select("id")
+          .eq("created_by", userId),
+      ]);
+
+      const accessibleIds = [
+        ...new Set([
+          ...(joinedRows || []).map((r: any) => r.game_id),
+          ...(createdRows || []).map((r: any) => r.id),
+        ]),
+      ];
+
+      if (accessibleIds.length === 0) return {};
+      query = query.in("game_id", accessibleIds);
+    }
+
+    const { data, error } = await query;
 
     if (error || !data) return mockCalendarMarkers;
 
