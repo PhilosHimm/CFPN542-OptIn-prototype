@@ -29,6 +29,7 @@ interface AuthContextType {
   enterDemoMode: () => void;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -148,6 +149,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data && !error) {
         setProfile(data as UserProfile);
+      } else if (error?.code === "PGRST116") {
+        // No profile row — new OAuth user. Create a minimal profile from auth metadata.
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const name =
+            authUser.user_metadata?.full_name ??
+            authUser.user_metadata?.name ??
+            authUser.email?.split("@")[0] ??
+            "User";
+          await supabase.from("profiles").insert({
+            id: userId,
+            email: authUser.email ?? "",
+            name,
+            initials: getInitials(name),
+            color: "#2D7A3A",
+            username: null,
+            bio: "",
+            games_played: 0,
+            weeks_played: 0,
+            attendance_rate: 0,
+          });
+          const { data: newProfile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+          if (newProfile) setProfile(newProfile as UserProfile);
+        }
       }
     } catch {
       // Profile fetch failed — proceed without profile
@@ -212,6 +241,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return { error: "Something went wrong — please try again" };
     }
+  };
+
+  const signInWithGoogle = async () => {
+    if (isDemo) return { error: "Running in demo mode" };
+    if (!supabase) return { error: "Supabase not configured" };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    return { error: error?.message ?? null };
   };
 
   const signOut = async () => {
@@ -281,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, sessionExpired, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signOut, updateProfile, resetPassword }}
+      value={{ user, profile, session, loading, isDemo, sessionExpired, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signInWithGoogle, signOut, updateProfile, resetPassword }}
     >
       {children}
     </AuthContext.Provider>
