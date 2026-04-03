@@ -502,7 +502,7 @@ function mapDbGameToGame(g: any): Game {
   // Build real roster from game_players joined with profiles
   const gamePlayers = (g.game_players || []) as any[];
   const roster: Player[] = gamePlayers
-    .filter((p: any) => p.status !== "declined")
+    .filter((p: any) => p.status === "joined")
     .map((p: any) => ({
       id: p.user_id,
       name: p.profiles?.name ?? "Player",

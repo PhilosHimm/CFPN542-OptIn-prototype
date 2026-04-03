@@ -421,11 +421,13 @@ function RosterSection({
   roster,
   maxPlayers,
   isHost,
+  hostId,
   onRemovePlayer,
 }: {
   roster: Player[];
   maxPlayers: number | null;
   isHost: boolean;
+  hostId: string;
   onRemovePlayer?: (playerId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -475,9 +477,14 @@ function RosterSection({
             className="flex items-center gap-3 py-2"
           >
             <div className="w-9 h-9 rounded-md3-full overflow-hidden flex-shrink-0"><UserAvatar name={player.name} avatarUrl={player.avatar} color={(player as any).color} /></div>
-            <span className="text-body-md text-on-surface leading-none flex-1">
-              {player.name}
-            </span>
+            <span className="text-body-md text-on-surface leading-none flex-1 flex items-center gap-2">
+    {player.name}
+    {player.id === hostId && (
+      <span className="text-[10px] font-bold tracking-wider uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm">
+        Host
+      </span>
+    )}
+  </span>
             {isEditing ? (
               <button
                 onClick={() => onRemovePlayer?.(player.id)}
@@ -1424,12 +1431,7 @@ export function GameViewScreen() {
         )}
 
         {/* Roster */}
-        <RosterSection 
-          roster={game.roster} 
-          maxPlayers={game.maxPlayers} 
-          isHost={isHost}
-          onRemovePlayer={handleRemovePlayer}
-        />
+        <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} isHost={isHost} hostId={game.createdBy} onRemovePlayer={handleRemovePlayer} />
 
         {/* Group Info */}
         {game.group && (

@@ -25,35 +25,38 @@ export async function getGames(userId?: string): Promise<Game[]> {
       if (res.error) console.error("Failed to transition games:", res.error);
     });
 
-    let query = supabase
+    if (!userId) return [];
+
+    // Resolve which game IDs this user should see before building the query:
+    //   - games they created (always visible to the creator)
+    //   - games they have explicitly accepted (status = "joined")
+    // Games with status = "invited" are intentionally excluded — they belong in
+    // the notifications panel until the user accepts.
+    const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
+      supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
+      supabase.from("games").select("id").eq("created_by", userId),
+      supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+    ]);
+
+    const invitedIds = new Set((invitedRows || []).map((r: any) => r.game_id));
+    const visibleIds = [
+      ...new Set([
+        ...(joinedRows || []).map((r: any) => r.game_id),
+        // Creator always sees their own games, unless they have been explicitly
+        // added as an invitee to their own game (edge-case guard)
+        ...(createdRows || []).map((r: any) => r.id).filter((id: string) => !invitedIds.has(id)),
+      ]),
+    ];
+
+    if (visibleIds.length === 0) return [];
+
+    const { data: gamesData, error } = await supabase
       .from("games")
       .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
+      .in("id", visibleIds)
       .order("created_at", { ascending: false });
 
-    if (userId) {
-      const [{ data: joinedRows }, { data: invitedRows }] = await Promise.all([
-        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
-        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
-      ]);
-
-      const joinedGameIds = (joinedRows || []).map((r: any) => r.game_id);
-      const invitedGameIds = (invitedRows || []).map((r: any) => r.game_id);
-
-      if (joinedGameIds.length > 0) {
-        query = query.or(`created_by.eq.${userId},id.in.(${joinedGameIds.join(",")})`);
-      } else {
-        query = query.eq("created_by", userId);
-      }
-
-      // Explicitly exclude games the user has been invited to but hasn't accepted yet
-      if (invitedGameIds.length > 0) {
-        query = query.not("id", "in", `(${invitedGameIds.join(",")})`);
-      }
-    }
-
-    const { data: gamesData, error } = await query;
-
-    if (error || !gamesData) return mockGames;
+    if (error || !gamesData) return [];
 
     return gamesData.map((g: any) => ({
       id: g.id,
