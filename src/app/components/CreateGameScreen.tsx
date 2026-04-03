@@ -596,6 +596,7 @@ export function CreateGameScreen() {
                 timeOptions={timeOptions}
                 costType={costType}
                 perPlayerCost={perPlayerCost}
+                totalCost={totalCost}
                 perPersonCost={perPersonCost}
                 selectedPlayers={selectedPlayers}
                 invitePlayers={invitePlayers}

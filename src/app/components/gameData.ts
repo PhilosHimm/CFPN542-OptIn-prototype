@@ -724,8 +724,9 @@ export async function saveGame(input: {
   }
 
   // Invite players (only real UUIDs)
+  const realPlayerIds = input.invitedPlayerIds?.filter(isValidUUID) || [];
   if (realPlayerIds.length > 0) {
-    const playerInserts = realPlayerIds.map((pid) => ({
+    const playerInserts = realPlayerIds.map((pid: string) => ({
       game_id: gameId,
       user_id: pid,
       status: "invited" as const,
