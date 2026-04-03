@@ -630,6 +630,7 @@ export async function saveGame(input: {
   gameType: "casual" | "competitive";
   maxPlayers: number | null;
   totalCost: number;
+  perPersonCost: number;
   location: string;
   groupId: string;
   visibility: string;
@@ -668,13 +669,6 @@ export async function saveGame(input: {
   // Only use group_id if it's a valid UUID (mock IDs like "g1" are not valid)
   const groupId = input.groupId && isValidUUID(input.groupId) ? input.groupId : null;
 
-  // Only count real (UUID) player IDs for cost splitting
-  const realPlayerIds = input.invitedPlayerIds.filter(isValidUUID);
-
-  const perPersonCost = input.totalCost > 0 && realPlayerIds.length > 0
-    ? input.totalCost / realPlayerIds.length
-    : 0;
-
   const votingDeadline = new Date();
   const hoursToAdd = input.votingPeriodHours || 24;
   votingDeadline.setHours(votingDeadline.getHours() + hoursToAdd);
@@ -696,7 +690,7 @@ export async function saveGame(input: {
       group_id: groupId,
       voting_deadline: votingDeadline.toISOString(),
       total_cost: input.totalCost,
-      per_person_cost: perPersonCost,
+      per_person_cost: input.perPersonCost,
       confirmed_option_id: null,
       description: null,
       visibility: input.visibility === "public" ? "Public" : input.visibility === "private" ? "Private" : "Group Only",

@@ -5,6 +5,7 @@ import {
   MapPin,
   Plus,
   Trash2,
+  Copy,
   CalendarDays,
   Clock,
   DollarSign,
@@ -240,8 +241,9 @@ export function CreateGameScreen() {
   );
 
   // Step 3 state
+  const [costType, setCostType] = useState<"free" | "per_player" | "fixed">("free");
+  const [perPlayerCost, setPerPlayerCost] = useState("");
   const [totalCost, setTotalCost] = useState(mock ? "60" : "");
-  const [splitCost, setSplitCost] = useState(true);
 
   // Step 4 state
   const [searchQuery, setSearchQuery] = useState("");
@@ -290,11 +292,14 @@ export function CreateGameScreen() {
 
   // ─── Derived ──────────────────────────────────────────
   const perPersonCost = useMemo(() => {
+    if (costType === "free") return "0.00";
+    if (costType === "per_player") return (parseFloat(perPlayerCost) || 0).toFixed(2);
+    // costType === "fixed"
     const cost = parseFloat(totalCost) || 0;
     const players = parseInt(maxPlayers) || 1;
-    if (!splitCost || cost === 0) return "0.00";
+    if (cost === 0) return "0.00";
     return (cost / players).toFixed(2);
-  }, [totalCost, splitCost, maxPlayers]);
+  }, [totalCost, perPlayerCost, costType, maxPlayers]);
 
   const filteredPlayers = useMemo(() => {
     const list = invitePlayers;
@@ -341,6 +346,24 @@ export function CreateGameScreen() {
     setTimeOptions((prev) => prev.filter((o) => o.id !== id));
   }, []);
 
+  const duplicateTimeOption = useCallback((id: string) => {
+    setTimeOptions((prev) => {
+      if (prev.length >= 5) return prev;
+      const t = prev.find((o) => o.id === id);
+      if (!t) return prev;
+      
+      const newOption = {
+        ...t,
+        id: String(Date.now()),
+      };
+      
+      const index = prev.findIndex(o => o.id === id);
+      const newArr = [...prev];
+      newArr.splice(index + 1, 0, newOption);
+      return newArr;
+    });
+  }, []);
+
   const updateTimeOption = useCallback(
     (id: string, field: keyof TimeOption, value: string) => {
       setTimeOptions((prev) =>
@@ -382,7 +405,8 @@ export function CreateGameScreen() {
       sport: effectiveSport,
       gameType: gameType as "casual" | "competitive",
       maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
-      totalCost: parseFloat(totalCost) || 0,
+      totalCost: costType === "fixed" ? parseFloat(totalCost) || 0 : 0,
+      perPersonCost: costType === "per_player" ? parseFloat(perPlayerCost) || 0 : (costType === "fixed" ? parseFloat(perPersonCost) : 0),
       location: address,
       groupId: assignedGroup,
       visibility: visibility === "public" ? "Public" : visibility === "group" ? "Group Only" : "Private",
@@ -529,6 +553,7 @@ export function CreateGameScreen() {
                 timeOptions={timeOptions}
                 onAdd={addTimeOption}
                 onRemove={removeTimeOption}
+                onDuplicate={duplicateTimeOption}
                 onUpdate={updateTimeOption}
                 onNext={goNext}
                 isValid={isStep2Valid}
@@ -537,10 +562,12 @@ export function CreateGameScreen() {
             )}
             {currentStep === 3 && (
               <StepCosts
+                costType={costType}
+                setCostType={setCostType}
+                perPlayerCost={perPlayerCost}
+                setPerPlayerCost={setPerPlayerCost}
                 totalCost={totalCost}
                 setTotalCost={setTotalCost}
-                splitCost={splitCost}
-                setSplitCost={setSplitCost}
                 perPersonCost={perPersonCost}
                 onNext={goNext}
               />
@@ -567,8 +594,8 @@ export function CreateGameScreen() {
                 gameType={gameType}
                 maxPlayers={maxPlayers}
                 timeOptions={timeOptions}
-                totalCost={totalCost}
-                splitCost={splitCost}
+                costType={costType}
+                perPlayerCost={perPlayerCost}
                 perPersonCost={perPersonCost}
                 selectedPlayers={selectedPlayers}
                 invitePlayers={invitePlayers}
@@ -794,6 +821,7 @@ function StepTimeLocation({
   timeOptions,
   onAdd,
   onRemove,
+  onDuplicate,
   onUpdate,
   onNext,
   isValid,
@@ -802,6 +830,7 @@ function StepTimeLocation({
   timeOptions: TimeOption[];
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onUpdate: (id: string, field: keyof TimeOption, value: string) => void;
   onNext: () => void;
   isValid: boolean;
@@ -823,14 +852,28 @@ function StepTimeLocation({
             <span className="text-body-md font-medium text-primary leading-none">
               Option {index + 1}
             </span>
-            {timeOptions.length > 1 && (
-              <button
-                onClick={() => onRemove(option.id)}
-                className="w-8 h-8 min-w-[48px] min-h-[48px] flex items-center justify-center -mr-2 -mt-1"
-              >
-                <Trash2 className="w-4 h-4 text-error" />
-              </button>
-            )}
+            <div className="flex items-center gap-1 -mr-2 -mt-1">
+              {timeOptions.length < 5 && (
+                <button
+                  aria-label="Duplicate"
+                  title="Duplicate Option"
+                  onClick={() => onDuplicate(option.id)}
+                  className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center text-primary bg-transparent hover:bg-surface-variant transition-colors"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
+              )}
+              {timeOptions.length > 1 && (
+                <button
+                  aria-label="Remove"
+                  title="Remove Option"
+                  onClick={() => onRemove(option.id)}
+                  className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center text-error bg-transparent hover:bg-error-container transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Date */}
@@ -962,114 +1005,109 @@ function StepTimeLocation({
 
 // ─── STEP 3: Costs ─────────────────────────────────────────
 function StepCosts({
+  costType,
+  setCostType,
+  perPlayerCost,
+  setPerPlayerCost,
   totalCost,
   setTotalCost,
-  splitCost,
-  setSplitCost,
   perPersonCost,
   onNext,
 }: {
+  costType: "free" | "per_player" | "fixed";
+  setCostType: (v: "free" | "per_player" | "fixed") => void;
+  perPlayerCost: string;
+  setPerPlayerCost: (v: string) => void;
   totalCost: string;
   setTotalCost: (v: string) => void;
-  splitCost: boolean;
-  setSplitCost: (v: boolean) => void;
   perPersonCost: string;
   onNext: () => void;
 }) {
   return (
     <>
-      <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
-        Add any venue or equipment costs. Players can see the split.
+      <p className="text-body-md text-on-surface-variant mb-4 leading-normal">
+        How is the cost of the event handled?
       </p>
 
-      {/* Total Cost */}
-      <OutlinedTextField
-        label="Total Venue Cost"
-        placeholder="0.00"
-        value={totalCost}
-        onChange={setTotalCost}
-        prefix="$"
-        type="text"
-        inputMode="decimal"
-      />
-
-      {/* Split Toggle */}
-      <div className="flex items-center justify-between py-4 mb-4 border-b border-outline-variant/50">
-        <div>
-          <p className="text-body-md font-medium text-on-surface leading-normal">
-            Split cost among players?
-          </p>
-          <p className="text-label-md text-on-surface-variant leading-normal">
-            Divide equally among confirmed players
-          </p>
-        </div>
-        <button
-          onClick={() => setSplitCost(!splitCost)}
-          className="md3-switch min-w-[52px] min-h-[48px]"
-          data-checked={splitCost ? "true" : "false"}
-          role="switch"
-          aria-checked={splitCost}
+      {/* Cost Options */}
+      <div className="flex flex-col gap-3 mb-6">
+        <label
+          className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-colors ${
+            costType === "free"
+              ? "bg-primary-container border-primary border-2"
+              : "bg-surface border-outline-variant/30 hover:border-outline-variant"
+          }`}
+          onClick={() => setCostType("free")}
         >
-          <div className="md3-switch-thumb" />
-        </button>
+          <div className="flex flex-col gap-1">
+            <span className={`text-label-lg font-medium ${costType === "free" ? "text-on-primary-container" : "text-on-surface"}`}>Free</span>
+            <span className="text-body-sm text-on-surface-variant">No cost to play</span>
+          </div>
+        </label>
+
+        <label
+          className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-colors ${
+            costType === "per_player"
+              ? "bg-primary-container border-primary border-2"
+              : "bg-surface border-outline-variant/30 hover:border-outline-variant"
+          }`}
+          onClick={() => setCostType("per_player")}
+        >
+          <div className="flex flex-col gap-1">
+            <span className={`text-label-lg font-medium ${costType === "per_player" ? "text-on-primary-container" : "text-on-surface"}`}>Per Player</span>
+            <span className="text-body-sm text-on-surface-variant">Each player pays a set amount</span>
+          </div>
+        </label>
+
+        {costType === "per_player" && (
+          <div className="pl-0 -mt-1 mb-2 fade-in">
+            <OutlinedTextField
+              label="Amount per player"
+              placeholder="0.00"
+              value={perPlayerCost}
+              onChange={setPerPlayerCost}
+              prefix="$"
+              type="text"
+              inputMode="decimal"
+            />
+          </div>
+        )}
+
+        <label
+          className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-colors ${
+            costType === "fixed"
+              ? "bg-primary-container border-primary border-2"
+              : "bg-surface border-outline-variant/30 hover:border-outline-variant"
+          }`}
+          onClick={() => setCostType("fixed")}
+        >
+          <div className="flex flex-col gap-1">
+            <span className={`text-label-lg font-medium ${costType === "fixed" ? "text-on-primary-container" : "text-on-surface"}`}>Fixed Total</span>
+            <span className="text-body-sm text-on-surface-variant">Divide total cost among players</span>
+          </div>
+        </label>
+
+        {costType === "fixed" && (
+          <div className="pl-0 -mt-1 mb-2 fade-in">
+            <OutlinedTextField
+              label="Total Event Cost"
+              placeholder="0.00"
+              value={totalCost}
+              onChange={setTotalCost}
+              prefix="$"
+              type="text"
+              inputMode="decimal"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Per-person estimate */}
-      <div className="bg-primary-container rounded-md3-large p-5 mb-6 flex flex-col items-center gap-1">
-        <DollarSign className="w-6 h-6 text-on-primary-container mb-1" />
-        <span className="text-label-md text-on-primary-container leading-none">
-          Estimated per person
-        </span>
-        <span className="text-headline-md font-medium text-on-primary-container leading-tight">
-          ${perPersonCost}
-        </span>
-        <span className="text-label-md text-on-primary-container leading-none">
-          {splitCost ? "Split equally" : "No split — full amount shown"}
-        </span>
-      </div>
-
-      {/* Free / Per Player / Fixed Total chips */}
-      <div className="mb-6">
-        <h3 className="text-title-sm font-medium text-on-surface mb-3 leading-none">
-          Cost Type
-        </h3>
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { label: "Free", value: "" },
-            { label: "Per Player $", value: "per" },
-            { label: "Fixed Total $", value: "fixed" },
-          ].map((chip) => {
-            const isActive =
-              chip.value === ""
-                ? totalCost === "" || totalCost === "0"
-                : chip.value === "fixed"
-                ? parseFloat(totalCost) > 0 && splitCost
-                : parseFloat(totalCost) > 0 && !splitCost;
-            return (
-              <button
-                key={chip.value}
-                onClick={() => {
-                  if (chip.value === "") {
-                    setTotalCost("");
-                    setSplitCost(false);
-                  } else if (chip.value === "per") {
-                    setSplitCost(false);
-                  } else {
-                    setSplitCost(true);
-                  }
-                }}
-                className={`px-4 py-2 rounded-md3-full border text-label-lg font-medium transition-colors min-h-[32px] ${
-                  isActive
-                    ? "bg-secondary-container text-on-secondary-container border-transparent"
-                    : "bg-surface text-on-surface-variant border-outline"
-                }`}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
+      {costType !== "free" && (
+        <div className="bg-surface-container-low rounded-xl p-4 flex justify-between items-center mb-6">
+          <span className="text-body-md text-on-surface-variant">Estimated cost per person</span>
+          <span className="text-title-lg text-primary font-semibold">${perPersonCost}</span>
         </div>
-      </div>
+      )}
 
       <NextButton label="Next: Invite Players" onClick={onNext} />
     </>
@@ -1281,8 +1319,9 @@ function StepReview({
   gameType,
   maxPlayers,
   timeOptions,
+  costType,
+  perPlayerCost,
   totalCost,
-  splitCost,
   perPersonCost,
   selectedPlayers,
   invitePlayers,
@@ -1304,8 +1343,9 @@ function StepReview({
   gameType: string;
   maxPlayers: string;
   timeOptions: TimeOption[];
+  costType: string;
+  perPlayerCost: string;
   totalCost: string;
-  splitCost: boolean;
   perPersonCost: string;
   selectedPlayers: string[];
   invitePlayers: InvitePlayer[];
@@ -1399,17 +1439,17 @@ function StepReview({
           Cost
         </h3>
         <div className="flex flex-col gap-2">
-          <ReviewRow
-            label="Total Cost"
-            value={
-              totalCost && parseFloat(totalCost) > 0
-                ? `$${parseFloat(totalCost).toFixed(2)}`
-                : "Free"
-            }
-          />
-          {totalCost && parseFloat(totalCost) > 0 && (
+          {costType === "free" && <ReviewRow label="Cost" value="Free" />}
+          {costType === "per_player" && (
             <>
-              <ReviewRow label="Split" value={splitCost ? "Yes" : "No"} />
+              <ReviewRow label="Cost" value="Per Player" />
+              <ReviewRow label="Per Person" value={perPlayerCost ? `$${parseFloat(perPlayerCost).toFixed(2)}` : "$0.00"} />
+            </>
+          )}
+          {costType === "fixed" && (
+            <>
+              <ReviewRow label="Cost" value="Fixed Total" />
+              <ReviewRow label="Total Event Cost" value={totalCost ? `$${parseFloat(totalCost).toFixed(2)}` : "$0.00"} />
               <ReviewRow label="Per Person" value={`$${perPersonCost}`} />
             </>
           )}

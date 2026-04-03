@@ -1,0 +1,272 @@
+diff --git a/src/app/components/CreateGameScreen.tsx b/src/app/components/CreateGameScreen.tsx
+index 1129eaf..ce1888a 100644
+--- a/src/app/components/CreateGameScreen.tsx
++++ b/src/app/components/CreateGameScreen.tsx
+@@ -240,8 +240,8 @@ export function CreateGameScreen() {
+   );
+ 
+   // Step 3 state
+-  const [totalCost, setTotalCost] = useState(mock ? "60" : "");
+-  const [splitCost, setSplitCost] = useState(true);
++  const [costType, setCostType] = useState<"free" | "per_person" | "fixed_total">(mock ? "fixed_total" : "free");
++  const [costAmount, setCostAmount] = useState(mock ? "60" : "");
+ 
+   // Step 4 state
+   const [searchQuery, setSearchQuery] = useState("");
+@@ -289,12 +289,7 @@ export function CreateGameScreen() {
+   }, [profile?.id]);
+ 
+   // ─── Derived ──────────────────────────────────────────
+-  const perPersonCost = useMemo(() => {
+-    const cost = parseFloat(totalCost) || 0;
+-    const players = parseInt(maxPlayers) || 1;
+-    if (!splitCost || cost === 0) return "0.00";
+-    return (cost / players).toFixed(2);
+-  }, [totalCost, splitCost, maxPlayers]);
++  
+ 
+   const filteredPlayers = useMemo(() => {
+     const list = invitePlayers;
+@@ -382,7 +377,8 @@ export function CreateGameScreen() {
+       sport: effectiveSport,
+       gameType: gameType as "casual" | "competitive",
+       maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
+-      totalCost: parseFloat(totalCost) || 0,
++      costType,
++      costAmount: parseFloat(costAmount) || 0,
+       location: address,
+       groupId: assignedGroup,
+       visibility: visibility === "public" ? "Public" : visibility === "group" ? "Group Only" : "Private",
+@@ -406,7 +402,7 @@ export function CreateGameScreen() {
+     setTimeout(() => {
+       navigate("/");
+     }, 2000);
+-  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
++  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, costAmount, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
+ 
+   // ─── Step validation ──────────────────────────────────
+   const isStep1Valid =
+@@ -537,11 +533,11 @@ export function CreateGameScreen() {
+             )}
+             {currentStep === 3 && (
+               <StepCosts
+-                totalCost={totalCost}
+-                setTotalCost={setTotalCost}
+-                splitCost={splitCost}
+-                setSplitCost={setSplitCost}
+-                perPersonCost={perPersonCost}
++                maxPlayers={maxPlayers}
++                costType={costType}
++                setCostType={setCostType}
++                costAmount={costAmount}
++                setCostAmount={setCostAmount}
+                 onNext={goNext}
+               />
+             )}
+@@ -567,9 +563,8 @@ export function CreateGameScreen() {
+                 gameType={gameType}
+                 maxPlayers={maxPlayers}
+                 timeOptions={timeOptions}
+-                totalCost={totalCost}
+-                splitCost={splitCost}
+-                perPersonCost={perPersonCost}
++                costType={costType}
++                costAmount={costAmount}
+                 selectedPlayers={selectedPlayers}
+                 invitePlayers={invitePlayers}
+                 groups={realGroups}
+@@ -962,18 +957,18 @@ function StepTimeLocation({
+ 
+ // ─── STEP 3: Costs ─────────────────────────────────────────
+ function StepCosts({
+-  totalCost,
+-  setTotalCost,
+-  splitCost,
+-  setSplitCost,
+-  perPersonCost,
++  maxPlayers,
++  costType,
++  setCostType,
++  costAmount,
++  setCostAmount,
+   onNext,
+ }: {
+-  totalCost: string;
+-  setTotalCost: (v: string) => void;
+-  splitCost: boolean;
+-  setSplitCost: (v: boolean) => void;
+-  perPersonCost: string;
++  maxPlayers: string;
++  costType: "free" | "per_person" | "fixed_total";
++  setCostType: (v: "free" | "per_person" | "fixed_total") => void;
++  costAmount: string;
++  setCostAmount: (v: string) => void;
+   onNext: () => void;
+ }) {
+   return (
+@@ -982,52 +977,6 @@ function StepCosts({
+         Add any venue or equipment costs. Players can see the split.
+       </p>
+ 
+-      {/* Total Cost */}
+-      <OutlinedTextField
+-        label="Total Venue Cost"
+-        placeholder="0.00"
+-        value={totalCost}
+-        onChange={setTotalCost}
+-        prefix="$"
+-        type="text"
+-        inputMode="decimal"
+-      />
+-
+-      {/* Split Toggle */}
+-      <div className="flex items-center justify-between py-4 mb-4 border-b border-outline-variant/50">
+-        <div>
+-          <p className="text-body-md font-medium text-on-surface leading-normal">
+-            Split cost among players?
+-          </p>
+-          <p className="text-label-md text-on-surface-variant leading-normal">
+-            Divide equally among confirmed players
+-          </p>
+-        </div>
+-        <button
+-          onClick={() => setSplitCost(!splitCost)}
+-          className="md3-switch min-w-[52px] min-h-[48px]"
+-          data-checked={splitCost ? "true" : "false"}
+-          role="switch"
+-          aria-checked={splitCost}
+-        >
+-          <div className="md3-switch-thumb" />
+-        </button>
+-      </div>
+-
+-      {/* Per-person estimate */}
+-      <div className="bg-primary-container rounded-md3-large p-5 mb-6 flex flex-col items-center gap-1">
+-        <DollarSign className="w-6 h-6 text-on-primary-container mb-1" />
+-        <span className="text-label-md text-on-primary-container leading-none">
+-          Estimated per person
+-        </span>
+-        <span className="text-headline-md font-medium text-on-primary-container leading-tight">
+-          ${perPersonCost}
+-        </span>
+-        <span className="text-label-md text-on-primary-container leading-none">
+-          {splitCost ? "Split equally" : "No split — full amount shown"}
+-        </span>
+-      </div>
+-
+       {/* Free / Per Player / Fixed Total chips */}
+       <div className="mb-6">
+         <h3 className="text-title-sm font-medium text-on-surface mb-3 leading-none">
+@@ -1035,27 +984,18 @@ function StepCosts({
+         </h3>
+         <div className="flex gap-2 flex-wrap">
+           {[
+-            { label: "Free", value: "" },
+-            { label: "Per Player $", value: "per" },
+-            { label: "Fixed Total $", value: "fixed" },
++            { label: "Free", value: "free" },
++            { label: "Per Player $", value: "per_person" },
++            { label: "Fixed Total $", value: "fixed_total" },
+           ].map((chip) => {
+-            const isActive =
+-              chip.value === ""
+-                ? totalCost === "" || totalCost === "0"
+-                : chip.value === "fixed"
+-                ? parseFloat(totalCost) > 0 && splitCost
+-                : parseFloat(totalCost) > 0 && !splitCost;
++            const isActive = chip.value === costType;
+             return (
+               <button
+                 key={chip.value}
+                 onClick={() => {
+-                  if (chip.value === "") {
+-                    setTotalCost("");
+-                    setSplitCost(false);
+-                  } else if (chip.value === "per") {
+-                    setSplitCost(false);
+-                  } else {
+-                    setSplitCost(true);
++                  setCostType(chip.value as any);
++                  if (chip.value === "free") {
++                    setCostAmount("");
+                   }
+                 }}
+                 className={`px-4 py-2 rounded-md3-full border text-label-lg font-medium transition-colors min-h-[32px] ${
+@@ -1071,7 +1011,32 @@ function StepCosts({
+         </div>
+       </div>
+ 
+-      <NextButton label="Next: Invite Players" onClick={onNext} />
++      {costType !== "free" && (
++        <OutlinedTextField
++          label={costType === "per_person" ? "Cost per player" : "Total Venue Cost"}
++          placeholder="0.00"
++          value={costAmount}
++          onChange={setCostAmount}
++          prefix="$"
++          type="text"
++          inputMode="decimal"
++        />
++      )}
++
++      {costType === "fixed_total" && parseFloat(costAmount || "0") > 0 && parseFloat(maxPlayers || "1") > 0 && (
++        <div className="bg-primary-container rounded-md3-large p-5 mb-6 flex flex-col items-center gap-1">
++          <span className="text-label-md text-on-primary-container leading-none">
++            Estimated per person
++          </span>
++          <span className="text-headline-md font-medium text-on-primary-container leading-tight">
++            ${(parseFloat(costAmount || "0") / parseFloat(maxPlayers || "1")).toFixed(2)}
++          </span>
++        </div>
++      )}
++
++      <div className="mt-8">
++        <NextButton label="Next: Invite Players" onClick={onNext} />
++      </div>
+     </>
+   );
+ }
+@@ -1281,9 +1246,8 @@ function StepReview({
+   gameType,
+   maxPlayers,
+   timeOptions,
+-  totalCost,
+-  splitCost,
+-  perPersonCost,
++  costType,
++  costAmount,
+   selectedPlayers,
+   invitePlayers,
+   groups,
+@@ -1304,9 +1268,8 @@ function StepReview({
+   gameType: string;
+   maxPlayers: string;
+   timeOptions: TimeOption[];
+-  totalCost: string;
+-  splitCost: boolean;
+-  perPersonCost: string;
++  costType: "free" | "per_person" | "fixed_total";
++  costAmount: string;
+   selectedPlayers: string[];
+   invitePlayers: InvitePlayer[];
+   groups: { id: string; name: string }[];
+@@ -1402,15 +1365,14 @@ function StepReview({
+           <ReviewRow
+             label="Total Cost"
+             value={
+-              totalCost && parseFloat(totalCost) > 0
+-                ? `$${parseFloat(totalCost).toFixed(2)}`
++              costAmount && parseFloat(costAmount) > 0
++                ? `$${parseFloat(costAmount).toFixed(2)}`
+                 : "Free"
+             }
+           />
+-          {totalCost && parseFloat(totalCost) > 0 && (
++          {costAmount && parseFloat(costAmount) > 0 && (
+             <>
+-              <ReviewRow label="Split" value={splitCost ? "Yes" : "No"} />
+-              <ReviewRow label="Per Person" value={`$${perPersonCost}`} />
++              {costType === "fixed_total" && <ReviewRow label="Per Person Estimated" value={`${((parseFloat(costAmount || "0") / parseFloat(maxPlayers || "1")) || 0).toFixed(2)}`} />}
+             </>
+           )}
+         </div>
