@@ -318,3 +318,28 @@ export async function declineMessageRequest(
 
   return { error: error?.message ?? null };
 }
+
+export async function removeFriend(
+  currentUserId: string,
+  friendId: string
+): Promise<{ error: string | null }> {
+  if (isDemoMode()) {
+    const friendships = loadDemoFriends();
+    const updated = friendships.filter(
+      (f) =>
+        !(f.userAId === currentUserId && f.userBId === friendId) &&
+        !(f.userAId === friendId && f.userBId === currentUserId)
+    );
+    saveDemoFriends(updated);
+    return { error: null };
+  }
+
+  if (!supabase) return { error: "Unable to connect" };
+
+  const { error } = await supabase
+    .from("friendships")
+    .delete()
+    .or(`and(user_a_id.eq.${currentUserId},user_b_id.eq.${friendId}),and(user_a_id.eq.${friendId},user_b_id.eq.${currentUserId})`);
+
+  return { error: error?.message ?? null };
+}

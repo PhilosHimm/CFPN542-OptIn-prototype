@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { FriendsListDialog } from "./FriendsListDialog";
 
 const settingsItems = [
-  { id: "groups", icon: Users, label: "Manage my groups" },
+  { id: "groups", icon: Users, label: "Friends list" },
   { id: "preferences", icon: Gamepad2, label: "Game preferences" },
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "account", icon: Settings, label: "Account settings" },
@@ -163,39 +164,8 @@ export function ProfileScreen() {
         </button>
       </div>
 
-      {/* Manage Groups Dialog */}
-      <Dialog open={activeDialog === "groups"} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
-          <DialogHeader className="mb-4 text-left">
-            <DialogTitle className="text-title-lg text-on-surface">Manage Groups</DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto hidden-scrollbar">
-            {myGroups.length > 0 ? (
-              myGroups.map(group => (
-                <div key={group.id} className="flex items-center justify-between p-3 bg-surface-container-low rounded-xl border border-outline-variant/50">
-                  <div className="flex flex-col">
-                    <span className="text-body-lg font-medium text-on-surface">{group.name}</span>
-                    <span className="text-label-sm text-on-surface-variant">{group.members} members</span>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => removeGroup(group.id)}
-                    className="h-10 w-10 text-error hover:bg-error/10 hover:text-error rounded-full"
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <div className="py-6 text-center text-on-surface-variant text-body-md">
-                You are not in any groups yet.
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Friends List Dialog */}
+      <FriendsListDialog open={activeDialog === "groups"} onOpenChange={(open) => !open && setActiveDialog(null)} />
 
       {/* Account Settings Dialog */}
       <Dialog open={activeDialog === "account"} onOpenChange={(open) => !open && setActiveDialog(null)}>

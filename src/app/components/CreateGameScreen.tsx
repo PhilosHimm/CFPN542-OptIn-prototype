@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { UserAvatar } from "./UserAvatar";
 import { motion, AnimatePresence } from "motion/react";
 import { saveGame } from "./gameData";
 import { useAuth } from "../contexts/AuthContext";
@@ -1216,20 +1217,7 @@ function StepInvite({
                   isSelected ? "bg-secondary-container" : "hover:bg-on-surface/8"
                 }`}
               >
-                {player.avatar ? (
-                  <ImageWithFallback
-                    src={player.avatar}
-                    alt={player.name}
-                    className="w-10 h-10 rounded-md3-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-10 h-10 rounded-md3-full flex items-center justify-center flex-shrink-0 text-label-lg font-medium text-white"
-                    style={{ backgroundColor: player.color || "#6750A4" }}
-                  >
-                    {player.initials || player.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="w-10 h-10 rounded-md3-full overflow-hidden flex-shrink-0"><UserAvatar name={player.name} avatarUrl={player.avatar} color={player.color} /></div>
                 <div className="flex-1 text-left">
                   <p className="text-body-md font-medium text-on-surface leading-tight">
                     {player.name}
@@ -1443,20 +1431,7 @@ function StepReview({
                   key={pid}
                   className="flex items-center gap-2 bg-secondary-container rounded-md3-full px-3 py-1.5"
                 >
-                  {player.avatar ? (
-                    <ImageWithFallback
-                      src={player.avatar}
-                      alt={player.name}
-                      className="w-6 h-6 rounded-md3-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="w-6 h-6 rounded-md3-full flex items-center justify-center text-[10px] font-medium text-white flex-shrink-0"
-                      style={{ backgroundColor: player.color || "#6750A4" }}
-                    >
-                      {player.initials || player.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <div className="w-10 h-10 rounded-md3-full overflow-hidden flex-shrink-0"><UserAvatar name={player.name} avatarUrl={player.avatar} color={player.color} /></div>
                   <span className="text-label-md font-medium text-on-surface leading-none">
                     {player.name.split(" ")[0]}
                   </span>

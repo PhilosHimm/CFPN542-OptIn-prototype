@@ -118,8 +118,8 @@ export function Profile() {
   const settingsItems = [
     {
       Icon: Users,
-      label: "Manage My Groups",
-      sublabel: "Tuesday Hoops, Weekend Warriors, Net Gang",
+      label: "Friends List",
+      sublabel: "Manage your friends",
       color: "#007AFF",
       bg: "bg-blue-500/10",
     },

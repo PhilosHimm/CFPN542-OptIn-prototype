@@ -56,7 +56,10 @@ export function Home() {
   useEffect(() => {
     if (profile) getGames(profile.id).then(setGames);
     getGroups().then(setGroups);
-    if (profile) getInvites(profile.id).then(setInvites);
+    if (profile) getInvites(profile.id).then((data) => {
+      setInvites(data);
+      if (data.length > 0) setShowNotifications(true);
+    });
   }, [profile?.id]);
 
   // Subscribe to new invite inserts for the current user

@@ -24,6 +24,7 @@ import {
   UserPlus
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { UserAvatar } from "./UserAvatar";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -473,11 +474,7 @@ function RosterSection({
             key={player.id}
             className="flex items-center gap-3 py-2"
           >
-            <ImageWithFallback
-              src={player.avatar}
-              alt={player.name}
-              className="w-9 h-9 rounded-md3-full object-cover flex-shrink-0"
-            />
+            <div className="w-9 h-9 rounded-md3-full overflow-hidden flex-shrink-0"><UserAvatar name={player.name} avatarUrl={player.avatar} color={(player as any).color} /></div>
             <span className="text-body-md text-on-surface leading-none flex-1">
               {player.name}
             </span>
@@ -1149,11 +1146,7 @@ export function GameViewScreen() {
             </div>
             {createdByPlayer && (
               <div className="flex items-center gap-3 pt-1 mt-1 border-t border-outline-variant/50">
-                <ImageWithFallback
-                  src={createdByPlayer.avatar}
-                  alt={createdByPlayer.name}
-                  className="w-5 h-5 rounded-md3-full object-cover flex-shrink-0"
-                />
+                <div className="w-5 h-5 rounded-md3-full overflow-hidden flex-shrink-0"><UserAvatar name={createdByPlayer.name} avatarUrl={createdByPlayer.avatar} textClassName="text-[10px]" /></div>
                 <span className="text-label-md text-on-surface-variant leading-none">
                   Created by {createdByPlayer.name}
                 </span>
@@ -1293,11 +1286,7 @@ export function GameViewScreen() {
                         {/* Proposer identity */}
                         <div className="flex items-center gap-2.5 px-4 pt-3 pb-2.5 border-b border-amber-100">
                           <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-                            {proposer?.avatar ? (
-                              <img src={proposer.avatar} alt={proposer.name} className="w-7 h-7 rounded-full object-cover" />
-                            ) : (
-                              <span className="text-[10px] font-bold text-amber-700">{proposerInitials}</span>
-                            )}
+                            <UserAvatar name={proposer?.name!} avatarUrl={proposer?.avatar} color={(proposer as any)?.color} textClassName="text-[10px]" />
                           </div>
                           <div className="min-w-0">
                             <p className="text-label-md font-semibold text-on-surface leading-none truncate">
@@ -1462,16 +1451,6 @@ export function GameViewScreen() {
         )}
 
         {/* Bottom Action */}
-        {isConfirmed && (
-          <div className="flex gap-3">
-            <button className="flex-1 h-[52px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors min-h-[52px]">
-              I'm Attending
-            </button>
-            <button className="h-[52px] px-5 rounded-md3-full border-2 border-outline text-label-lg font-medium text-on-surface-variant min-h-[52px]">
-              Can't Make It
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Host Settings Menu Bottom Sheet (Task 7 — status-conditional) */}
