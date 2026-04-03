@@ -31,18 +31,23 @@ export async function getGames(userId?: string): Promise<Game[]> {
       .order("created_at", { ascending: false });
 
     if (userId) {
-      const { data: joinedRows } = await supabase
-        .from("game_players")
-        .select("game_id")
-        .eq("user_id", userId)
-        .eq("status", "joined");
+      const [{ data: joinedRows }, { data: invitedRows }] = await Promise.all([
+        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
+        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+      ]);
 
       const joinedGameIds = (joinedRows || []).map((r: any) => r.game_id);
+      const invitedGameIds = (invitedRows || []).map((r: any) => r.game_id);
 
       if (joinedGameIds.length > 0) {
         query = query.or(`created_by.eq.${userId},id.in.(${joinedGameIds.join(",")})`);
       } else {
         query = query.eq("created_by", userId);
+      }
+
+      // Explicitly exclude games the user has been invited to but hasn't accepted yet
+      if (invitedGameIds.length > 0) {
+        query = query.not("id", "in", `(${invitedGameIds.join(",")})`);
       }
     }
 
@@ -194,24 +199,20 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
       .order("date");
 
     if (userId) {
-      const [{ data: joinedRows }, { data: createdRows }] = await Promise.all([
-        supabase
-          .from("game_players")
-          .select("game_id")
-          .eq("user_id", userId)
-          .eq("status", "joined"),
-        supabase
-          .from("games")
-          .select("id")
-          .eq("created_by", userId),
+      const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
+        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
+        supabase.from("games").select("id").eq("created_by", userId),
+        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
       ]);
+
+      const invitedGameIds = new Set((invitedRows || []).map((r: any) => r.game_id));
 
       const accessibleIds = [
         ...new Set([
           ...(joinedRows || []).map((r: any) => r.game_id),
           ...(createdRows || []).map((r: any) => r.id),
         ]),
-      ];
+      ].filter((id) => !invitedGameIds.has(id));
 
       if (accessibleIds.length === 0) return {};
       query = query.in("game_id", accessibleIds);
