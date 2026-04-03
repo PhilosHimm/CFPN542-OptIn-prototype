@@ -15,7 +15,7 @@ export function Signup() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  if (!authLoading && !success && (isDemo || user)) return <Navigate to="/" replace />;
+  if (!authLoading && !success && !isDemo && user) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
