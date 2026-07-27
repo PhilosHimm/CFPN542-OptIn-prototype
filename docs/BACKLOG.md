@@ -14,11 +14,32 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > run only when a user opens the app.
 
 > ## Read this first
-> **`supabase/migrations/000_baseline_schema.sql` is now the schema** — generated
-> from the live database on 2026-07-27 and verified 77/77 against it. The 19
-> historical migrations are in `archive/` for provenance only; never replay them
-> (see `archive/README.md`). Query the live database before reasoning about
-> production behaviour.
+> **A Supabase GitHub integration is linked to this repo** — the "Supabase
+> Preview" check on pull requests — and it compares `supabase/migrations/`
+> against `supabase_migrations.schema_migrations` on the linked project. This
+> was not known when the migrations were first consolidated into a single
+> baseline file, and the first attempt broke it: merging that consolidation to
+> `main` produced `Remote migration versions not found in local migrations
+> directory.` because `migrations/` no longer contained one file per applied
+> remote version.
+>
+> Reconciled on 2026-07-27:
+> - **`supabase/migrations/`** now contains exactly 13 files, one per version
+>   actually in the remote ledger, named `<version>_<name>.sql`. The first 8
+>   are verified byte-for-byte against the ledger via `md5()`; the last 5
+>   (014–018) are functionally identical to what ran but keep their original
+>   authoring comments and an explicit transaction wrapper.
+> - **`supabase/000_baseline_schema.sql`** — the full schema in one file,
+>   verified 77/77 against the live database — moved **outside** `migrations/`
+>   so the integration never scans it. Still the right file for standing up a
+>   new project by hand.
+> - **`supabase/archive/`** — also outside `migrations/` — holds the 7
+>   migrations that were never applied to production at all. See
+>   `archive/README.md`.
+>
+> Query the live database before reasoning about production behaviour; the
+> migration *files* are trustworthy again as of this reconciliation, but the
+> live schema is still the ground truth.
 
 Markers: **[live]** verified against the running DB · **[code]** verified in source ·
 **[latent]** real in the files but currently neutralized by live RLS
@@ -103,6 +124,7 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
 | 58 | **Realtime has never worked.** No `public` table is in any publication — only Realtime's internal `realtime.messages_*` partitions. So every `postgres_changes` subscription (invites, votes, roster, chat) silently never fires. Root cause: `001`'s `alter publication` statements sit at line 287, after the statement-37 abort. The baseline includes them; **production still needs them applied** | `TODO` — highest-value remaining fix. `alter publication supabase_realtime add table public.games;` and the six sibling tables |
 | 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `TODO` — drop `"Users can read own conversation memberships"` in production |
+| 60 | **A Supabase GitHub integration tracks `supabase/migrations/` against the remote ledger** — undocumented until it broke. Consolidating history into a single baseline file (item 1's fix) removed the per-version files the integration expects, and merging to `main` produced `Remote migration versions not found in local migrations directory.` **[live]** | `DONE` — `migrations/` restored to 13 files matching every remote version exactly (8 byte-verified via `md5()`); baseline and the 7 truly-unapplied files moved to siblings (`supabase/000_baseline_schema.sql`, `supabase/archive/`) outside the scanned folder |
 
 ---
 

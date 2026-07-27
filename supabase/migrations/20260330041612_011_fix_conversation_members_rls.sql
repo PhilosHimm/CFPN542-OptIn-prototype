@@ -1,3 +1,13 @@
+-- Reconstructed verbatim from supabase_migrations.schema_migrations (project
+-- iokxjsvlpqlekptexjxy), version 20260330041612, on 2026-07-27.
+-- This is what actually ran in production. Do not edit.
+--
+-- NOTE: this only drops "Members can view own memberships" — the
+-- self-referential "Users can read own conversation memberships" policy from
+-- 20260327015818 above is NOT dropped and still queries conversation_members
+-- from its own policy. Permissive policies OR together, so this migration did
+-- not remove the 42P17 recursion risk it was meant to fix. See
+-- docs/BACKLOG.md item 59.
 -- Drop the old policy
 DROP POLICY IF EXISTS "Members can view own memberships" ON conversation_members;
 
