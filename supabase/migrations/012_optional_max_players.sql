@@ -1,1 +1,0 @@
-ALTER TABLE public.games DROP CONSTRAINT games_max_players_check;\nALTER TABLE public.games ALTER COLUMN max_players DROP NOT NULL;\nALTER TABLE public.games ADD CONSTRAINT games_max_players_check CHECK (max_players >= 2 OR max_players IS NULL);

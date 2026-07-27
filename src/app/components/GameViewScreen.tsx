@@ -669,47 +669,57 @@ export function GameViewScreen() {
       formDate !== showEditTime.date ||
       formStart !== showEditTime.startTime ||
       formEnd !== showEditTime.endTime;
-    try {
-      await updateGameOption(showEditTime.id, {
-        date: formDate,
-        start_time: formStart,
-        end_time: formEnd,
-        location: formLocation || undefined,
-      });
-      if (isMaterialChange) {
-        await clearVotesForOption(showEditTime.id);
-        toast.success("Option updated — votes cleared so players can re-vote.");
-      } else {
-        toast.success("Option updated successfully!");
-      }
-      setShowEditTime(null);
-      refreshGame();
-    } catch (e: any) {
-      toast.error("Failed to update option: " + e.message);
+    if (formEnd <= formStart) {
+      toast.error("End time must be after the start time.");
+      return;
     }
+    // These helpers return false on failure and never throw, so the old
+    // try/catch could not fire and the success toast was unconditional.
+    const ok = await updateGameOption(showEditTime.id, {
+      date: formDate,
+      start_time: formStart,
+      end_time: formEnd,
+      location: formLocation || undefined,
+    });
+    if (!ok) {
+      toast.error("Failed to update option — you may not have permission.");
+      return;
+    }
+    if (isMaterialChange) {
+      await clearVotesForOption(showEditTime.id);
+      toast.success("Option updated — votes cleared so players can re-vote.");
+    } else {
+      toast.success("Option updated successfully!");
+    }
+    setShowEditTime(null);
+    refreshGame();
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    try {
-      await deleteGameOption(optionId);
-      if (showEditTime?.id === optionId) setShowEditTime(null);
-      refreshGame();
-      toast.success("Option deleted.");
-    } catch (e: any) {
-      toast.error("Failed to delete option: " + e.message);
+    if (game?.confirmedOptionId === optionId) {
+      toast.error("Cannot delete the confirmed time — undo the confirmation first.");
+      return;
     }
+    const ok = await deleteGameOption(optionId);
+    if (!ok) {
+      toast.error("Failed to delete option — you may not have permission.");
+      return;
+    }
+    if (showEditTime?.id === optionId) setShowEditTime(null);
+    refreshGame();
+    toast.success("Option deleted.");
   };
 
   const handleDeadlineSubmit = async () => {
     if (!game || !deadlineDate) return;
-    try {
-      await updateGameVotingDeadline(game.id, deadlineDate);
-      setShowDeadline(false);
-      refreshGame();
-      toast.success("Voting deadline updated!");
-    } catch (e: any) {
-      toast.error("Failed to update deadline: " + e.message);
+    const ok = await updateGameVotingDeadline(game.id, deadlineDate);
+    if (!ok) {
+      toast.error("Failed to update deadline — you may not have permission.");
+      return;
     }
+    setShowDeadline(false);
+    refreshGame();
+    toast.success("Voting deadline updated!");
   };
 
   const handleVisibilitySubmit = async () => {
@@ -739,28 +749,27 @@ export function GameViewScreen() {
 
   const handleCancelConfirm = async () => {
     if (!game) return;
-    try {
-      await cancelGame(game.id, cancelReason || undefined);
-      setShowCancelSheet(false);
-      refreshGame();
-      toast.success("Game cancelled.");
-    } catch (e: any) {
-      toast.error("Failed to cancel game: " + e.message);
+    const ok = await cancelGame(game.id, cancelReason || undefined);
+    if (!ok) {
+      toast.error("Failed to cancel game — you may not have permission.");
+      return;
     }
+    setShowCancelSheet(false);
+    refreshGame();
+    toast.success("Game cancelled.");
   };
 
   const handleDeleteGame = async () => {
     if (!game) return;
     if (window.confirm("Are you sure you want to completely delete this game? This cannot be undone and will remove it for all users.")) {
-      try {
-        const success = await deleteGame(game.id);
-        if (!success) throw new Error("Database error");
-        setShowHostMenu(false);
-        toast.success("Game permanently deleted.");
-        navigate("/");
-      } catch (e: any) {
-        toast.error("Failed to delete game: " + e.message);
+      const ok = await deleteGame(game.id);
+      if (!ok) {
+        toast.error("Failed to delete game — you may not have permission.");
+        return;
       }
+      setShowHostMenu(false);
+      toast.success("Game permanently deleted.");
+      navigate("/");
     }
   };
 
@@ -774,13 +783,16 @@ export function GameViewScreen() {
       setShowMinPlayerWarning({ optionId, inCount, minRequired });
       return;
     }
-    try {
-      await confirmGame(game.id, optionId);
-      refreshGame();
-      toast.success("Game confirmed!");
-    } catch (e: any) {
-      toast.error("Failed to confirm game: " + e.message);
+    const ok = await confirmGame(game.id, optionId);
+    if (!ok) {
+      // Previously this toasted success unconditionally, so a non-host who
+      // reached the tie-breaker was told the game was confirmed while RLS
+      // silently discarded the write.
+      toast.error("Only the host can confirm this game.");
+      return;
     }
+    refreshGame();
+    toast.success("Game confirmed!");
   }, [game, refreshGame]);
 
   const handleConfirmGame = (optionId: string) => {
@@ -795,14 +807,14 @@ export function GameViewScreen() {
       toast.error("Cannot undo — the game date has already passed.");
       return;
     }
-    try {
-      await unconfirmGame(game.id);
-      setShowHostMenu(false);
-      refreshGame();
-      toast.success("Confirmation undone — back to voting.");
-    } catch (e: any) {
-      toast.error("Failed to undo confirmation: " + e.message);
+    const ok = await unconfirmGame(game.id);
+    if (!ok) {
+      toast.error("Failed to undo confirmation — you may not have permission.");
+      return;
     }
+    setShowHostMenu(false);
+    refreshGame();
+    toast.success("Confirmation undone — back to voting.");
   };
 
   // Deadline expiry → server-side auto-transition, then show tie-break UI if needed
@@ -816,8 +828,11 @@ export function GameViewScreen() {
       const updated = await fetchGameById(game.id);
       if (updated) {
         setGame(updated);
-        // If still proposal after transition, there's a tie — show tiebreak for host
-        if (updated.status === "proposal" && updated.createdBy === game.createdBy) {
+        // If still proposal after transition, there's a tie — show tiebreak for host.
+        // NB: the old check compared `updated.createdBy === game.createdBy`, i.e. a
+        // refetch of the same row against itself — always true, so every player saw
+        // the sheet and non-hosts got a success toast for a write RLS discarded.
+        if (updated.status === "proposal" && !!user && updated.createdBy === user.id) {
           const opts = [...updated.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
           const maxVotes = opts[0]?.votes.in.length ?? 0;
           if (maxVotes > 0) {
@@ -940,8 +955,17 @@ export function GameViewScreen() {
   const isConfirmed = game?.status === "confirmed";
   const isVotingClosed = game ? !isGameVotable(game) && game.status === "proposal" : false;
 
+  // True for both pricing models: a fixed total to split, or a flat per-person price.
+  const hasCost = !!game && (game.totalCost > 0 || (game.perPersonCost ?? 0) > 0);
+
   const perPersonCost = useMemo(() => {
-    if (!game || game.totalCost === 0) return "Free";
+    if (!game) return "Free";
+    // Per-player pricing: the per-person amount is authoritative and does not
+    // depend on headcount, so return it directly.
+    if (game.totalCost === 0) {
+      const flat = game.perPersonCost ?? 0;
+      return flat > 0 ? `$${flat.toFixed(2)}` : "Free";
+    }
     if (!game.splitCost) return `$${game.totalCost.toFixed(2)}`;
     const confirmed =
       game.status === "confirmed" && game.confirmedOptionId
@@ -1114,7 +1138,7 @@ export function GameViewScreen() {
           >
             {isHost ? "👑 Host" : "🎫 Invitee"}
           </span>
-          {game.totalCost > 0 && (
+          {hasCost && (
             <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-container rounded-md3-full">
               <DollarSign className="w-3.5 h-3.5 text-on-primary-container" />
               <span className="text-label-md font-medium text-on-primary-container leading-none">
@@ -1384,7 +1408,7 @@ export function GameViewScreen() {
         </div>
 
         {/* Cost Breakdown */}
-        {game.totalCost > 0 && (
+        {hasCost && (
           <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
             <div className="flex items-center gap-2 mb-3">
               <DollarSign className="w-5 h-5 text-primary" />

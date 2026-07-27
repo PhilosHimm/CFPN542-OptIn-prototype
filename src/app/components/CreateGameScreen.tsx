@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -265,7 +265,11 @@ export function CreateGameScreen() {
     getGroups().then((gs) => {
       const mapped = gs.map((g) => ({ id: g.id, name: g.name }));
       setRealGroups(mapped);
-      if (mapped.length > 0) setAssignedGroup(mapped[0].id);
+      // Deliberately NOT auto-selecting a group. This used to default to
+      // mapped[0] unconditionally, so a game marked Private still carried a
+      // group_id — and since getGroups() had no membership filter, that was
+      // whatever group sorted first in the whole database. The user picks a
+      // group only when they choose "Group Only" visibility.
     });
     if (isDemo) {
       getPlayers().then((allPlayers) => {
@@ -393,13 +397,23 @@ export function CreateGameScreen() {
   }, []);
 
   const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  // Ref as well as state: state updates are async, so two taps in the same tick
+  // would both see isCreating === false.
+  const isCreatingRef = useRef(false);
 
   const effectiveSport = selectedSport === "Other / Custom..."
     ? customSportName.trim()
     : selectedSport;
 
   const handleCreateGame = useCallback(async () => {
+    // Without this guard each tap minted a fresh game: the button was always
+    // enabled and there was no in-flight flag, so N taps produced N games.
+    if (isCreatingRef.current) return;
+    isCreatingRef.current = true;
+    setIsCreating(true);
     setCreateError(null);
+    try {
     const result = await saveGame({
       title: gameTitle,
       sport: effectiveSport,
@@ -408,7 +422,8 @@ export function CreateGameScreen() {
       totalCost: costType === "fixed" ? parseFloat(totalCost) || 0 : 0,
       perPersonCost: costType === "per_player" ? parseFloat(perPlayerCost) || 0 : (costType === "fixed" ? parseFloat(perPersonCost) : 0),
       location: address,
-      groupId: assignedGroup,
+      // Only a "Group Only" game belongs to a group.
+      groupId: visibility === "group" ? assignedGroup : "",
       visibility: visibility === "public" ? "Public" : visibility === "group" ? "Group Only" : "Private",
       createdBy: profile?.id || user?.id || "",
       votingPeriodHours: votingPeriodType === "custom" ? parseInt(customVotingHours) || 24 : votingPeriodType,
@@ -423,6 +438,9 @@ export function CreateGameScreen() {
 
     if (result.error) {
       setCreateError(result.error);
+      // Allow a retry — the guard only prevents concurrent submits.
+      isCreatingRef.current = false;
+      setIsCreating(false);
       return;
     }
 
@@ -430,7 +448,14 @@ export function CreateGameScreen() {
     setTimeout(() => {
       navigate("/");
     }, 2000);
-  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, totalCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
+    } catch (e: any) {
+      setCreateError(e?.message ?? "Something went wrong creating the game.");
+      isCreatingRef.current = false;
+      setIsCreating(false);
+    }
+    // costType/perPlayerCost/perPersonCost were missing here while the body reads
+    // all three, so the memo closed over stale cost state and saved 0 or NaN.
+  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, costType, totalCost, perPlayerCost, perPersonCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
@@ -611,6 +636,7 @@ export function CreateGameScreen() {
                 setCustomVotingHours={setCustomVotingHours}
                 onSubmit={handleCreateGame}
                 error={createError}
+                isCreating={isCreating}
               />
             )}
           </motion.div>
@@ -1337,6 +1363,7 @@ function StepReview({
   setCustomVotingHours,
   onSubmit,
   error,
+  isCreating,
 }: {
   selectedSport: string;
   gameTitle: string;
@@ -1361,6 +1388,7 @@ function StepReview({
   setCustomVotingHours: (v: string) => void;
   onSubmit: () => void;
   error: string | null;
+  isCreating: boolean;
 }) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
@@ -1626,9 +1654,11 @@ function StepReview({
       {/* Create Game CTA */}
       <button
         onClick={onSubmit}
-        className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors"
+        disabled={isCreating}
+        aria-busy={isCreating}
+        className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Create Game
+        {isCreating ? "Creating…" : "Create Game"}
       </button>
     </>
   );

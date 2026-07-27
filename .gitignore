@@ -32,3 +32,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+typecheck.log
+
+# One-off codemods and merge leftovers.
+# The repo root accumulated 38 of these (fix_*.cjs, patch_*.cjs, *.patch,
+# tmp_screen.txt) plus .orig/.rej files under src/. They were removed on
+# 2026-07-27; these patterns stop them coming back. Edit source files directly
+# rather than generating scripts to rewrite them.
+/*.cjs
+/fix_*.py
+/*.patch
+tmp_*.txt
+*.orig
+*.rej

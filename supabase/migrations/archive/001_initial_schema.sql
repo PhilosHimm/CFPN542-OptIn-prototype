@@ -190,14 +190,11 @@ create table if not exists conversations (
 
 alter table conversations enable row level security;
 
-create policy "Conversation members can view conversations"
-  on conversations for select using (
-    exists (
-      select 1 from conversation_members
-      where conversation_id = conversations.id
-      and user_id = auth.uid()
-    )
-  );
+-- NOTE: the SELECT policy for `conversations` is defined below, after
+-- `conversation_members` exists. It used to sit here and referenced that table
+-- ten lines before it was created, which failed with
+--   ERROR: relation "conversation_members" does not exist (SQLSTATE 42P01)
+-- and aborted the rest of the script.
 
 -- ─── Conversation Members ──────────────────────────────────────────────────────
 create table if not exists conversation_members (
@@ -217,6 +214,17 @@ create policy "Members can view own memberships"
 
 create policy "Members can update own memberships"
   on conversation_members for update using (auth.uid() = user_id);
+
+-- Moved here from the Conversations block above: this policy reads
+-- `conversation_members`, so that table must already exist.
+create policy "Conversation members can view conversations"
+  on conversations for select using (
+    exists (
+      select 1 from conversation_members
+      where conversation_id = conversations.id
+      and user_id = auth.uid()
+    )
+  );
 
 -- ─── Messages ──────────────────────────────────────────────────────────────────
 create table if not exists messages (

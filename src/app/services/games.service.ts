@@ -168,9 +168,18 @@ export async function getGroups(): Promise<Group[]> {
   if (!supabase) return [];
 
   try {
+    // Previously this selected every group in the database with no membership
+    // filter, so CreateGameScreen's `assignedGroup = mapped[0]` picked whatever
+    // group sorted first globally — a stranger's group — and attached the new
+    // game to it.
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) return [];
+
     const { data, error } = await supabase
       .from("groups")
-      .select("*")
+      .select("*, group_members!inner(user_id)")
+      .eq("group_members.user_id", uid)
       .order("name");
 
     if (error || !data) return mockGroups;

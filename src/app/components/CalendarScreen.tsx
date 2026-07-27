@@ -267,8 +267,8 @@ export function CalendarScreen() {
                     date={displayDate}
                     time={displayTime}
                     location={displayLocation}
-                    players={`${game.roster.length}/${game.maxPlayers}`}
-                    isFull={game.roster.length >= game.maxPlayers}
+                    players={game.maxPlayers != null ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`}
+                    isFull={game.maxPlayers != null && game.roster.length >= game.maxPlayers}
                     variant={
                       game.status === "proposal"
                         ? "vote"

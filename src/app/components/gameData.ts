@@ -33,9 +33,13 @@ export interface Game {
   location: string;
   gameType: "casual" | "competitive";
   status: GameStatus;
-  maxPlayers: number;
+  // Nullable in Postgres (max_players has no NOT NULL in the live schema), so
+  // every consumer must guard. Declaring it non-null produced "5/null" in the UI.
+  maxPlayers: number | null;
   totalCost: number;
   splitCost: boolean;
+  /** Set when the host priced the game per person rather than as a fixed total. */
+  perPersonCost?: number;
   group: string;
   heroImage: string;
   timeOptions: VoteOption[];
@@ -480,6 +484,43 @@ export const DEMO_GAMES: Game[] = [
   },
 ];
 
+/** Visibility values the `games.visibility` CHECK constraint accepts. */
+const DB_VISIBILITIES = ["Public", "Group Only", "Private"];
+
+/**
+ * Voting closes `hours` before the earliest proposed start time.
+ * Falls back to now()+hours when there are no usable options, and clamps into
+ * (now, earliestStart) so the deadline can never land in the past or after the
+ * game itself.
+ */
+export function computeVotingDeadline(
+  timeOptions: { date: string; startTime: string }[],
+  hours: number | undefined,
+): Date {
+  const period = hours && hours > 0 ? hours : 24;
+  const now = new Date();
+
+  const starts = (timeOptions || [])
+    .filter((o) => o.date && o.startTime)
+    .map((o) => new Date(`${o.date}T${o.startTime}`))
+    .filter((d) => !Number.isNaN(d.getTime()));
+
+  if (starts.length === 0) {
+    return new Date(now.getTime() + period * 3600_000);
+  }
+
+  const earliest = new Date(Math.min(...starts.map((d) => d.getTime())));
+  const target = new Date(earliest.getTime() - period * 3600_000);
+
+  // Deadline already passed (short-notice game): give voters a slice of the
+  // remaining time instead of a deadline in the past.
+  if (target <= now) {
+    const midpoint = new Date((now.getTime() + earliest.getTime()) / 2);
+    return midpoint > now ? midpoint : earliest;
+  }
+  return target;
+}
+
 function formatTime12h(t: string): string {
   if (!t) return "";
   const [h, m] = t.split(":").map(Number);
@@ -520,6 +561,10 @@ function mapDbGameToGame(g: any): Game {
     maxPlayers: g.max_players,
     totalCost: g.total_cost || 0,
     splitCost: (g.total_cost || 0) > 0,
+    // Per-player pricing writes total_cost=0 and per_person_cost=X. Without
+    // this the cost UI derived everything from total_cost and rendered paid
+    // games as "Free".
+    perPersonCost: g.per_person_cost || 0,
     group: g.group_id || "",
     heroImage: SPORT_HERO_IMAGES[g.sport] || SPORT_HERO_IMAGES.Soccer,
     date: displayDate,
@@ -669,73 +714,53 @@ export async function saveGame(input: {
   // Only use group_id if it's a valid UUID (mock IDs like "g1" are not valid)
   const groupId = input.groupId && isValidUUID(input.groupId) ? input.groupId : null;
 
-  const votingDeadline = new Date();
-  const hoursToAdd = input.votingPeriodHours || 24;
-  votingDeadline.setHours(votingDeadline.getHours() + hoursToAdd);
+  // Voting closes N hours BEFORE the earliest proposed start time, which is what
+  // the UI promises ("How long before the first proposed time should voting
+  // close?"). The previous now()+N calculation ignored the proposed times
+  // entirely, so the default 24h period put the deadline *after* the game.
+  const votingDeadline = computeVotingDeadline(input.timeOptions, input.votingPeriodHours);
 
-  const gameId = crypto.randomUUID();
-
-  const { error } = await supabase!
-    .from("games")
-    .insert({
-      id: gameId,
-      title: input.title,
-      sport: input.sport,
-      sport_emoji: sportEmojis[input.sport] || "",
-      sport_color: "#2D7A3A",
-      status: "proposal",
-      game_type: input.gameType === "casual" ? "Casual" : "Competitive",
-      max_players: input.maxPlayers,
-      created_by: input.createdBy,
-      group_id: groupId,
-      voting_deadline: votingDeadline.toISOString(),
-      total_cost: input.totalCost,
-      per_person_cost: input.perPersonCost,
-      confirmed_option_id: null,
-      description: null,
-      visibility: input.visibility === "public" ? "Public" : input.visibility === "private" ? "Private" : "Group Only",
-    });
-
-  if (error) {
-
-    return { id: "", error: error.message };
+  const usableOptions = input.timeOptions.filter((o) => o.date && o.startTime);
+  if (usableOptions.length === 0) {
+    return { id: "", error: "Add at least one time option with a date and start time." };
+  }
+  const badRange = usableOptions.find((o) => o.endTime && o.endTime <= o.startTime);
+  if (badRange) {
+    return { id: "", error: "End time must be after the start time." };
   }
 
-  // Insert time options
-  const optionInserts = input.timeOptions
-    .filter((o) => o.date && o.startTime)
-    .map((o) => {
-      const d = new Date(o.date + "T00:00:00");
-      const displayDate = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-      return {
-        id: crypto.randomUUID(),
-        game_id: gameId,
-        date: o.date,
-        display_date: displayDate,
-        start_time: o.startTime,
-        end_time: o.endTime || o.startTime,
-        location: o.location || input.location || "",
-      };
-    });
+  // Single transactional RPC (migration 016, applied 2026-07-27). The previous
+  // three-insert sequence could commit a game and then fail on its options or
+  // invites, orphaning a row the caller could not clean up because it discarded
+  // the generated id. `created_by` is taken from auth.uid() inside the function,
+  // so input.createdBy is validated above but not sent.
+  const rpc = await supabase!.rpc("create_game_with_options", {
+    p_title: input.title,
+    p_sport: input.sport,
+    p_sport_emoji: sportEmojis[input.sport] || "",
+    p_sport_color: "#2D7A3A",
+    p_game_type: input.gameType === "casual" ? "Casual" : "Competitive",
+    p_max_players: input.maxPlayers,
+    p_min_players: null,
+    p_group_id: groupId,
+    p_voting_deadline: votingDeadline.toISOString(),
+    p_total_cost: input.totalCost,
+    p_per_person_cost: input.perPersonCost,
+    p_visibility: DB_VISIBILITIES.includes(input.visibility) ? input.visibility : "Private",
+    p_description: null,
+    p_options: usableOptions.map((o) => ({
+      date: o.date,
+      start_time: o.startTime,
+      end_time: o.endTime || "",
+      location: o.location || input.location || "",
+    })),
+    p_invited_ids: input.invitedPlayerIds?.filter(isValidUUID) || [],
+  });
 
-  if (optionInserts.length > 0) {
-    const { error: optError } = await supabase!.from("game_options").insert(optionInserts);
-    if (optError) return { id: "", error: optError.message };
+  if (rpc.error) {
+    return { id: "", error: rpc.error.message };
   }
-
-  // Invite players (only real UUIDs)
-  const realPlayerIds = input.invitedPlayerIds?.filter(isValidUUID) || [];
-  if (realPlayerIds.length > 0) {
-    const playerInserts = realPlayerIds.map((pid: string) => ({
-      game_id: gameId,
-      user_id: pid,
-      status: "invited" as const,
-    }));
-    const { error: playerError } = await supabase!.from("game_players").insert(playerInserts);
-    if (playerError) return { id: "", error: playerError.message };
-  }
-
-  return { id: gameId, error: null };
+  return { id: rpc.data as string, error: null };
 }
 
 export async function addGameOption(
@@ -807,54 +832,59 @@ export async function deleteGame(gameId: string): Promise<boolean> {
     if (idx !== -1) DEMO_GAMES.splice(idx, 1);
     return true;
   }
-  const { error } = await supabase!.from("games").delete().eq("id", gameId);
-  return !error;
+  const { data, error } = await supabase!.from("games").delete().eq("id", gameId).select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function cancelGame(gameId: string, reason?: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!
+  const { data, error } = await supabase!
     .from("games")
     .update({ status: "cancelled", cancellation_reason: reason ?? null })
-    .eq("id", gameId);
-  return !error;
+    .eq("id", gameId)
+    .select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function confirmGame(gameId: string, optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!
+  const { data, error } = await supabase!
     .from("games")
     .update({ status: "confirmed", confirmed_option_id: optionId })
-    .eq("id", gameId);
-  return !error;
+    .eq("id", gameId)
+    .select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function unconfirmGame(gameId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!
+  // Reverting to `proposal` with an already-past deadline would let the next
+  // auto-transition immediately re-decide the game, so push the deadline out.
+  const extended = new Date(Date.now() + 24 * 3600_000).toISOString();
+  const { data, error } = await supabase!
     .from("games")
-    .update({ status: "proposal", confirmed_option_id: null })
-    .eq("id", gameId);
-  return !error;
+    .update({ status: "proposal", confirmed_option_id: null, voting_deadline: extended })
+    .eq("id", gameId)
+    .select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function completeGame(gameId: string, attendeeUserIds: string[] = []): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("games").update({ status: "completed" }).eq("id", gameId);
-  if (error) return false;
-  for (const uid of attendeeUserIds) {
-    const { data: p } = await supabase!
-      .from("profiles")
-      .select("games_played")
-      .eq("id", uid)
-      .single();
-    if (p) {
-      await supabase!
-        .from("profiles")
-        .update({ games_played: (p.games_played || 0) + 1 })
-        .eq("id", uid);
-    }
-  }
+  const { data, error } = await supabase!
+    .from("games")
+    .update({ status: "completed" })
+    .eq("id", gameId)
+    .select("id");
+  if (error || (data?.length ?? 0) === 0) return false;
+
+  // NOTE: attendance stats are deliberately NOT incremented here any more.
+  // `profiles` UPDATE is restricted to `auth.uid() = id`, so the previous
+  // read-then-write loop silently failed for every attendee except the caller
+  // (and its errors were never checked). It also lost updates under
+  // concurrency. This belongs in a SECURITY DEFINER function driven by the
+  // status transition — see the "attendance stats" task.
+  void attendeeUserIds;
   return true;
 }
 
@@ -945,13 +975,18 @@ export async function removePlayerFromGame(gameId: string, playerId: string): Pr
   }
   if (!supabase) return false;
 
-  const { error } = await supabase
+  // The DELETE policy is `user_id = auth.uid()`, so a host removing someone
+  // else matches zero rows and PostgREST reports no error. Checking only
+  // `!error` made "Player removed" a lie. Until a host-can-remove policy exists
+  // this correctly returns false so the caller can surface a real failure.
+  const { data, error } = await supabase
     .from("game_players")
     .delete()
     .eq("game_id", gameId)
-    .eq("user_id", playerId);
+    .eq("user_id", playerId)
+    .select("id");
 
-  return !error;
+  return !error && (data?.length ?? 0) > 0;
 }
 
 /**
