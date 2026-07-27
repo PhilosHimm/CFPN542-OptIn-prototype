@@ -56,11 +56,11 @@ Note this removed the only consumers of the `services/*` + [data/games.ts](src/a
 
 ### Supabase / game state machine
 
-Schema and RLS live in [supabase/migrations/](supabase/migrations/), applied manually (dashboard or Supabase MCP) — there is no local Supabase CLI setup, no `config.toml`, and no declarative `supabase/schemas/`. Numbering is sequential but **012 is used twice**; number new migrations from 018.
+**[supabase/migrations/000_baseline_schema.sql](supabase/migrations/000_baseline_schema.sql) is the schema.** It was generated on 2026-07-27 from the live schema of project `iokxjsvlpqlekptexjxy` and verified object-for-object against it (77/77 constraints, functions, indexes, triggers). It is the single file needed to stand up a new project.
 
-**Files `001`–`013` do not describe the live database.** 009 and 013 were never applied, several RLS policies were hand-edited in the dashboard, and column nullability diverges from `001`. `014`–`017` were applied on 2026-07-27 and are accurate. Query the live schema before reasoning about production; see [docs/BACKLOG.md](docs/BACKLOG.md).
+The 19 historical migrations moved to [supabase/migrations/archive/](supabase/migrations/archive/) — **history only, never replay them.** `001` aborted partway (a policy referenced `conversation_members` before that table existed, which is also why the realtime publication was never applied), `009` and `013` were never applied at all, and replaying `009` would re-add an `end_time > start_time` CHECK that is wrong on text columns. See [archive/README.md](supabase/migrations/archive/README.md).
 
-Because the filenames use `NNN_` prefixes rather than the CLI's `<timestamp>_name.sql`, **never run `supabase db push` here** — it would treat all 17 files as pending and re-run the non-idempotent early ones.
+Migrations are applied manually (dashboard or Supabase MCP). The Supabase CLI is a devDependency (`npx supabase`) but the project has no `config.toml` and no declarative `supabase/schemas/`, and the CLI has never been linked. Because filenames use `NNN_` prefixes rather than the CLI's `<timestamp>_name.sql`, **never run `supabase db push` here.** Number new migrations from 019.
 
 Tables: `profiles`, `groups`/`group_members`, `games`, `game_options`, `votes`, `game_players`, `conversations`/`conversation_members`/`messages`, `friend_requests`/`friendships`.
 

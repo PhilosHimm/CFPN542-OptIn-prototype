@@ -14,11 +14,11 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > run only when a user opens the app.
 
 > ## Read this first
-> **Files `001`–`013` do not describe the live database.** 009 and 013 were never
-> applied, the RLS policies were hand-edited in the dashboard, and column
-> nullability differs from `001` throughout. `014`–`017` *were* applied and are
-> accurate. Treat the pre-014 files as history, not as schema, and query the live
-> database before reasoning about production behaviour.
+> **`supabase/migrations/000_baseline_schema.sql` is now the schema** — generated
+> from the live database on 2026-07-27 and verified 77/77 against it. The 19
+> historical migrations are in `archive/` for provenance only; never replay them
+> (see `archive/README.md`). Query the live database before reasoning about
+> production behaviour.
 
 Markers: **[live]** verified against the running DB · **[code]** verified in source ·
 **[latent]** real in the files but currently neutralized by live RLS
@@ -100,7 +100,9 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 54 | No `APP_NAME` constant — 39 hardcoded "OptIn" strings across 16 files; `robots.txt`/`sitemap.xml` hardcode `optin.app` | `TODO` |
 | 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `TODO` |
 | 56 | **UPDATE policies had no `WITH CHECK`** — 8 of 9. An UPDATE policy's `USING` picks which rows you may change; `WITH CHECK` picks what you may turn them into. Without it, `game_players` let a member move their row's `game_id` to any game, **bypassing the INSERT hardening in 014 §6**; a host could move an option into a game they don't own, or reassign `games.created_by` and orphan the game | `APPLIED` — `018_update_policy_with_check.sql`. Verified: `game_id`/`user_id` reassignment rejected, invite-accept still works |
-| 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first |
+| 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
+| 58 | **Realtime has never worked.** No `public` table is in any publication — only Realtime's internal `realtime.messages_*` partitions. So every `postgres_changes` subscription (invites, votes, roster, chat) silently never fires. Root cause: `001`'s `alter publication` statements sit at line 287, after the statement-37 abort. The baseline includes them; **production still needs them applied** | `TODO` — highest-value remaining fix. `alter publication supabase_realtime add table public.games;` and the six sibling tables |
+| 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `TODO` — drop `"Users can read own conversation memberships"` in production |
 
 ---
 
