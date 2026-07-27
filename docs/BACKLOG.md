@@ -34,16 +34,30 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 >    non-colliding cases would have silently undermined) later ones — caught
 >    by actually running `npx supabase start` locally before pushing a third
 >    time, not by CI.
+> 4. Round 3 passed CI (fresh preview branch) and got merged — then **failed
+>    again on `main`** with `policy "Users can read own friend requests" ...
+>    already exists`. Reason: a PR preview and a `main` push hit two
+>    *different* databases. Previews get a fresh empty branch; `main` applies
+>    directly to the real, already-populated project. The local `supabase
+>    start` test in round 3 only proved the directory works from empty — it
+>    said nothing about replaying against a database that already has these
+>    objects. It didn't: `001`'s triggers and publication-adds, and `003`'s
+>    policies, were all bare/unconditional and every one collided live. Fixed
+>    by verifying directly against the real project in a `begin;...rollback;`
+>    transaction instead of trusting the empty-database test again — see item
+>    61.
 >
 > Reconciled on 2026-07-27:
 > - **`supabase/migrations/`** now holds **17 files**: the 13 ledger-tracked
 >   versions plus the 4 foundational ones. `001` was rewritten to contain only
->   tables and `enable row level security` — no policies — since later files
->   are the authoritative policy source. Verified via full local replay: 17/17
->   apply cleanly against an empty database, and the result matches
->   production's 77 tracked objects (constraints, functions, indexes,
->   triggers) plus 16 harmless extras from `001`'s original audit
->   trigger/indexes that never made it to production.
+>   tables, `enable row level security`, indexes, and now-guarded
+>   triggers/publication-adds — no bare policies, no unconditional
+>   already-exists-prone statements. `003` keeps its 5 policies (it's their
+>   only source) but each is now preceded by `drop policy if exists`. Verified
+>   two ways: `npx supabase start` replays all 17 against an empty database
+>   cleanly (matches production's 77 tracked objects), **and** a rolled-back
+>   transaction replaying `001`+`002`+`003`+`008` against the real,
+>   already-populated production project also completes cleanly.
 > - **`supabase/000_baseline_schema.sql`** — the full schema in one file,
 >   verified 77/77 against the live database — stays **outside** `migrations/`
 >   so the integration never scans it. Still the right file for standing up a
@@ -52,12 +66,17 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 >   migrations that are neither ledger-tracked nor required to build the
 >   schema. See `archive/README.md` for why each is excluded.
 > - **`supabase/config.toml`** now exists, added for **local validation only**
->   (`npx supabase start`, needs Docker) — not linked to the real project, and
->   this is exactly how round 3's bug was caught before a third failed push.
+>   (`npx supabase start`, needs Docker) — not linked to the real project. It
+>   catches the "does this work from empty" class of bug; it does **not**
+>   catch the "does this work against a database that already has these
+>   objects" class, which only showed up on the real project (see item 61).
 >
-> Query the live database before reasoning about production behaviour; the
-> migration *files* are trustworthy again as of this reconciliation, but the
-> live schema is still the ground truth.
+> Query the live database before reasoning about production behaviour — this
+> file has now been wrong twice in the same afternoon (item 58's realtime
+> claim, and the "16 harmless extras" claim below, both corrected by item 61)
+> — and the migration *files* should be considered trustworthy only as far as
+> they've actually been verified against something real, not by how recently
+> they were written.
 
 Markers: **[live]** verified against the running DB · **[code]** verified in source ·
 **[latent]** real in the files but currently neutralized by live RLS
@@ -140,9 +159,10 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `TODO` |
 | 56 | **UPDATE policies had no `WITH CHECK`** — 8 of 9. An UPDATE policy's `USING` picks which rows you may change; `WITH CHECK` picks what you may turn them into. Without it, `game_players` let a member move their row's `game_id` to any game, **bypassing the INSERT hardening in 014 §6**; a host could move an option into a game they don't own, or reassign `games.created_by` and orphan the game | `APPLIED` — `018_update_policy_with_check.sql`. Verified: `game_id`/`user_id` reassignment rejected, invite-accept still works |
 | 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
-| 58 | **Realtime has never worked.** No `public` table is in any publication — only Realtime's internal `realtime.messages_*` partitions. So every `postgres_changes` subscription (invites, votes, roster, chat) silently never fires. Root cause: `001`'s `alter publication` statements sit at line 287, after the statement-37 abort. The baseline includes them; **production still needs them applied** | `TODO` — highest-value remaining fix. `alter publication supabase_realtime add table public.games;` and the six sibling tables |
+| 58 | ~~Realtime has never worked~~ **[stale — corrected 2026-07-27].** This claimed no `public` table was in any publication. Re-verified live while debugging item 61: `pg_publication_tables` currently shows `messages`, `votes`, and `game_players` **are** members of `supabase_realtime` — someone (or something) added them after this item was originally written, and the claim was never re-checked before being repeated in the PR that consolidated the migrations. `games`, `game_options`, `conversation_members`, `friend_requests` are still not members, so partial gaps remain, but "never worked" was wrong. **Lesson applied in item 61: don't trust a snapshot in this file over a live query, including this one — re-check before relying on it again** | `PARTIALLY TRUE` — 3/7 recommended tables are in the publication; add the remaining 4 if you want full realtime coverage: `alter publication supabase_realtime add table public.games, public.game_options, public.conversation_members, public.friend_requests;` (each guarded the way `001` now is, in case any land there before you run it) |
 | 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `TODO` — drop `"Users can read own conversation memberships"` in production |
-| 60 | **A Supabase GitHub integration tracks `supabase/migrations/`** — undocumented until it broke, three ways in sequence: (a) consolidating history into one baseline file removed the per-version files the ledger-comparison stage expects (`Remote migration versions not found...`); (b) fixing that to exactly the 13 ledger-tracked versions then failed the *next* stage — the integration provisions a fresh empty preview DB per PR and replays the whole directory (`relation "public.conversations" does not exist`), since none of those 13 files create a table; (c) restoring the 4 table-creating files (`001`–`003`, `008`) then hit a duplicate-policy error from `001`'s own ~25 policies colliding with later ones — caught locally, not in CI, by actually running `npx supabase start` before pushing a third time **[live]** | `DONE` — `migrations/` now holds 17 files (13 ledger + 4 foundational); `001` rewritten to contain only tables/RLS-enable, no policies, since Postgres OR's permissive policies together and leaving them would have silently undone every later restriction. Verified via full local replay: 17/17 apply cleanly, 77/77 tracked objects match production plus 16 harmless extras from `001` |
+| 60 | **A Supabase GitHub integration tracks `supabase/migrations/`** — undocumented until it broke, three ways in sequence: (a) consolidating history into one baseline file removed the per-version files the ledger-comparison stage expects (`Remote migration versions not found...`); (b) fixing that to exactly the 13 ledger-tracked versions then failed the *next* stage — the integration provisions a fresh empty preview DB per PR and replays the whole directory (`relation "public.conversations" does not exist`), since none of those 13 files create a table; (c) restoring the 4 table-creating files (`001`–`003`, `008`) then hit a duplicate-policy error from `001`'s own ~25 policies colliding with later ones — caught locally, not in CI, by actually running `npx supabase start` before pushing a third time **[live]** | `DONE` (superseded by item 61 for one detail) — `migrations/` holds 17 files (13 ledger + 4 foundational); `001` rewritten to contain only tables/RLS-enable, no policies. Verified via full local replay: 17/17 apply cleanly against an **empty** database, 77/77 tracked objects match production. ⚠️ That local test does not validate against an **already-populated** database — see item 61, found the hard way when this passed CI and then failed again on `main` |
+| 61 | **PR previews and `main` pushes hit two different databases, and only one is empty.** A PR preview gets a fresh empty branch (item 60); pushing to `main` applies migrations directly to the real, already-populated project at `iokxjsvlpqlekptexjxy`. Item 60's local validation (`supabase start` against an empty local DB) proved the directory works from empty — it said nothing about whether the same files are safe against a database that already has these objects. They weren't: `001`'s 4 `create trigger ...updated_at` statements and its 3 `alter publication add table` statements, and `003`'s 5 `create policy` statements, are all bare/unconditional and every one of them collided live (`ERROR: trigger "profiles_updated_at" ... already exists`, `ERROR: relation "messages" is already member of publication`, `ERROR: policy "Users can read own friend requests" ... already exists`) **[live]** | `DONE` — `001`'s triggers get `drop trigger if exists` first; its publication adds are wrapped in a `do $$ ... if not exists (select 1 from pg_publication_tables ...) $$` block; `003`'s 5 policies get `drop policy if exists` first (can't be stripped like `001`'s, since `003` is friend_requests/friendships' only policy source — nothing later re-establishes them). Verified this time in a `begin; ... rollback;` transaction run directly against the real production project, not just a local empty copy — confirmed clean and confirmed the rollback left no trace |
 
 ---
 

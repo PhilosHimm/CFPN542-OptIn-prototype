@@ -194,19 +194,56 @@ begin
 end;
 $$ language plpgsql;
 
+-- Guarded with drop-if-exists: this file has no ledger entry, so a push to
+-- the real (already-populated) production project runs it fresh regardless of
+-- what already exists there. Confirmed live: `ERROR: trigger
+-- "profiles_updated_at" for relation "profiles" already exists (SQLSTATE
+-- 42710)` -- disproving an earlier claim in this repo's history that these 4
+-- triggers were absent from production. Do not trust static comparisons for
+-- this file again; verify against a rolled-back transaction on the real
+-- database instead.
+drop trigger if exists profiles_updated_at on profiles;
 create trigger profiles_updated_at before update on profiles
   for each row execute function update_updated_at();
 
+drop trigger if exists games_updated_at on games;
 create trigger games_updated_at before update on games
   for each row execute function update_updated_at();
 
+drop trigger if exists conversations_updated_at on conversations;
 create trigger conversations_updated_at before update on conversations
   for each row execute function update_updated_at();
 
+drop trigger if exists votes_updated_at on votes;
 create trigger votes_updated_at before update on votes
   for each row execute function update_updated_at();
 
 -- ─── Enable Realtime ───────────────────────────────────────────────────────────
-alter publication supabase_realtime add table messages;
-alter publication supabase_realtime add table votes;
-alter publication supabase_realtime add table game_players;
+-- Guarded: `alter publication ... add table` has no `if not exists` form, and
+-- unconditionally fails against a database where the table is already a
+-- member (SQLSTATE 42710). Confirmed live, on the real production project,
+-- that all three ARE already members -- contradicting an earlier claim in
+-- this repo's history (docs/BACKLOG.md item 58) that no table was in any
+-- publication. That claim is stale; do not trust it, or any other static
+-- snapshot in this repo, over a live check.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table messages;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'votes'
+  ) then
+    alter publication supabase_realtime add table votes;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'game_players'
+  ) then
+    alter publication supabase_realtime add table game_players;
+  end if;
+end$$;
