@@ -1,5 +1,24 @@
 -- OptIn Sports Scheduling App - Initial Database Schema
 -- Run this in the Supabase SQL Editor to set up all required tables
+--
+-- STRUCTURE-ONLY: no `create policy` statements. The original version of this
+-- file defined ~25 RLS policies, most `using (true)` ("Games are viewable by
+-- everyone", "Group members are viewable by everyone", etc). Because Postgres
+-- OR's every permissive policy on a table together, leaving those in place
+-- would silently defeat every later restriction --
+-- 20260327015818_add_rls_policies_for_all_tables.sql and every migration after
+-- it -- the same "additive policy left an old permissive one active" bug this
+-- whole audit kept finding elsewhere (013, 015's ineffective REVOKE). Five of
+-- the original policy names also collided by exact name with later files
+-- (confirmed: "Authenticated users can create groups", "...join groups",
+-- "Users can update own game player status", "...own profile", "...own
+-- votes"), which is what surfaced this on a fresh preview-branch build:
+-- `ERROR: policy "Authenticated users can create groups" for table "groups"
+-- already exists`.
+--
+-- Tables, RLS-enable, indexes, triggers and the realtime publication are
+-- unchanged from the original file. Policies are established fresh starting
+-- with 20260327015818_add_rls_policies_for_all_tables.sql.
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
@@ -22,15 +41,6 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
-create policy "Public profiles are viewable by everyone"
-  on profiles for select using (true);
-
-create policy "Users can update own profile"
-  on profiles for update using (auth.uid() = id);
-
-create policy "Users can insert own profile"
-  on profiles for insert with check (auth.uid() = id);
-
 -- ─── Groups ────────────────────────────────────────────────────────────────────
 create table if not exists groups (
   id uuid primary key default uuid_generate_v4(),
@@ -47,15 +57,6 @@ create table if not exists groups (
 
 alter table groups enable row level security;
 
-create policy "Groups are viewable by everyone"
-  on groups for select using (true);
-
-create policy "Authenticated users can create groups"
-  on groups for insert with check (auth.uid() = created_by);
-
-create policy "Group creator can update"
-  on groups for update using (auth.uid() = created_by);
-
 -- ─── Group Members ─────────────────────────────────────────────────────────────
 create table if not exists group_members (
   id uuid primary key default uuid_generate_v4(),
@@ -67,12 +68,6 @@ create table if not exists group_members (
 );
 
 alter table group_members enable row level security;
-
-create policy "Group members are viewable by everyone"
-  on group_members for select using (true);
-
-create policy "Authenticated users can join groups"
-  on group_members for insert with check (auth.uid() = user_id);
 
 -- ─── Games ─────────────────────────────────────────────────────────────────────
 create table if not exists games (
@@ -99,15 +94,6 @@ create table if not exists games (
 
 alter table games enable row level security;
 
-create policy "Games are viewable by everyone"
-  on games for select using (true);
-
-create policy "Authenticated users can create games"
-  on games for insert with check (auth.uid() = created_by);
-
-create policy "Game creator can update"
-  on games for update using (auth.uid() = created_by);
-
 -- ─── Game Options ──────────────────────────────────────────────────────────────
 create table if not exists game_options (
   id uuid primary key default uuid_generate_v4(),
@@ -125,15 +111,6 @@ create table if not exists game_options (
 
 alter table game_options enable row level security;
 
-create policy "Game options are viewable by everyone"
-  on game_options for select using (true);
-
-create policy "Authenticated users can create game options"
-  on game_options for insert with check (true);
-
-create policy "Vote counts can be updated"
-  on game_options for update using (true);
-
 -- ─── Votes ─────────────────────────────────────────────────────────────────────
 create table if not exists votes (
   id uuid primary key default uuid_generate_v4(),
@@ -148,15 +125,6 @@ create table if not exists votes (
 
 alter table votes enable row level security;
 
-create policy "Votes are viewable by everyone"
-  on votes for select using (true);
-
-create policy "Authenticated users can vote"
-  on votes for insert with check (auth.uid() = user_id);
-
-create policy "Users can update own votes"
-  on votes for update using (auth.uid() = user_id);
-
 -- ─── Game Players ──────────────────────────────────────────────────────────────
 create table if not exists game_players (
   id uuid primary key default uuid_generate_v4(),
@@ -169,15 +137,6 @@ create table if not exists game_players (
 
 alter table game_players enable row level security;
 
-create policy "Game players are viewable by everyone"
-  on game_players for select using (true);
-
-create policy "Authenticated users can join games"
-  on game_players for insert with check (auth.uid() = user_id);
-
-create policy "Users can update own game player status"
-  on game_players for update using (auth.uid() = user_id);
-
 -- ─── Conversations ─────────────────────────────────────────────────────────────
 create table if not exists conversations (
   id uuid primary key default uuid_generate_v4(),
@@ -189,12 +148,6 @@ create table if not exists conversations (
 );
 
 alter table conversations enable row level security;
-
--- NOTE: the SELECT policy for `conversations` is defined below, after
--- `conversation_members` exists. It used to sit here and referenced that table
--- ten lines before it was created, which failed with
---   ERROR: relation "conversation_members" does not exist (SQLSTATE 42P01)
--- and aborted the rest of the script.
 
 -- ─── Conversation Members ──────────────────────────────────────────────────────
 create table if not exists conversation_members (
@@ -209,23 +162,6 @@ create table if not exists conversation_members (
 
 alter table conversation_members enable row level security;
 
-create policy "Members can view own memberships"
-  on conversation_members for select using (auth.uid() = user_id);
-
-create policy "Members can update own memberships"
-  on conversation_members for update using (auth.uid() = user_id);
-
--- Moved here from the Conversations block above: this policy reads
--- `conversation_members`, so that table must already exist.
-create policy "Conversation members can view conversations"
-  on conversations for select using (
-    exists (
-      select 1 from conversation_members
-      where conversation_id = conversations.id
-      and user_id = auth.uid()
-    )
-  );
-
 -- ─── Messages ──────────────────────────────────────────────────────────────────
 create table if not exists messages (
   id uuid primary key default uuid_generate_v4(),
@@ -237,25 +173,6 @@ create table if not exists messages (
 );
 
 alter table messages enable row level security;
-
-create policy "Conversation members can view messages"
-  on messages for select using (
-    exists (
-      select 1 from conversation_members
-      where conversation_id = messages.conversation_id
-      and user_id = auth.uid()
-    )
-  );
-
-create policy "Conversation members can send messages"
-  on messages for insert with check (
-    auth.uid() = sender_id and
-    exists (
-      select 1 from conversation_members
-      where conversation_id = messages.conversation_id
-      and user_id = auth.uid()
-    )
-  );
 
 -- ─── Indexes ───────────────────────────────────────────────────────────────────
 create index if not exists idx_games_group on games(group_id);
