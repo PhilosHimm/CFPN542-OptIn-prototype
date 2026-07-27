@@ -14,11 +14,50 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > run only when a user opens the app.
 
 > ## Read this first
-> **`supabase/migrations/000_baseline_schema.sql` is now the schema** — generated
-> from the live database on 2026-07-27 and verified 77/77 against it. The 19
-> historical migrations are in `archive/` for provenance only; never replay them
-> (see `archive/README.md`). Query the live database before reasoning about
-> production behaviour.
+> **A Supabase GitHub integration is linked to this repo** — the "Supabase
+> Preview" check on pull requests. It does two things to `supabase/migrations/`,
+> in order: (1) checks the folder has one file per version already recorded in
+> `supabase_migrations.schema_migrations` on the linked project, then (2)
+> provisions a **fresh, empty preview database per PR** and replays the entire
+> directory against it from scratch. None of this was known when the
+> migrations were first consolidated into a single baseline file, and it broke
+> in three rounds:
+>
+> 1. Consolidating into one file failed check 1 immediately:
+>    `Remote migration versions not found in local migrations directory.`
+> 2. Restoring exactly the 13 ledger-tracked versions passed check 1, then
+>    failed check 2: `relation "public.conversations" does not exist` — none
+>    of those 13 files create a single table, since production's foundational
+>    tables were created by hand, outside CLI tracking, with no ledger entry.
+> 3. Restoring the 4 table-creating files (`001`–`003`, `008`, versioned to
+>    sort first) fixed that, but `001`'s own ~25 policies collided with (and in
+>    non-colliding cases would have silently undermined) later ones — caught
+>    by actually running `npx supabase start` locally before pushing a third
+>    time, not by CI.
+>
+> Reconciled on 2026-07-27:
+> - **`supabase/migrations/`** now holds **17 files**: the 13 ledger-tracked
+>   versions plus the 4 foundational ones. `001` was rewritten to contain only
+>   tables and `enable row level security` — no policies — since later files
+>   are the authoritative policy source. Verified via full local replay: 17/17
+>   apply cleanly against an empty database, and the result matches
+>   production's 77 tracked objects (constraints, functions, indexes,
+>   triggers) plus 16 harmless extras from `001`'s original audit
+>   trigger/indexes that never made it to production.
+> - **`supabase/000_baseline_schema.sql`** — the full schema in one file,
+>   verified 77/77 against the live database — stays **outside** `migrations/`
+>   so the integration never scans it. Still the right file for standing up a
+>   new project by hand.
+> - **`supabase/archive/`** — also outside `migrations/` — holds the 3
+>   migrations that are neither ledger-tracked nor required to build the
+>   schema. See `archive/README.md` for why each is excluded.
+> - **`supabase/config.toml`** now exists, added for **local validation only**
+>   (`npx supabase start`, needs Docker) — not linked to the real project, and
+>   this is exactly how round 3's bug was caught before a third failed push.
+>
+> Query the live database before reasoning about production behaviour; the
+> migration *files* are trustworthy again as of this reconciliation, but the
+> live schema is still the ground truth.
 
 Markers: **[live]** verified against the running DB · **[code]** verified in source ·
 **[latent]** real in the files but currently neutralized by live RLS
@@ -103,6 +142,7 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
 | 58 | **Realtime has never worked.** No `public` table is in any publication — only Realtime's internal `realtime.messages_*` partitions. So every `postgres_changes` subscription (invites, votes, roster, chat) silently never fires. Root cause: `001`'s `alter publication` statements sit at line 287, after the statement-37 abort. The baseline includes them; **production still needs them applied** | `TODO` — highest-value remaining fix. `alter publication supabase_realtime add table public.games;` and the six sibling tables |
 | 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `TODO` — drop `"Users can read own conversation memberships"` in production |
+| 60 | **A Supabase GitHub integration tracks `supabase/migrations/`** — undocumented until it broke, three ways in sequence: (a) consolidating history into one baseline file removed the per-version files the ledger-comparison stage expects (`Remote migration versions not found...`); (b) fixing that to exactly the 13 ledger-tracked versions then failed the *next* stage — the integration provisions a fresh empty preview DB per PR and replays the whole directory (`relation "public.conversations" does not exist`), since none of those 13 files create a table; (c) restoring the 4 table-creating files (`001`–`003`, `008`) then hit a duplicate-policy error from `001`'s own ~25 policies colliding with later ones — caught locally, not in CI, by actually running `npx supabase start` before pushing a third time **[live]** | `DONE` — `migrations/` now holds 17 files (13 ledger + 4 foundational); `001` rewritten to contain only tables/RLS-enable, no policies, since Postgres OR's permissive policies together and leaving them would have silently undone every later restriction. Verified via full local replay: 17/17 apply cleanly, 77/77 tracked objects match production plus 16 harmless extras from `001` |
 
 ---
 

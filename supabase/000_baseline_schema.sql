@@ -7,8 +7,23 @@
 -- system catalogs (pg_get_constraintdef / pg_indexes.indexdef /
 -- pg_get_functiondef / pg_get_triggerdef / pg_policies).
 --
--- This single file REPLACES migrations 001–018 for standing up a new project.
--- Those files are kept in `archive/` for history only — do not replay them:
+-- This single file is for standing up a NEW project by hand (dashboard SQL
+-- editor or the Supabase MCP), and is deliberately kept OUTSIDE `migrations/`.
+--
+-- WHY IT LIVES HERE AND NOT IN `migrations/`
+-- `supabase/migrations/` is scanned by a Supabase GitHub integration linked to
+-- this repo (the "Supabase Preview" check on pull requests), which compares its
+-- contents against `supabase_migrations.schema_migrations` on the linked
+-- project. That folder must contain exactly one file per applied remote
+-- version, named `<version>_<name>.sql`. This file doesn't correspond to any
+-- single applied version — it's a synthesized snapshot — so keeping it in
+-- `migrations/` produced "Remote migration versions not found in local
+-- migrations directory" the first time this branch reached `main`, because the
+-- folder had been replaced by this file and an `archive/` subdirectory instead
+-- of the 13 real per-version files. See `../archive/README.md`.
+--
+-- The 7 migrations that were never applied to production at all live in
+-- `../archive/` for history — do not replay them:
 --   * 001 aborted partway (a policy referenced conversation_members ten lines
 --     before that table was created), which is why the realtime publication at
 --     the end of 001 was never applied.
@@ -18,6 +33,8 @@
 --     froze a live row because NOT VALID still re-checks rows on UPDATE.
 --   * Several policies were hand-edited in the dashboard, so the file series
 --     never described the database.
+-- The 13 migrations that WERE applied live in `migrations/`, one file per
+-- remote version, so the GitHub integration's ledger comparison passes.
 --
 -- ORDERING: all tables are created before any constraint, because `games` and
 -- `game_options` reference each other (games.confirmed_option_id ->

@@ -1,3 +1,7 @@
+-- Reconstructed verbatim from supabase_migrations.schema_migrations (project
+-- iokxjsvlpqlekptexjxy), version 20260329033118, on 2026-07-27.
+-- This is what actually ran in production. Do not edit.
+
 -- ══════════════════════════════════════════════════════════════
 -- 006: Fix game logistics — votes, roster, status transitions
 -- ══════════════════════════════════════════════════════════════
