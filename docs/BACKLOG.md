@@ -5,7 +5,7 @@ Audit date: **2026-07-27**. Verified against the live Supabase project
 
 Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (needs a product call first)
 
-> **Migrations 014, 015, 016 and 017 were applied to production on 2026-07-27.**
+> **Migrations 014, 015, 016, 017 and 018 were applied to production on 2026-07-27.**
 > Verified afterwards: vote-counter drift is zero, all four state-machine decision
 > paths pass, the capacity trigger rejects over-capacity joins, the creation RPC
 > rejects unauthenticated callers, and the security advisor dropped from 26 lints
@@ -99,6 +99,8 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 53 | Dead code: `persistTransitions`, `SportIcon.tsx`, `.orig`/`.rej` leftovers, root-level codemods, `src/app/pages/` | `TODO` |
 | 54 | No `APP_NAME` constant — 39 hardcoded "OptIn" strings across 16 files; `robots.txt`/`sitemap.xml` hardcode `optin.app` | `TODO` |
 | 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `TODO` |
+| 56 | **UPDATE policies had no `WITH CHECK`** — 8 of 9. An UPDATE policy's `USING` picks which rows you may change; `WITH CHECK` picks what you may turn them into. Without it, `game_players` let a member move their row's `game_id` to any game, **bypassing the INSERT hardening in 014 §6**; a host could move an option into a game they don't own, or reassign `games.created_by` and orphan the game | `APPLIED` — `018_update_policy_with_check.sql`. Verified: `game_id`/`user_id` reassignment rejected, invite-accept still works |
+| 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first |
 
 ---
 
