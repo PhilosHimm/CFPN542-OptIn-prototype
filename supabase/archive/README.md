@@ -70,10 +70,14 @@ needs:
   bug (a policy on `conversations` referenced `conversation_members` ten lines
   before that table existed) caused the original statement-37 abort that
   started this whole investigation — fixed in place: the policy now lives
-  after the table it depends on. That abort is also why the
+  after the table it depends on. Backlog item 58 claimed that abort meant the
   `alter publication supabase_realtime` statements at the end of `001` never
-  ran, which is the root cause of backlog item 58 (realtime never worked in
-  production).
+  ran anywhere, ever — **that claim is false, corrected during round 4 below**:
+  a live check found 3 of the 3 tables `001` tries to add (`messages`,
+  `votes`, `game_players`) are already members of the publication on the real
+  project, meaning someone added them by hand at some point after item 58 was
+  written, and the claim was carried forward into this file without
+  re-checking it.
 - **`002`** makes `games.group_id` nullable and adds the profile
   auto-creation trigger.
 - **`003`** creates `friend_requests` and `friendships` —
@@ -95,18 +99,80 @@ policy even where names didn't collide, since Postgres OR's permissive
 policies together. `001` was rewritten to keep only table/RLS-enable/index/
 trigger statements; every policy now comes from `20260327015818_...` onward.
 
-Post-replay, the resulting schema matches production's 77 tracked objects
-(constraints, functions, indexes, triggers) exactly, plus 16 extra harmless
-ones that come from `001`'s original `update_updated_at()` audit trigger, its
-4 table triggers, 9 indexes, and 2 `unique(...)` constraints — none of which
-exist on the live project, consistent with `001` never having run to
-completion there either. They don't affect security posture or break
-anything; left in place rather than risk further edits chasing cosmetic
-parity with a production schema that itself doesn't perfectly match this
-file's history.
+Post-replay, the resulting schema matched production's 77 tracked objects
+(constraints, functions, indexes, triggers) plus what looked like 16 extra
+harmless ones — **that "16 harmless extras, none exist on production" claim
+was also wrong**, and cost a failed push to `main` to find out.
 
-To re-verify after any future change to `migrations/`:
+## Round 4: passed CI, then failed again on `main` — because two different databases
+
+Round 3 passed the "Supabase Preview" check (a fresh, empty PR preview branch)
+and got merged. The very next push to `main` failed:
+
+```
+ERROR: policy "Users can read own friend requests" for table "friend_requests"
+already exists (SQLSTATE 42710)
+```
+
+**A PR preview and a push to `main` hit two different databases.** Previews
+get a throwaway empty branch; pushing to `main` applies migrations directly to
+the real, already-populated project (`iokxjsvlpqlekptexjxy`). `npx supabase
+start` against a local empty database — the round-3 verification — proves the
+directory works *from empty*. It says nothing about whether the same
+statements are safe to replay against a database that already has these
+objects. They weren't, in three places, and this is exactly what falsified the
+"16 harmless extras" claim above:
+
+- `001`'s 4 `create trigger ..._updated_at` statements — `profiles_updated_at`
+  already exists on production.
+- `001`'s 3 `alter publication supabase_realtime add table ...` statements —
+  all 3 tables are already members (see the `001` bullet above; this directly
+  contradicts backlog item 58's "realtime has never worked").
+- `003`'s 5 `create policy` statements — `friend_requests`/`friendships`
+  already have all 5 policies live.
+
+None of `001`/`003`'s non-idempotent statements would ever have been *caught*
+by the empty-database test, because `drop-if-exists`-vs-`if-not-exists` only
+matters when the target isn't empty. Fixed by making every one of them safe to
+re-run regardless of starting state: `drop trigger if exists` before each
+trigger, a `do $$ ... if not exists (select from pg_publication_tables) $$`
+guard before each publication add, and `drop policy if exists` before each of
+`003`'s 5 policies (which — unlike `001`'s policies — could not simply be
+deleted: nothing later re-establishes RLS on `friend_requests`/`friendships`
+the way `20260327015818_...` does for every other table, so `003` remains
+their only policy source).
+
+**Verified against the real database this time, not just a local empty
+copy.** The full `001`+`002`+`003`+`008` sequence was run directly against
+`iokxjsvlpqlekptexjxy` inside a `begin; ... rollback;` transaction — proving it
+completes with no error — and a follow-up query after the rollback confirmed
+the transaction left no trace (trigger, publication membership, and policy
+count all unchanged from before the test).
+
+**The lesson, stated plainly so it doesn't need re-learning a third time:**
+this file has now contained two confidently-stated, wrong claims about
+production state in the same afternoon (item 58's realtime claim, and the "16
+harmless extras" claim above). Both were true of a *snapshot*, taken once and
+never re-checked, and both were then repeated as fact. Treat any claim in this
+repo about "what's live on production" as **provisional** until you've
+re-queried it yourself — including this sentence, eventually.
+
+## Re-verifying after a future change
+
+Two different checks, because they catch different bugs:
+
 ```bash
 npx supabase start   # first run pulls several GB of container images
 ```
-Watch for `Applying migration ...` lines with no error between them.
+Replays the whole directory against an empty database — proves it works from
+scratch (what a PR preview does). Watch for `Applying migration ...` lines
+with no error between them.
+
+For whether it's *also* safe against a database that already has these
+objects (what a `main` push does), there's no equivalent local command — you'd
+need a Postgres instance seeded with a copy of production's actual state. In
+this repo, that verification was done directly against the real project via
+Supabase MCP, wrapped in `begin; ... rollback;` so nothing was actually
+changed. Do the same before trusting a change to `001`, `002`, `003`, or `008`
+again — the 13 ledger-tracked files don't need this, since the integration
+skips versions it already has recorded as applied.
