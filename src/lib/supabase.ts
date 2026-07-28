@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { APP_NAME } from "@/app/constants/app";
 
 // ─── Environment ──────────────────────────────────────────────────────────────
 // VITE_APP_ENV values: "demo" | "development" | "production"
@@ -14,12 +15,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undef
 if (!supabaseUrl || !supabaseAnonKey) {
   if (IS_PROD && APP_ENV !== "demo") {
     console.error(
-      "[OptIn] FATAL: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required in production. " +
+      `[${APP_NAME}] FATAL: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required in production. ` +
       "Set VITE_APP_ENV=demo to run without Supabase."
     );
   } else if (!IS_PROD) {
     console.warn(
-      "[OptIn] Supabase credentials not found. Running in demo mode with mock data."
+      `[${APP_NAME}] Supabase credentials not found. Running in demo mode with mock data.`
     );
   }
 }
@@ -34,7 +35,7 @@ export const supabase = supabaseUrl && supabaseAnonKey
 // (Settings → API → Project API Keys → anon public).
 if (supabaseAnonKey && !IS_PROD) {
   const tail = supabaseAnonKey.slice(-6);
-  console.log(`[OptIn] Supabase client key ends in: ...${tail} — confirm this matches your anon (public) key, NOT service_role.`);
+  console.log(`[${APP_NAME}] Supabase client key ends in: ...${tail} — confirm this matches your anon (public) key, NOT service_role.`);
 }
 
 export function isSupabaseConfigured(): boolean {
@@ -67,6 +68,6 @@ export function setDemoModePreference(enabled: boolean): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function devLog(...args: any[]): void {
   if (!IS_PROD) {
-    console.log("[OptIn]", ...args);
+    console.log(`[${APP_NAME}]`, ...args);
   }
 }

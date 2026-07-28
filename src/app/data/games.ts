@@ -1,3 +1,5 @@
+import { APP_NAME } from "../constants/app";
+
 export type GameStatus = "proposal" | "confirmed" | "completed" | "cancelled";
 export type VoteValue = "in" | "maybe" | "out" | null;
 
@@ -848,7 +850,7 @@ export const demoConversations: DemoConversation[] = [
     lastMessageTime: "5m ago",
     unread: 3,
     messages: [
-      { id: "m1", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "Mon 5:00 PM", isMe: false, isSystem: true },
+      { id: "m1", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "Mon 5:00 PM", isMe: false, isSystem: true },
       { id: "m2", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "Let's gooo! Voted In on Option 1 🙌", timestamp: "Mon 5:02 PM", isMe: false },
       { id: "m3", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "In for Option 1 too. Thursday doesn't work for me", timestamp: "Mon 5:05 PM", isMe: false },
       { id: "m4", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Tuesday works perfect 👍", timestamp: "Mon 5:07 PM", isMe: true },
@@ -857,9 +859,9 @@ export const demoConversations: DemoConversation[] = [
       { id: "m7", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "I'll bring the pump + a cooler with drinks 🧃", timestamp: "Mon 5:15 PM", isMe: false },
       { id: "m8", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#3B82F6", content: "Might be 20min late from work but I'll be there 🏃", timestamp: "Mon 5:30 PM", isMe: false },
       { id: "m9", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "We'll save you a spot on team 2 Jordan 😂", timestamp: "Mon 5:31 PM", isMe: false },
-      { id: "m10", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#F97316", content: "✅ Tuesday Night Basketball is confirmed! 8 players in. See you Tuesday at 7pm, Riverside Courts.", timestamp: "Mon 6:00 PM", isMe: false, isSystem: true },
+      { id: "m10", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "✅ Tuesday Night Basketball is confirmed! 8 players in. See you Tuesday at 7pm, Riverside Courts.", timestamp: "Mon 6:00 PM", isMe: false, isSystem: true },
       { id: "m11", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "LESSGOOOO 🏀🔥", timestamp: "Mon 6:01 PM", isMe: false },
-      { id: "m12", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "5m ago", isMe: false, isSystem: true },
+      { id: "m12", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "5m ago", isMe: false, isSystem: true },
     ],
   },
   {
@@ -874,14 +876,14 @@ export const demoConversations: DemoConversation[] = [
     messages: [
       { id: "m1", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: "Weekend crew! Who's down for soccer Saturday morning?", timestamp: "Fri 8:00 AM", isMe: false },
       { id: "m2", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "I'm down! What time were you thinking?", timestamp: "Fri 8:10 AM", isMe: true },
-      { id: "m3", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: "Either 10am or noon. I'll put up a proposal on OptIn", timestamp: "Fri 8:12 AM", isMe: false },
-      { id: "m4", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#22C55E", content: "⚽ New game proposal: Weekend Soccer Match — Lakeside Park, Saturday. Two options: 10am or Noon. Vote now!", timestamp: "Fri 9:00 AM", isMe: false, isSystem: true },
+      { id: "m3", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: `Either 10am or noon. I'll put up a proposal on ${APP_NAME}`, timestamp: "Fri 8:12 AM", isMe: false },
+      { id: "m4", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#22C55E", content: "⚽ New game proposal: Weekend Soccer Match — Lakeside Park, Saturday. Two options: 10am or Noon. Vote now!", timestamp: "Fri 9:00 AM", isMe: false, isSystem: true },
       { id: "m5", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "10am for sure. Let's get it done before the heat kicks in", timestamp: "Fri 9:05 AM", isMe: false },
       { id: "m6", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Noon is better for me tbh, I'm not a morning person 😴", timestamp: "Fri 9:15 AM", isMe: false },
       { id: "m7", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Voted 10am, we always end up dragging when we start late", timestamp: "Fri 9:20 AM", isMe: true },
       { id: "m8", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "10am is the move. I have afternoon plans anyway", timestamp: "Fri 9:30 AM", isMe: false },
       { id: "m9", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#3B82F6", content: "10am works, voted ✅", timestamp: "Fri 10:00 AM", isMe: false },
-      { id: "m10", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#22C55E", content: "✅ Weekend Soccer Match confirmed for Sat 10am! 7 players in. Lakeside Park.", timestamp: "30m ago", isMe: false, isSystem: true },
+      { id: "m10", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#22C55E", content: "✅ Weekend Soccer Match confirmed for Sat 10am! 7 players in. Lakeside Park.", timestamp: "30m ago", isMe: false, isSystem: true },
     ],
   },
   {
@@ -898,7 +900,7 @@ export const demoConversations: DemoConversation[] = [
       { id: "m2", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Fr, I miss it. What are we thinking?", timestamp: "Mon 11:05 AM", isMe: true },
       { id: "m3", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: "Friday evening? I can get the indoor courts at the rec center", timestamp: "Mon 11:10 AM", isMe: false },
       { id: "m4", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "Indoor is way better, those courts are nice. Let's do it", timestamp: "Mon 11:12 AM", isMe: false },
-      { id: "m5", senderId: "system", senderName: "OptIn", senderInitials: "O", senderColor: "#3B82F6", content: "🏐 New game proposal: Friday Volleyball — Rec Center Indoor Courts. Two options: 6pm or 8pm. Vote now!", timestamp: "Mon 12:00 PM", isMe: false, isSystem: true },
+      { id: "m5", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#3B82F6", content: "🏐 New game proposal: Friday Volleyball — Rec Center Indoor Courts. Two options: 6pm or 8pm. Vote now!", timestamp: "Mon 12:00 PM", isMe: false, isSystem: true },
       { id: "m6", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "6pm is better for me, I fade after 9pm 😂", timestamp: "Mon 12:05 PM", isMe: false },
       { id: "m7", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Voted 6pm. 8pm is too late for a weeknight", timestamp: "Mon 12:08 PM", isMe: true },
       { id: "m8", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Still deciding... 8pm works better with my commute", timestamp: "Mon 1:00 PM", isMe: false },

@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import type { DemoConversation, ChatMessage } from "../data/games";
+import { APP_NAME } from "../constants/app";
 
 interface ChatViewProps {
   conversation: DemoConversation;
@@ -188,7 +189,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
             <p className="text-title-md font-medium text-on-surface">{conversation.name}</p>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full">
               <MessageCircle className="w-3.5 h-3.5 text-on-surface-variant" /> 
-              <p className="text-label-md text-on-surface-variant">Wants to message you on OptIn</p>
+              <p className="text-label-md text-on-surface-variant">Wants to message you on {APP_NAME}</p>
             </div>
           </div>
         ) : (
