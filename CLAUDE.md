@@ -86,7 +86,11 @@ Tailwind v4, CSS-first config — no `tailwind.config.js`. [styles/index.css](sr
 
 [components/ui/](src/app/components/ui/) is stock shadcn/ui over Radix. MUI and Emotion are in `package.json` but effectively unused.
 
-Design constraints (MD3, 48dp touch targets, 4.5:1 contrast, 4-item bottom nav, 8pt grid) are documented in [guidelines/Guidelines.md](guidelines/Guidelines.md); the concrete token tables and component specs are in [design-system/MASTER.md](design-system/MASTER.md).
+**[DESIGN.md](DESIGN.md) is the design system of record** — token tables, component specs, named rules, and a do/don't list that names each known token-drift site by file and line. Its companion [.impeccable/design.json](.impeccable/design.json) carries what the DESIGN.md frontmatter schema can't hold (tonal ramps, dark-mode values, shadow/motion tokens, renderable component snippets). **[PRODUCT.md](PRODUCT.md)** holds durable product truth — users, purpose, positioning, constraints, and what evidence does *not* exist and must not be fabricated. Both were written on 2026-07-28, replacing `design-system/MASTER.md`, which had drifted so far it documented the app's *previous* identity: iOS Liquid Glass, `.ios-card`, `backdrop-blur`, and screens in `pages/` that were deleted.
+
+Two things DESIGN.md establishes that are easy to get wrong: (1) [index.html](index.html) hardcodes `class="dark"` on `<html>` and nothing toggles it, so **the `.dark` ramp is the only palette users ever see** — validate contrast and tonal separation against it, not against the light `:root` values; (2) in that ramp `--surface`, `--background`, and `--surface-container-low` are all `#1A1C19`, so `GameCard`'s background is tonally identical to the page.
+
+The original coursework constraints (MD3, 48dp touch targets, 4.5:1 contrast, 4-item bottom nav, 8pt grid) remain in [guidelines/Guidelines.md](guidelines/Guidelines.md). Note that its 4-item bottom nav conflicts with the 5 items [BottomNav.tsx](src/app/components/BottomNav.tsx) actually ships; PRODUCT.md records this as unresolved rather than silently picking a winner.
 
 `@/` is aliased to `src/` (both [vite.config.ts](vite.config.ts) and [tsconfig.json](tsconfig.json)); most app-internal imports use relative paths anyway.
 
