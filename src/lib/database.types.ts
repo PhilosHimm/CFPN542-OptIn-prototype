@@ -1,7 +1,13 @@
 // Generated from the live schema of project iokxjsvlpqlekptexjxy via the
 // Supabase MCP `generate_typescript_types` tool on 2026-07-28 (after
-// migration 019). Do not hand-edit — regenerate instead, the same way, so
-// this never drifts from the real schema again (docs/BACKLOG.md item #31).
+// migration 019, then again after migration 022). Do not hand-edit —
+// regenerate instead, the same way, so this never drifts from the real
+// schema again (docs/BACKLOG.md item #31) — EXCEPT `game_options.Insert.
+// starts_at`, deliberately widened to optional below. The generator only
+// detects column-level DEFAULT, not the BEFORE INSERT trigger
+// (fn_sync_game_option_times, migration 022) that actually populates it —
+// regenerating verbatim would mark it required and break every insert that
+// correctly omits it.
 export type Json =
   | string
   | number
@@ -187,6 +193,8 @@ export type Database = {
           out_votes: number | null
           proposed_by: string | null
           start_time: string
+          starts_at: string
+          ends_at: string | null
           status: string
         }
         Insert: {
@@ -202,6 +210,8 @@ export type Database = {
           out_votes?: number | null
           proposed_by?: string | null
           start_time: string
+          starts_at?: string
+          ends_at?: string | null
           status?: string
         }
         Update: {
@@ -217,6 +227,8 @@ export type Database = {
           out_votes?: number | null
           proposed_by?: string | null
           start_time?: string
+          starts_at?: string
+          ends_at?: string | null
           status?: string
         }
         Relationships: [
@@ -598,6 +610,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      app_timezone: { Args: never; Returns: string }
       auto_transition_all_games: { Args: never; Returns: number }
       auto_transition_game: { Args: { p_game_id: string }; Returns: undefined }
       create_game_with_options: {
