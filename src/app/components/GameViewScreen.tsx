@@ -803,8 +803,16 @@ export function GameViewScreen() {
   const handleUndoConfirm = async () => {
     if (!game || game.status !== "confirmed") return;
     const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
-    if (confirmedOpt && new Date(confirmedOpt.date + "T00:00") < new Date()) {
-      toast.error("Cannot undo — the game date has already passed.");
+    // Was `date + "T00:00"` — blocked undo as soon as it turned midnight on
+    // game day, hours before the game even started. Compares against the
+    // game's end time instead, still parsed in the viewer's own browser
+    // timezone rather than the server's fixed one (see docs/BACKLOG.md item
+    // #23) — a real fix needs the server's computed end instant exposed to
+    // the client, which this doesn't do. The server's own auto_transition_game
+    // is the actual source of truth for completion; this is only a
+    // best-effort client-side guard for the window before that sweep runs.
+    if (confirmedOpt && new Date(`${confirmedOpt.date}T${confirmedOpt.endTime || confirmedOpt.startTime}`) < new Date()) {
+      toast.error("Cannot undo — the game has already passed.");
       return;
     }
     const ok = await unconfirmGame(game.id);

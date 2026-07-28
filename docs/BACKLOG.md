@@ -60,6 +60,40 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > on the app: every `supabase.from(...)` call in `src/` is gated behind the
 > auth layer or demo mode (which never touches Supabase), so nothing in the
 > app ever queried these tables as `anon` in the first place.
+>
+> **Migration 021 (`auto_vote_creator_earliest_option`, real version
+> `20260728040932`) was applied to production on 2026-07-28**, closing item
+> #41: `create_game_with_options` now casts the creator's `in` vote on their
+> earliest proposed option at creation time, so a solo game (no other
+> invitees) no longer self-cancels every single time from having zero votes.
+>
+> **Migration 022 (`game_time_timestamptz`, real version `20260728044020`)
+> was applied to production on 2026-07-28**, closing items #23 and #24
+> together — both came from the same root cause: `date`/`start_time`/
+> `end_time` are plain `text` with no timezone, and every comparison against
+> them implicitly assumed the database session's timezone (UTC) rather than
+> wherever the game is actually happening. Added `game_options.starts_at`/
+> `ends_at timestamptz`, maintained by a trigger (generated columns don't
+> work here — Postgres rejects `AT TIME ZONE` in them as not `IMMUTABLE`,
+> confirmed by trying it first) rather than replacing the text columns
+> outright. `auto_transition_game` now compares `ends_at < now()` instead of
+> `date::date < current_date`; `create_game_with_options`'s past-date check
+> and `voting_deadline` computation both got the same fix — the latter had
+> been silently shifting every real game's deadline by the app's UTC offset.
+> Proved both bugs and both fixes concretely against production data (not
+> just by reasoning) before applying: an in-progress game that the old logic
+> would have wrongly marked completed correctly stayed `confirmed`, and an
+> adversarial deadline case showed the old code would have clamped a valid
+> host-chosen deadline 4+ hours early. The `end_time <= start_time` case
+> (previously blocked the CHECK constraint on live row `bd1d6495`, a
+> legitimate overnight golf game) is now correctly interpreted as crossing
+> into the next calendar day, verified against zero constraint violations on
+> live data both before and after applying. Single fixed timezone
+> (`public.app_timezone()`, currently `'America/New_York'` — a placeholder,
+> since no timezone signal exists anywhere in this schema; confirmed with the
+> product owner that a single fixed zone is the right model, not a
+> per-game/user one) rather than replacing every text column across the app,
+> per explicit design sign-off before writing any of this.
 
 > ## Read this first
 > **A Supabase GitHub integration is linked to this repo** — the "Supabase
@@ -167,8 +201,8 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 
 | # | Item | Status |
 |---|---|---|
-| 23 | UTC vs local date — `go.date::date < CURRENT_DATE` flips games to completed mid-game; client mirror disagrees | `TODO` |
-| 24 | Dates/times stored as `text`, no zone; `end_time > start_time` is lexical, rejects midnight-crossing | `TODO` — **now blocking a constraint.** Live option `bd1d6495` (game "golf") is start `22:00` / end `12:00`. Adding the CHECK (even `NOT VALID`) made that row unwritable, because `NOT VALID` still re-checks on UPDATE. Migrate to `timestamptz`, resolve that row, then add the constraint |
+| 23 | UTC vs local date — `go.date::date < CURRENT_DATE` flips games to completed mid-game; client mirror disagrees | `APPLIED` — `022_game_time_timestamptz.sql`. Server-side: `auto_transition_game` now compares `ends_at < now()` (a real instant) instead of `date::date < current_date` (ambiguous UTC-vs-local). Proved the bug and the fix concretely against production data before applying — a game scheduled "today" in the app's timezone but already "tomorrow" in UTC would have been marked completed while genuinely in progress; after the fix it correctly stays `confirmed` until it truly ends. The same implicit-UTC bug also silently shifted every real game's `voting_deadline` by the app's UTC offset (via `v_earliest` in `create_game_with_options`) — fixed too, and proved with an adversarial case where the old code would have clamped a valid host-chosen deadline 4+ hours early. Client mirror (`GameViewScreen.tsx`'s undo-confirm guard) was still comparing against midnight in the *viewer's own browser timezone* — cheaply improved to compare against end time instead of midnight, but not fully fixed (would need the server's computed instant exposed to the client) |
+| 24 | Dates/times stored as `text`, no zone; `end_time > start_time` is lexical, rejects midnight-crossing | `APPLIED` — `022_game_time_timestamptz.sql`. Kept `date`/`start_time`/`end_time` as `text` for display (no client changes needed) and added `game_options.starts_at`/`ends_at timestamptz`, maintained by a `BEFORE INSERT/UPDATE` trigger (`fn_sync_game_option_times` — tried as a `GENERATED ALWAYS AS ... STORED` column first, but Postgres rejects `AT TIME ZONE` there as not `IMMUTABLE`). `end_time <= start_time` is now correctly interpreted as crossing into the next calendar day, which is exactly what makes `bd1d6495` (golf, 22:00→12:00) satisfy the new `ends_at > starts_at` CHECK constraint — verified live before *and* after applying, zero rows violate it. Timezone is a single fixed `public.app_timezone()` (`'America/New_York'`, a placeholder guess — no timezone signal exists anywhere in this schema; confirmed with the product owner that a single fixed zone is the right model for this single-region app, and correcting the region later is a one-line change) |
 | 25 | Duplicate options are a shipped feature, no unique constraint → guaranteed tie | `APPLIED` — 014 §4 |
 | 26 | Negative costs and negative voting hours accepted | `DONE` — 014 §4 constrains cost; `computeVotingDeadline()` rejects non-positive hours |
 | 27 | `end_time: o.endTime \|\| o.startTime` makes `end == start` | partly `DONE` — 014 makes `end_time` nullable and the RPC stores blank as NULL. **No DB `end > start` constraint**: it was attempted, froze a live row, and is semantically wrong on text columns — see item 24 |
