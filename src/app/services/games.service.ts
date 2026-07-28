@@ -647,19 +647,17 @@ export function subscribeToVotes(
 ): { unsubscribe: () => void } {
   if (isDemoMode()) return { unsubscribe: () => {} };
   if (!supabase) return { unsubscribe: () => {} };
+  if (optionIds.length === 0) return { unsubscribe: () => {} };
   try {
-    const optionIdSet = new Set(optionIds);
+    // Scoped server-side via Realtime's `in.()` filter instead of subscribing
+    // to every vote in the database and discarding the ones that don't
+    // match client-side.
     const channel = supabase
-      .channel(`votes:game-${optionIds[0]}`)
+      .channel(`votes:options-${optionIds.join("-")}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "votes" },
-        (payload) => {
-          const optionId = (payload.new as any)?.option_id ?? (payload.old as any)?.option_id;
-          if (optionId && optionIdSet.has(optionId)) {
-            onVoteChange();
-          }
-        }
+        { event: "*", schema: "public", table: "votes", filter: `option_id=in.(${optionIds.join(",")})` },
+        () => { onVoteChange(); }
       )
       .subscribe();
     return { unsubscribe: () => { supabase?.removeChannel(channel); } };

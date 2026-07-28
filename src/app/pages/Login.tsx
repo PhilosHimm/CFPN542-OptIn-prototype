@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Navigate } from "react-router";
 import { Mail, Lock, Eye, EyeOff, LogIn, Play } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { APP_NAME } from "../constants/app";
 
 export function Login() {
   const navigate = useNavigate();
@@ -58,10 +59,10 @@ export function Login() {
         <div className="text-center space-y-3">
           <div className="flex justify-center">
             <div className="w-16 h-16 rounded-md3-extra-large bg-primary-container flex items-center justify-center">
-              <span className="text-display-sm font-medium text-on-primary-container">O</span>
+              <span className="text-display-sm font-medium text-on-primary-container">{APP_NAME.charAt(0)}</span>
             </div>
           </div>
-          <h1 className="text-headline-lg font-medium text-on-surface">OptIn</h1>
+          <h1 className="text-headline-lg font-medium text-on-surface">{APP_NAME}</h1>
           <p className="text-body-md text-on-surface-variant">Pickup sports, simplified.</p>
         </div>
 
@@ -166,7 +167,7 @@ export function Login() {
             Continue in Demo
           </button>
           <p className="text-center text-body-sm text-on-surface-variant/60">
-            Preview OptIn with sample data. Create an account to use the live app.
+            Preview {APP_NAME} with sample data. Create an account to use the live app.
           </p>
         </div>
 

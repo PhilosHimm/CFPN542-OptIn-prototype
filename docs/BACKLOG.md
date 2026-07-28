@@ -30,6 +30,36 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > `database.types.ts` was also regenerated from the live schema (item #31) and
 > `createClient<Database>(...)` is now actually typed — see item #31 for the
 > fallout that surfaced and was fixed.
+>
+> **New failure mode, 2026-07-28: applying via the Supabase MCP `apply_migration`
+> tool renames your migration for you.** 019 was created locally with
+> `npx supabase migration new` (timestamp `20260728023210`), tested, then
+> applied to production directly via the MCP tool rather than `supabase db
+> push`. The PR's "Supabase Preview" check then failed at stage 1 —
+> `Remote migration versions not found in local migrations directory` —
+> because `apply_migration` recorded the migration in
+> `schema_migrations` under its own timestamp (`20260728024524`, the moment it
+> actually ran), not the filename's. The two diverged by about 13 minutes of
+> local testing in between. Fixed by renaming the local file to match the
+> remote-recorded version exactly. **Lesson: when applying a migration via
+> `apply_migration` (not the CLI), always re-check `list_migrations`
+> immediately afterward and rename the local file to match before opening the
+> PR — don't trust the filename you created it with.**
+>
+> **Migration 020 (`restrict_reads_to_authenticated`, real version
+> `20260728040022`) was applied to production on 2026-07-28**, closing item
+> #57: all 31 `TO public` RLS policies are now `TO authenticated`, so
+> unauthenticated (`anon`) requests can no longer read anything over the Data
+> API. Verified via `npx supabase start` (empty database) and a
+> `begin;...rollback;` dry run against production, plus a functional check as
+> the bare `anon` role (denied outright) — same protocol as 019, and the same
+> filename-mismatch lesson applied immediately this time. Along the way,
+> found that `profiles`' INSERT/SELECT policies exist live but were never in
+> *any* migration file, ledger-tracked or foundational — recreated verbatim
+> from the live definition as part of this migration. Zero functional impact
+> on the app: every `supabase.from(...)` call in `src/` is gated behind the
+> auth layer or demo mode (which never touches Supabase), so nothing in the
+> app ever queried these tables as `anon` in the first place.
 
 > ## Read this first
 > **A Supabase GitHub integration is linked to this repo** — the "Supabase
@@ -148,14 +178,14 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 31 | `database.types.ts` stale, and `createClient` is called without `<Database>` so it does nothing | `DONE` — regenerated from the live schema via the Supabase MCP `generate_typescript_types` tool; `createClient<Database>(...)` now actually types the client. Fallout was 12 nullability mismatches across `gameData.ts`/`games.service.ts`/`messages.service.ts`, all fixed; `npm run build` passes |
 | 32 | `maxPlayers` declared non-null but nullable in DB → "5/null" in Calendar | `DONE` |
 | 33 | `unconfirmGame` left a stale deadline → next sweep instantly re-decides | `DONE` |
-| 34 | `weeks_played`/`attendance_rate` read by UI, written by nothing | `TODO` |
+| 34 | `weeks_played`/`attendance_rate` read by UI, written by nothing | `APPLIED` — same fix as item #20, `fn_record_game_attendance` (019 §5) writes `games_played`, `weeks_played`, and `attendance_rate` together whenever a game completes |
 | 35 | `012_optional_max_players.sql` is one line of literal `\n` escapes — unrunnable | `DONE` — rewritten with real newlines, idempotent, history documented |
 | 36 | `getGroups()` has no membership filter → `assignedGroup` is the first group in the entire DB **[latent]** | `DONE` — inner-joined to `group_members`; no auto-select; `group_id` sent only for Group Only |
 | 37 | `game_options` SELECT `using(true)` — enumerate every option id | `APPLIED` — 014 §7 |
 | 38 | Recursive `game_players` SELECT policy in `004` **[latent]** — don't reintroduce during reconciliation | 014 adds `SECURITY DEFINER` helpers to avoid it |
 | 39 | `maybe` votes collected then discarded — not counted, not used as tiebreak | `APPLIED` — 019 §4: they were already counted correctly (`fn_sync_vote_counts`, 015); `auto_transition_game` now uses them as a secondary tiebreak when two or more options are tied on `in` votes |
 | 40 | `v_max_in = 0` conflated "nobody voted" with "all out" | `APPLIED` — 015 §3 distinguishes them |
-| 41 | Solo games always self-cancel — creator auto-joined but never auto-voted | `TODO` |
+| 41 | Solo games always self-cancel — creator auto-joined but never auto-voted | `APPLIED` — `021_auto_vote_creator_earliest_option.sql`. `create_game_with_options` now casts the creator's `in` vote on their earliest proposed option at creation time — the same option the voting deadline is already anchored to. They can still change it; a multi-invite game can still tie or lose to another option |
 | 42 | Past dates accepted — no `min` on the input, no server check | `DONE` — `min` added to the date input; `saveGame()` rejects past dates client-side; `create_game_with_options` (019 §7) rejects them server-side too |
 | 43 | Float rounding residual on cost split; divisor fixed at creation | `DONE` — the "divisor fixed at creation" half is fixed: `GameViewScreen`'s per-person figure is always recomputed live from the actual roster/confirmed votes (never a stale creation-time value) for `fixed`-cost games. The sub-cent rounding residual itself (`$10 / 3` not summing back to exactly `$10.00`) is accepted as inherent to any even split and not further addressed |
 | 44 | Host can leave and orphan their own roster, keeping host powers | `DONE` — the roster-edit remove (X) button is hidden on the host's own row (`GameViewScreen.tsx`); no dedicated "Leave Game" action exists elsewhere in the app |
@@ -171,12 +201,12 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 49 | `games.service.ts` discards option/invite insert errors, returns `{error:null}` | `DONE` — the function this was in (`createGame`) was dead code, unused by `CreateGameScreen` (which calls `gameData.ts`'s `saveGame()` → the transactional RPC instead). Deleted rather than fixed |
 | 50 | `display_date` written raw ISO in one path, locale string in another; frozen in creator's locale | `DONE` — `addGameOption`/`updateGameOption` now use a shared `formatDisplayDate()` matching the RPC's `to_char(date, 'Dy, Mon FMDD')` format; the third, divergent writer (dead `createGame` in `games.service.ts`) was deleted per item #49 |
 | 51 | One malformed date row would abort the whole sweep | `APPLIED` — 015 §4 per-game exception handling |
-| 52 | `012` duplicate numbering with an ordering dependency on `009` | `TODO` |
+| 52 | `012` duplicate numbering with an ordering dependency on `009` | `DONE` — investigated, not a functional bug. Two unrelated migrations (`allow_game_delete.sql` and `012_optional_max_players.sql`) were both internally commented "Migration 012"; replay order is by filename timestamp, not the human label, so this never affected anything. `012`'s `DROP CONSTRAINT IF EXISTS games_max_players_check` looks like it depends on archived migration 009 (which first created that constraint), but `IF EXISTS` makes it safe whether or not 009 ran. Clarified both files' comments (SQL itself untouched — both are already-applied, ledger-tracked, reconstructed-verbatim migrations) |
 | 53 | Dead code: `persistTransitions`, `SportIcon.tsx`, `.orig`/`.rej` leftovers, root-level codemods, `src/app/pages/` | `DONE` — only `persistTransitions` (`gameData.ts`, unused) was still actually present; deleted. Everything else in this line was already cleaned up in the 2026-07-27 pass documented in CLAUDE.md, or never existed (`.orig`/`.rej`/codemod globs all return zero matches) |
-| 54 | No `APP_NAME` constant — 39 hardcoded "OptIn" strings across 16 files; `robots.txt`/`sitemap.xml` hardcode `optin.app` | `TODO` |
+| 54 | No `APP_NAME` constant — 39 hardcoded "OptIn" strings across 16 files; `robots.txt`/`sitemap.xml` hardcode `optin.app` | `DONE` for `src/` — added `APP_NAME` (`src/app/constants/app.ts`) and replaced every hardcoded "OptIn" across `ChatView.tsx`, `data/games.ts`, `Login.tsx`, `Signup.tsx`, and `lib/supabase.ts`'s console-log prefixes (7 files/spots found live in the current tree, not 16 — the original count is from 2026-07-27 and some of those 16 files no longer exist post-cleanup). **Not** done for `index.html`, `public/manifest.json`, `public/robots.txt`, `public/sitemap.xml` — these are static files with no build-time templating configured (no vite-plugin-html or equivalent), so a JS constant can't reach them without adding that infrastructure. Left hardcoded, documented in `app.ts`'s own comment |
 | 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `DONE` — fixed all 3 confirmed non-demo occurrences (`getGameById`, `getGroups`, `getCalendarMarkers` in `games.service.ts`); each now returns an empty/null result instead of fabricated data on a real error. `profiles.service.ts` and `messages.service.ts` audited clean (every `return mock*` already gated by `isDemoMode()`) |
 | 56 | **UPDATE policies had no `WITH CHECK`** — 8 of 9. An UPDATE policy's `USING` picks which rows you may change; `WITH CHECK` picks what you may turn them into. Without it, `game_players` let a member move their row's `game_id` to any game, **bypassing the INSERT hardening in 014 §6**; a host could move an option into a game they don't own, or reassign `games.created_by` and orphan the game | `APPLIED` — `018_update_policy_with_check.sql`. Verified: `game_id`/`user_id` reassignment rejected, invite-accept still works |
-| 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
+| 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `APPLIED` — `020_restrict_reads_to_authenticated.sql`. Confirmed with the product owner: logged-out requests should not be able to read anything over the API. All 31 policies (every table) now `TO authenticated`, matching the baseline exactly |
 | 58 | ~~Realtime has never worked~~ **[stale — corrected 2026-07-27].** This claimed no `public` table was in any publication. Re-verified live while debugging item 61: `pg_publication_tables` currently shows `messages`, `votes`, and `game_players` **are** members of `supabase_realtime` — someone (or something) added them after this item was originally written, and the claim was never re-checked before being repeated in the PR that consolidated the migrations. `games`, `game_options`, `conversation_members`, `friend_requests` are still not members, so partial gaps remain, but "never worked" was wrong. **Lesson applied in item 61: don't trust a snapshot in this file over a live query, including this one — re-check before relying on it again** | `PARTIALLY TRUE` — 3/7 recommended tables are in the publication; add the remaining 4 if you want full realtime coverage: `alter publication supabase_realtime add table public.games, public.game_options, public.conversation_members, public.friend_requests;` (each guarded the way `001` now is, in case any land there before you run it) |
 | 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `APPLIED` — 019 §2 drops `"Users can read own conversation memberships"` |
 | 60 | **A Supabase GitHub integration tracks `supabase/migrations/`** — undocumented until it broke, three ways in sequence: (a) consolidating history into one baseline file removed the per-version files the ledger-comparison stage expects (`Remote migration versions not found...`); (b) fixing that to exactly the 13 ledger-tracked versions then failed the *next* stage — the integration provisions a fresh empty preview DB per PR and replays the whole directory (`relation "public.conversations" does not exist`), since none of those 13 files create a table; (c) restoring the 4 table-creating files (`001`–`003`, `008`) then hit a duplicate-policy error from `001`'s own ~25 policies colliding with later ones — caught locally, not in CI, by actually running `npx supabase start` before pushing a third time **[live]** | `DONE` (superseded by item 61 for one detail) — `migrations/` holds 17 files (13 ledger + 4 foundational); `001` rewritten to contain only tables/RLS-enable, no policies. Verified via full local replay: 17/17 apply cleanly against an **empty** database, 77/77 tracked objects match production. ⚠️ That local test does not validate against an **already-populated** database — see item 61, found the hard way when this passed CI and then failed again on `main` |
