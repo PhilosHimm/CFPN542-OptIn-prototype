@@ -605,8 +605,12 @@ function mapDbGameToGame(g: any): Game {
 
 // Supabase select string — fetches individual vote rows and real player profiles
 // so mapDbGameToGame can build genuine voter ID arrays and a real roster.
+// game_options!game_options_game_id_fkey disambiguates the embed: games and
+// game_options have two FKs between them (game_options.game_id -> games.id,
+// and games.confirmed_option_id -> game_options.id), so an unqualified
+// `game_options(...)` embed is ambiguous to PostgREST and 300s.
 const GAME_SELECT =
-  "*, game_options(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
+  "*, game_options!game_options_game_id_fkey(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
 
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
