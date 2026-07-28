@@ -45,3 +45,5 @@ typecheck.log
 tmp_*.txt
 *.orig
 *.rej
+
+repomix-output.xml

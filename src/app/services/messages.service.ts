@@ -200,14 +200,14 @@ export function subscribeToMessages(
           if (!error && data) {
             onMessage({
               id: data.id,
-              senderId: data.sender_id,
+              senderId: data.sender_id ?? "",
               senderName: data.profiles?.name || "Unknown",
               senderInitials: data.profiles?.initials || "?",
               senderColor: data.profiles?.color || "#999",
               content: data.content,
-              timestamp: formatTimestamp(data.created_at),
+              timestamp: formatTimestamp(data.created_at ?? new Date().toISOString()),
               isMe: data.sender_id === currentUserId,
-              isSystem: data.is_system,
+              isSystem: data.is_system ?? false,
             });
           }
         }

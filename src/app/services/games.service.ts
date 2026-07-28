@@ -119,7 +119,10 @@ export async function getGameById(id: string): Promise<Game | null> {
       .eq("id", id)
       .single();
 
-    if (error || !data) return mockGames.find((g) => g.id === id) || null;
+    if (error || !data) {
+      if (error) showNetworkError("game details");
+      return null;
+    }
 
     return {
       id: data.id,
@@ -132,7 +135,7 @@ export async function getGameById(id: string): Promise<Game | null> {
       maxPlayers: data.max_players,
       currentPlayers: data.current_players,
       createdBy: data.created_by,
-      groupId: data.group_id,
+      groupId: data.group_id ?? "",
       countdownH: 0,
       countdownM: 0,
       countdownS: 0,
@@ -154,8 +157,8 @@ export async function getGameById(id: string): Promise<Game | null> {
       }),
       totalCost: data.total_cost,
       perPersonCost: data.per_person_cost,
-      confirmedOptionId: data.confirmed_option_id,
-      description: data.description,
+      confirmedOptionId: data.confirmed_option_id ?? undefined,
+      description: data.description ?? undefined,
     };
   } catch {
     showNetworkError("game details");
@@ -182,7 +185,10 @@ export async function getGroups(): Promise<Group[]> {
       .eq("group_members.user_id", uid)
       .order("name");
 
-    if (error || !data) return mockGroups;
+    if (error || !data) {
+      if (error) showNetworkError("groups");
+      return [];
+    }
 
     return data.map((g: any) => ({
       id: g.id,
@@ -232,7 +238,10 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
 
     const { data, error } = await query;
 
-    if (error || !data) return mockCalendarMarkers;
+    if (error || !data) {
+      if (error) showNetworkError("calendar");
+      return {};
+    }
 
     const markers: Record<string, { status: GameStatus; gameId: string }[]> = {};
     for (const row of data as any[]) {
@@ -251,106 +260,12 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
   }
 }
 
-interface CreateGameInput {
-  title: string;
-  sport: string;
-  gameType: "Casual" | "Competitive";
-  maxPlayers: number | null;
-  groupId: string;
-  totalCost: number;
-  visibility: string;
-  createdBy: string;
-  timeOptions: {
-    date: string;
-    startTime: string;
-    endTime: string;
-    location: string;
-  }[];
-  invitedPlayerIds: string[];
-}
-
-export async function createGame(input: CreateGameInput): Promise<{ id: string; error: string | null }> {
-  if (isDemoMode()) {
-    return { id: `game-${Date.now()}`, error: null };
-  }
-  if (!supabase) return { id: "", error: "Unable to connect to the database. Please try again later." };
-  if (!input.timeOptions || input.timeOptions.length === 0) {
-    return { id: "", error: "You must provide at least one time option." };
-  }
-
-  try {
-    const sportData = sports.find((s) => s.name === input.sport);
-    // Include creator in the split (length + 1)
-    const totalPlayersAtCreation = input.invitedPlayerIds.length + 1;
-    const perPersonCost = input.totalCost > 0 
-      ? input.totalCost / totalPlayersAtCreation
-      : 0;
-
-    const votingDeadline = new Date();
-    votingDeadline.setHours(votingDeadline.getHours() + 24);
-
-    const { data: game, error } = await supabase
-      .from("games")
-      .insert({
-        id: crypto.randomUUID(),
-        title: input.title,
-        sport: input.sport,
-        sport_emoji: sportData?.emoji || "",
-        sport_color: sportData?.color || "#007AFF",
-        status: "proposal",
-        game_type: input.gameType,
-        max_players: input.maxPlayers,
-        created_by: input.createdBy,
-        group_id: input.groupId,
-        voting_deadline: votingDeadline.toISOString(),
-        total_cost: input.totalCost,
-        per_person_cost: perPersonCost,
-        confirmed_option_id: null,
-        description: null,
-        visibility: input.visibility as any,
-      })
-      .select()
-      .single();
-
-    if (error || !game) return { id: "", error: error?.message || "Failed to create game" };
-
-    // Insert time options
-    const optionInserts = input.timeOptions
-      .filter((o) => o.date && o.startTime)
-      .map((o) => {
-        const d = new Date(o.date + "T00:00:00");
-        const displayDate = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-        return {
-          id: crypto.randomUUID(),
-          game_id: game.id,
-          date: o.date,
-          display_date: displayDate,
-          start_time: o.startTime,
-          end_time: o.endTime || o.startTime,
-          location: o.location || "",
-        };
-      });
-
-    if (optionInserts.length > 0) {
-      await supabase.from("game_options").insert(optionInserts);
-    }
-
-    // Invite players
-    if (input.invitedPlayerIds.length > 0) {
-      const playerInserts = input.invitedPlayerIds.map((pid) => ({
-        game_id: game.id,
-        user_id: pid,
-        status: "invited" as const,
-      }));
-      await supabase.from("game_players").insert(playerInserts);
-    }
-
-    return { id: game.id, error: null };
-  } catch {
-    toast.error("Failed to create game. Check your connection and try again.");
-    return { id: "", error: "Something went wrong while creating the game. Please try again." };
-  }
-}
+// Game creation goes exclusively through gameData.ts's saveGame(), which calls
+// the transactional create_game_with_options RPC (migration 016). A duplicate
+// non-atomic createGame() used to live here — unused by CreateGameScreen (or
+// anywhere else), with its own divergent per-person-cost formula and silently
+// discarded option/invite insert errors. Deleted rather than fixed; see
+// docs/BACKLOG.md items #19, #30, #43, #49.
 
 export async function castVote(
   optionId: string,
@@ -391,23 +306,14 @@ export async function joinGame(gameId: string, userId: string): Promise<{ error:
   if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
+    // fn_sync_current_players (trigger on game_players, migration 006) keeps
+    // games.current_players correct server-side; writing it here too raced
+    // against the trigger and, for non-hosts, silently no-op'd under RLS
+    // (games UPDATE requires created_by = auth.uid()).
     const { error } = await supabase.from("game_players").upsert(
       { game_id: gameId, user_id: userId, status: "joined" },
       { onConflict: "game_id,user_id" }
     );
-
-    if (!error) {
-      // Update current_players count
-      const { count } = await supabase
-        .from("game_players")
-        .select("*", { count: "exact", head: true })
-        .eq("game_id", gameId)
-        .eq("status", "joined");
-
-      if (count !== null) {
-        await supabase.from("games").update({ current_players: count }).eq("id", gameId);
-      }
-    }
 
     return { error: error?.message ?? null };
   } catch (err) {
@@ -421,23 +327,14 @@ export async function leaveGame(gameId: string, userId: string): Promise<{ error
   if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
+    // fn_sync_current_players (trigger on game_players, migration 006) keeps
+    // games.current_players correct server-side; see joinGame for why the
+    // client used to also write it and no longer does.
     const { error } = await supabase
       .from("game_players")
       .update({ status: "declined" })
       .eq("game_id", gameId)
       .eq("user_id", userId);
-
-    if (!error) {
-      const { count } = await supabase
-        .from("game_players")
-        .select("*", { count: "exact", head: true })
-        .eq("game_id", gameId)
-        .eq("status", "joined");
-
-      if (count !== null) {
-        await supabase.from("games").update({ current_players: count }).eq("id", gameId);
-      }
-    }
 
     return { error: error?.message ?? null };
   } catch (err) {
