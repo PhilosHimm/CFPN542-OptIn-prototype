@@ -30,6 +30,21 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > `database.types.ts` was also regenerated from the live schema (item #31) and
 > `createClient<Database>(...)` is now actually typed — see item #31 for the
 > fallout that surfaced and was fixed.
+>
+> **New failure mode, 2026-07-28: applying via the Supabase MCP `apply_migration`
+> tool renames your migration for you.** 019 was created locally with
+> `npx supabase migration new` (timestamp `20260728023210`), tested, then
+> applied to production directly via the MCP tool rather than `supabase db
+> push`. The PR's "Supabase Preview" check then failed at stage 1 —
+> `Remote migration versions not found in local migrations directory` —
+> because `apply_migration` recorded the migration in
+> `schema_migrations` under its own timestamp (`20260728024524`, the moment it
+> actually ran), not the filename's. The two diverged by about 13 minutes of
+> local testing in between. Fixed by renaming the local file to match the
+> remote-recorded version exactly. **Lesson: when applying a migration via
+> `apply_migration` (not the CLI), always re-check `list_migrations`
+> immediately afterward and rename the local file to match before opening the
+> PR — don't trust the filename you created it with.**
 
 > ## Read this first
 > **A Supabase GitHub integration is linked to this repo** — the "Supabase
