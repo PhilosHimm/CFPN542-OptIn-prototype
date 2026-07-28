@@ -107,7 +107,14 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
   };
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    // Full-screen overlay: ChatsScreen renders this in place of the list, but
+    // Layout still renders its fixed BottomNav underneath in normal flow, and
+    // this component's parent chain has no fixed height for h-full/h-screen
+    // to size against. Pinning to the viewport with fixed inset-0 (above
+    // BottomNav's z-50) is what makes the sticky input bar actually stay
+    // visible instead of landing underneath the nav on initial render.
+    <div className="fixed inset-0 z-[80] flex justify-center bg-surface">
+      <div className="flex flex-col h-full w-full max-w-[430px] sm:max-w-lg">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-surface border-b border-outline-variant/50 px-4 pt-[48px] pb-3 flex items-center gap-3">
         <button
@@ -247,6 +254,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
