@@ -94,6 +94,22 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > product owner that a single fixed zone is the right model, not a
 > per-game/user one) rather than replacing every text column across the app,
 > per explicit design sign-off before writing any of this.
+>
+> **Migration 023 (`pin_app_timezone_search_path`, real version
+> `20260728163028`) was applied to production on 2026-07-28.** Caught during a
+> post-merge verification pass (re-running the security advisor as a matter
+> of routine after every migration, not just before applying it): `022`
+> introduced `public.app_timezone()` without `set search_path = public`,
+> regressing the advisor count from 8 to 9. The function references no
+> tables, so there's no real privilege-escalation surface, but every other
+> function in this codebase pins `search_path` on principle — fixed to match,
+> advisor count back to 8. Docker wasn't running for this one, so verification
+> was a `begin;...rollback;` dry run against production only, not the usual
+> empty-database replay too — acceptable here since the change is a pure
+> `create or replace` with no logic or schema difference, not a new judgment
+> call. **Lesson: re-run the advisor after every migration lands, not just
+> before applying it — this is exactly the kind of regression that's invisible
+> until you look.**
 
 > ## Read this first
 > **A Supabase GitHub integration is linked to this repo** — the "Supabase
@@ -230,7 +246,7 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | # | Item | Status |
 |---|---|---|
 | 46 | Advisors: `user_in_conversation` mutable `search_path`; all `SECURITY DEFINER` fns `EXECUTE`-able by `anon`; leaked-password protection off | `user_in_conversation` was actually already fixed by 017 (this line was stale — see the note at the top of this file about not trusting its own snapshots). The function still missing `search_path` was `update_updated_at`, fixed in 019 §3. `EXECUTE`-able-by-`anon` is a mix of intentional (RLS helpers/RPCs need it) and already-revoked (trigger fns); remaining 7 advisor warnings are expected, see 017's own comment. Leaked-password protection is a dashboard Auth setting — `TODO`, cannot be fixed from a migration |
-| 47 | `subscribeToVotes` subscribes to the whole `votes` table, filters client-side | `TODO` |
+| 47 | `subscribeToVotes` subscribes to the whole `votes` table, filters client-side | `DONE` — scoped the Realtime filter to `option_id=in.(...)` instead of subscribing to every row in the table. The function is currently dead code (exported, never called anywhere), kept rather than deleted since CLAUDE.md documents votes as an intended realtime use case — wiring it into `GameViewScreen` is separate, larger work not covered by this item |
 | 48 | `costType` never persisted — "Free" and "$0/player" indistinguishable | `APPLIED` — 019 §6 adds `games.cost_type text not null check (...)`, backfilled from existing `(total_cost, per_person_cost)` data; `create_game_with_options` accepts `p_cost_type`; `saveGame()`/`CreateGameScreen` plumb it through; `Game.costType` is optional so demo-mode games (which predate the column) still fall back to the old inference |
 | 49 | `games.service.ts` discards option/invite insert errors, returns `{error:null}` | `DONE` — the function this was in (`createGame`) was dead code, unused by `CreateGameScreen` (which calls `gameData.ts`'s `saveGame()` → the transactional RPC instead). Deleted rather than fixed |
 | 50 | `display_date` written raw ISO in one path, locale string in another; frozen in creator's locale | `DONE` — `addGameOption`/`updateGameOption` now use a shared `formatDisplayDate()` matching the RPC's `to_char(date, 'Dy, Mon FMDD')` format; the third, divergent writer (dead `createGame` in `games.service.ts`) was deleted per item #49 |
