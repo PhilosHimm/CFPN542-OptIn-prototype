@@ -64,23 +64,26 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
-    
-    if (!isDemo && profile) {
-      // Optimistic message
-      const tempMsg: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        senderId: profile.id,
-        senderName: "You",
-        senderInitials: profile.initials,
-        senderColor: profile.color,
-        content: text,
-        timestamp: "Just now",
-        isMe: true,
-        isSystem: false,
-      };
-      setMessages(prev => [...prev, tempMsg]);
-    }
-    
+
+    // Optimistic message — shown immediately, reconciled against the real
+    // row that arrives via subscribeToMessages (or, in demo mode, this is
+    // the only copy since ChatsScreen's demoConvos update doesn't flow back
+    // down into this component's local `messages` state).
+    const tempMsg: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      senderId: profile?.id ?? "me",
+      senderName: "You",
+      senderInitials: profile?.initials || "?",
+      senderColor: profile?.color || "#007AFF",
+      content: text,
+      timestamp: "Just now",
+      isMe: true,
+      isSystem: false,
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
+    onSendMessage(conversation.id, text);
+    setInput("");
     inputRef.current?.focus();
   };
 

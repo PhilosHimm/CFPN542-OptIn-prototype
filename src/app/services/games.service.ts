@@ -52,7 +52,7 @@ export async function getGames(userId?: string): Promise<Game[]> {
 
     const { data: gamesData, error } = await supabase
       .from("games")
-      .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
+      .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .in("id", visibleIds)
       .order("created_at", { ascending: false });
 
@@ -115,7 +115,7 @@ export async function getGameById(id: string): Promise<Game | null> {
 
     const { data, error } = await supabase
       .from("games")
-      .select("*, game_options(*, votes(value, profiles:user_id(initials)))")
+      .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .eq("id", id)
       .single();
 
@@ -213,7 +213,7 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
   try {
     let query = supabase
       .from("game_options")
-      .select("date, game_id, games!inner(id, status)")
+      .select("date, game_id, games!game_options_game_id_fkey!inner(id, status)")
       .order("date");
 
     if (userId) {
@@ -572,7 +572,7 @@ export async function getInvites(userId: string): Promise<GameInvite[]> {
           sport_color,
           sport_emoji,
           confirmed_option_id,
-          game_options ( id, display_date, start_time, in_votes )
+          game_options!game_options_game_id_fkey ( id, display_date, start_time, in_votes )
         )
       `)
       .eq("user_id", userId)
