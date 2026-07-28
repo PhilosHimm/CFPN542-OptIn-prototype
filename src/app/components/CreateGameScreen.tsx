@@ -418,6 +418,7 @@ export function CreateGameScreen() {
       title: gameTitle,
       sport: effectiveSport,
       gameType: gameType as "casual" | "competitive",
+      costType,
       maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
       totalCost: costType === "fixed" ? parseFloat(totalCost) || 0 : 0,
       perPersonCost: costType === "per_player" ? parseFloat(perPlayerCost) || 0 : (costType === "fixed" ? parseFloat(perPersonCost) : 0),
@@ -920,6 +921,7 @@ function StepTimeLocation({
                 <input
                   type="date"
                   value={option.date}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => onUpdate(option.id, "date", e.target.value)}
                   className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface focus:border-primary focus:border-2 focus:outline-none"
                 />

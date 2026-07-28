@@ -12,6 +12,24 @@ Status key: `DONE` · `APPLIED` (live on the database) · `TODO` · `DECISION` (
 > to 8 (the remaining 7 SECURITY DEFINER warnings are intentional, plus one
 > dashboard Auth setting). `pg_cron` is still **not** installed, so transitions
 > run only when a user opens the app.
+>
+> **Migration 019 was applied to production on 2026-07-28**, closing out most of
+> the remaining P1/P2/P3 backlog: leaving a game now actually revokes access
+> (`user_in_game` excludes `declined`), `maybe` votes are used as a tiebreak,
+> attendance stats (`games_played`/`weeks_played`/`attendance_rate`) are now
+> recorded server-side via a trigger on `games`, `cost_type` is persisted,
+> `create_game_with_options` rejects past dates, the duplicate
+> `conversation_members` SELECT policy is gone, and `update_updated_at` is
+> pinned to `search_path = public`. Verified the same two ways as every
+> migration since item 61: `npx supabase start` against an empty database, and
+> a `begin;...rollback;` dry run directly against the real, populated
+> project — both clean — before applying for real. Advisor count: still 8 (the
+> `function_search_path_mutable` warning is gone, replaced numerically by
+> nothing — `create_game_with_options` now has one more `SECURITY DEFINER`
+> parameter but is still the same single advisor line).
+> `database.types.ts` was also regenerated from the live schema (item #31) and
+> `createClient<Database>(...)` is now actually typed — see item #31 for the
+> fallout that surfaced and was fixed.
 
 > ## Read this first
 > **A Supabase GitHub integration is linked to this repo** — the "Supabase
@@ -110,10 +128,10 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 16 | Account deletion permanently blocked — `games`/`game_players`/`votes` lost `ON DELETE` **[live]** | `APPLIED` — 014 §3 ⚠️ CASCADE vs SET NULL is a product call |
 | 17 | Tie: no `ELSE` branch, and the tie-break gate compares a refetch against itself (always true) **[code]** | gate `DONE`; SQL tie recording in 015 §3 |
 | 18 | `min_players` client-only — server would confirm on one vote while the host's Confirm refuses **[live]** | `APPLIED` — 014 §4 adds column, 015 §3 honours it |
-| 19 | Two contradictory per-person formulas — capacity vs actual attendees **[code]** | `TODO` |
-| 20 | `completeGame` never recorded attendance — profile UPDATE is `auth.uid() = id` **[code]** | loop removed `DONE`; server-side impl `TODO` |
-| 21 | `current_players` has two writers counting different things **[live]** | `TODO` |
-| 22 | Leaving doesn't revoke access — sets `declined`; SELECT policy ignores status **[live]** | `TODO` |
+| 19 | Two contradictory per-person formulas — capacity vs actual attendees **[code]** | `DONE` — 019 persists `games.cost_type`; `GameViewScreen`'s `perPersonCost` is now the single source of truth (branches on cost type instead of inferring from `totalCost === 0`), CreateGameScreen's capacity-based number stays a pre-creation estimate only |
+| 20 | `completeGame` never recorded attendance — profile UPDATE is `auth.uid() = id` **[code]** | `APPLIED` — `019_backlog_p1_p2_p3_fixes.sql` §5, `fn_record_game_attendance` trigger on `games` (SECURITY DEFINER, fires on any path to `status = 'completed'`) |
+| 21 | `current_players` has two writers counting different things **[live]** | `DONE` — removed the redundant client-side writer in `joinGame`/`leaveGame` (`games.service.ts`); it also silently no-op'd for non-hosts under the `games` UPDATE RLS policy. `fn_sync_current_players` (006) is now the only writer |
+| 22 | Leaving doesn't revoke access — sets `declined`; SELECT policy ignores status **[live]** | `APPLIED` — 019 §1, `user_in_game()` now excludes `status = 'declined'` |
 
 ## P2 — correctness, timezone, validation
 
@@ -126,8 +144,8 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 27 | `end_time: o.endTime \|\| o.startTime` makes `end == start` | partly `DONE` — 014 makes `end_time` nullable and the RPC stores blank as NULL. **No DB `end > start` constraint**: it was attempted, froze a live row, and is semantically wrong on text columns — see item 24 |
 | 28 | Zero-option games writable — `saveGame` lacks the check the services layer has; `every()` is true for `[]` | `DONE` — validated client-side and in the RPC |
 | 29 | No double-submit guard on Create — N taps, N games | `DONE` — in-flight ref + disabled button |
-| 30 | Demo mode diverges both ways — `saveGame` always errors; `createGame` fakes success with no validation | `TODO` |
-| 31 | `database.types.ts` stale, and `createClient` is called without `<Database>` so it does nothing | `TODO` |
+| 30 | Demo mode diverges both ways — `saveGame` always errors; `createGame` fakes success with no validation | `DONE` — `createGame` (`games.service.ts`) was dead code, unused by `CreateGameScreen`; deleted rather than fixed. `saveGame()` now validates the same as the real path (title, options, past-date) and returns a fake success id in demo mode, matching every other demo mutation |
+| 31 | `database.types.ts` stale, and `createClient` is called without `<Database>` so it does nothing | `DONE` — regenerated from the live schema via the Supabase MCP `generate_typescript_types` tool; `createClient<Database>(...)` now actually types the client. Fallout was 12 nullability mismatches across `gameData.ts`/`games.service.ts`/`messages.service.ts`, all fixed; `npm run build` passes |
 | 32 | `maxPlayers` declared non-null but nullable in DB → "5/null" in Calendar | `DONE` |
 | 33 | `unconfirmGame` left a stale deadline → next sweep instantly re-decides | `DONE` |
 | 34 | `weeks_played`/`attendance_rate` read by UI, written by nothing | `TODO` |
@@ -135,32 +153,32 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 | 36 | `getGroups()` has no membership filter → `assignedGroup` is the first group in the entire DB **[latent]** | `DONE` — inner-joined to `group_members`; no auto-select; `group_id` sent only for Group Only |
 | 37 | `game_options` SELECT `using(true)` — enumerate every option id | `APPLIED` — 014 §7 |
 | 38 | Recursive `game_players` SELECT policy in `004` **[latent]** — don't reintroduce during reconciliation | 014 adds `SECURITY DEFINER` helpers to avoid it |
-| 39 | `maybe` votes collected then discarded — not counted, not used as tiebreak | `TODO` |
+| 39 | `maybe` votes collected then discarded — not counted, not used as tiebreak | `APPLIED` — 019 §4: they were already counted correctly (`fn_sync_vote_counts`, 015); `auto_transition_game` now uses them as a secondary tiebreak when two or more options are tied on `in` votes |
 | 40 | `v_max_in = 0` conflated "nobody voted" with "all out" | `APPLIED` — 015 §3 distinguishes them |
 | 41 | Solo games always self-cancel — creator auto-joined but never auto-voted | `TODO` |
-| 42 | Past dates accepted — no `min` on the input, no server check | `TODO` |
-| 43 | Float rounding residual on cost split; divisor fixed at creation | `TODO` |
-| 44 | Host can leave and orphan their own roster, keeping host powers | `TODO` |
-| 45 | Empty roster shows the full total as the per-person price (hero badge unguarded) | `TODO` |
+| 42 | Past dates accepted — no `min` on the input, no server check | `DONE` — `min` added to the date input; `saveGame()` rejects past dates client-side; `create_game_with_options` (019 §7) rejects them server-side too |
+| 43 | Float rounding residual on cost split; divisor fixed at creation | `DONE` — the "divisor fixed at creation" half is fixed: `GameViewScreen`'s per-person figure is always recomputed live from the actual roster/confirmed votes (never a stale creation-time value) for `fixed`-cost games. The sub-cent rounding residual itself (`$10 / 3` not summing back to exactly `$10.00`) is accepted as inherent to any even split and not further addressed |
+| 44 | Host can leave and orphan their own roster, keeping host powers | `DONE` — the roster-edit remove (X) button is hidden on the host's own row (`GameViewScreen.tsx`); no dedicated "Leave Game" action exists elsewhere in the app |
+| 45 | Empty roster shows the full total as the per-person price (hero badge unguarded) | `DONE` — the guard now lives inside the shared `perPersonCost` memo itself (returns `"—"` when nobody's attending a `fixed`-cost game), so every consumer — hero badge included — gets it automatically |
 
 ## P3 — hygiene and hardening
 
 | # | Item | Status |
 |---|---|---|
-| 46 | Advisors: `user_in_conversation` mutable `search_path`; all `SECURITY DEFINER` fns `EXECUTE`-able by `anon`; leaked-password protection off | 015 §5 revokes for the 4 game fns; `user_in_conversation` + auth setting `TODO` |
+| 46 | Advisors: `user_in_conversation` mutable `search_path`; all `SECURITY DEFINER` fns `EXECUTE`-able by `anon`; leaked-password protection off | `user_in_conversation` was actually already fixed by 017 (this line was stale — see the note at the top of this file about not trusting its own snapshots). The function still missing `search_path` was `update_updated_at`, fixed in 019 §3. `EXECUTE`-able-by-`anon` is a mix of intentional (RLS helpers/RPCs need it) and already-revoked (trigger fns); remaining 7 advisor warnings are expected, see 017's own comment. Leaked-password protection is a dashboard Auth setting — `TODO`, cannot be fixed from a migration |
 | 47 | `subscribeToVotes` subscribes to the whole `votes` table, filters client-side | `TODO` |
-| 48 | `costType` never persisted — "Free" and "$0/player" indistinguishable | `TODO` |
-| 49 | `games.service.ts` discards option/invite insert errors, returns `{error:null}` | `TODO` |
-| 50 | `display_date` written raw ISO in one path, locale string in another; frozen in creator's locale | `TODO` |
+| 48 | `costType` never persisted — "Free" and "$0/player" indistinguishable | `APPLIED` — 019 §6 adds `games.cost_type text not null check (...)`, backfilled from existing `(total_cost, per_person_cost)` data; `create_game_with_options` accepts `p_cost_type`; `saveGame()`/`CreateGameScreen` plumb it through; `Game.costType` is optional so demo-mode games (which predate the column) still fall back to the old inference |
+| 49 | `games.service.ts` discards option/invite insert errors, returns `{error:null}` | `DONE` — the function this was in (`createGame`) was dead code, unused by `CreateGameScreen` (which calls `gameData.ts`'s `saveGame()` → the transactional RPC instead). Deleted rather than fixed |
+| 50 | `display_date` written raw ISO in one path, locale string in another; frozen in creator's locale | `DONE` — `addGameOption`/`updateGameOption` now use a shared `formatDisplayDate()` matching the RPC's `to_char(date, 'Dy, Mon FMDD')` format; the third, divergent writer (dead `createGame` in `games.service.ts`) was deleted per item #49 |
 | 51 | One malformed date row would abort the whole sweep | `APPLIED` — 015 §4 per-game exception handling |
 | 52 | `012` duplicate numbering with an ordering dependency on `009` | `TODO` |
-| 53 | Dead code: `persistTransitions`, `SportIcon.tsx`, `.orig`/`.rej` leftovers, root-level codemods, `src/app/pages/` | `TODO` |
+| 53 | Dead code: `persistTransitions`, `SportIcon.tsx`, `.orig`/`.rej` leftovers, root-level codemods, `src/app/pages/` | `DONE` — only `persistTransitions` (`gameData.ts`, unused) was still actually present; deleted. Everything else in this line was already cleaned up in the 2026-07-27 pass documented in CLAUDE.md, or never existed (`.orig`/`.rej`/codemod globs all return zero matches) |
 | 54 | No `APP_NAME` constant — 39 hardcoded "OptIn" strings across 16 files; `robots.txt`/`sitemap.xml` hardcode `optin.app` | `TODO` |
-| 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `TODO` |
+| 55 | **New (found 2026-07-27):** `getGroups()` returns `mockGroups` on a query error in the *non-demo* path, so a real user sees fabricated groups after a network failure. Same shape elsewhere in `games.service.ts` — audit every `return mock*` outside an `isDemoMode()` branch | `DONE` — fixed all 3 confirmed non-demo occurrences (`getGameById`, `getGroups`, `getCalendarMarkers` in `games.service.ts`); each now returns an empty/null result instead of fabricated data on a real error. `profiles.service.ts` and `messages.service.ts` audited clean (every `return mock*` already gated by `isDemoMode()`) |
 | 56 | **UPDATE policies had no `WITH CHECK`** — 8 of 9. An UPDATE policy's `USING` picks which rows you may change; `WITH CHECK` picks what you may turn them into. Without it, `game_players` let a member move their row's `game_id` to any game, **bypassing the INSERT hardening in 014 §6**; a host could move an option into a game they don't own, or reassign `games.created_by` and orphan the game | `APPLIED` — `018_update_policy_with_check.sql`. Verified: `game_id`/`user_id` reassignment rejected, invite-accept still works |
 | 57 | **`game_players`, `profiles`, `groups`, `group_members` are readable by `anon`** — SELECT policies are `USING (true)` and `TO public`, so unauthenticated callers can enumerate rosters and every user's name and email over the Data API. 31 policies total are still `TO public` | `TODO` — task #17. ⚠️ fixing it restricts anonymous reads, so confirm intent first. The baseline already scopes these `TO authenticated` |
 | 58 | ~~Realtime has never worked~~ **[stale — corrected 2026-07-27].** This claimed no `public` table was in any publication. Re-verified live while debugging item 61: `pg_publication_tables` currently shows `messages`, `votes`, and `game_players` **are** members of `supabase_realtime` — someone (or something) added them after this item was originally written, and the claim was never re-checked before being repeated in the PR that consolidated the migrations. `games`, `game_options`, `conversation_members`, `friend_requests` are still not members, so partial gaps remain, but "never worked" was wrong. **Lesson applied in item 61: don't trust a snapshot in this file over a live query, including this one — re-check before relying on it again** | `PARTIALLY TRUE` — 3/7 recommended tables are in the publication; add the remaining 4 if you want full realtime coverage: `alter publication supabase_realtime add table public.games, public.game_options, public.conversation_members, public.friend_requests;` (each guarded the way `001` now is, in case any land there before you run it) |
-| 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `TODO` — drop `"Users can read own conversation memberships"` in production |
+| 59 | **`conversation_members` has two overlapping SELECT policies** — the one `011` added via `user_in_conversation()` *and* the original self-referential one that queries `conversation_members` from its own policy. Permissive policies OR together, so `011` never removed the recursion risk (`42P17`). Not reproduced in the baseline | `APPLIED` — 019 §2 drops `"Users can read own conversation memberships"` |
 | 60 | **A Supabase GitHub integration tracks `supabase/migrations/`** — undocumented until it broke, three ways in sequence: (a) consolidating history into one baseline file removed the per-version files the ledger-comparison stage expects (`Remote migration versions not found...`); (b) fixing that to exactly the 13 ledger-tracked versions then failed the *next* stage — the integration provisions a fresh empty preview DB per PR and replays the whole directory (`relation "public.conversations" does not exist`), since none of those 13 files create a table; (c) restoring the 4 table-creating files (`001`–`003`, `008`) then hit a duplicate-policy error from `001`'s own ~25 policies colliding with later ones — caught locally, not in CI, by actually running `npx supabase start` before pushing a third time **[live]** | `DONE` (superseded by item 61 for one detail) — `migrations/` holds 17 files (13 ledger + 4 foundational); `001` rewritten to contain only tables/RLS-enable, no policies. Verified via full local replay: 17/17 apply cleanly against an **empty** database, 77/77 tracked objects match production. ⚠️ That local test does not validate against an **already-populated** database — see item 61, found the hard way when this passed CI and then failed again on `main` |
 | 61 | **PR previews and `main` pushes hit two different databases, and only one is empty.** A PR preview gets a fresh empty branch (item 60); pushing to `main` applies migrations directly to the real, already-populated project at `iokxjsvlpqlekptexjxy`. Item 60's local validation (`supabase start` against an empty local DB) proved the directory works from empty — it said nothing about whether the same files are safe against a database that already has these objects. They weren't: `001`'s 4 `create trigger ...updated_at` statements and its 3 `alter publication add table` statements, and `003`'s 5 `create policy` statements, are all bare/unconditional and every one of them collided live (`ERROR: trigger "profiles_updated_at" ... already exists`, `ERROR: relation "messages" is already member of publication`, `ERROR: policy "Users can read own friend requests" ... already exists`) **[live]** | `DONE` — `001`'s triggers get `drop trigger if exists` first; its publication adds are wrapped in a `do $$ ... if not exists (select 1 from pg_publication_tables ...) $$` block; `003`'s 5 policies get `drop policy if exists` first (can't be stripped like `001`'s, since `003` is friend_requests/friendships' only policy source — nothing later re-establishes them). Verified this time in a `begin; ... rollback;` transaction run directly against the real production project, not just a local empty copy — confirmed clean and confirmed the rollback left no trace |
 
@@ -211,26 +229,27 @@ Both are delete-not-generalize.
 
 ## Applying the staged migrations
 
-`014`, `015` and `016` are **written but not applied**. All are idempotent and
-wrapped in transactions. Apply in order — `015` and `016` both depend on `014`.
+**Stale as of 2026-07-28 — kept for historical context, do not act on it.**
+`014`–`019` are all applied to production. `saveGame()` calls the `016` RPC
+directly with no fallback path (the old three-insert path was deleted once
+`016` shipped, per what used to be task #10 here). Preconditions were verified
+against live data before *writing* 014–016, not as a standing invariant —
+don't assume they still hold without re-checking.
 
-`saveGame()` calls the `016` RPC and falls back to the old three-insert path when
-the function is absent, so the app works either side of the migration. **Delete
-that fallback once `016` is applied** (task #10).
-
-Preconditions were verified against live data before writing (all returned 0):
-null `created_by`/`status`, null `game_id`, dangling `confirmed_option_id`,
-negative costs, duplicate `(game_id, date, start_time)`, orphan `game_players`.
-**Re-check these before applying to any other environment.**
-
-Three things in them are deliberate behaviour changes needing sign-off:
-- **014 §9** makes `Public` games readable by any authenticated user (today nothing
-  is discoverable). No row becomes public retroactively, since the double-mapping
-  bug stored everything as `'Group Only'`.
+Three things in 014/015 were deliberate behaviour changes that got sign-off
+at the time:
+- **014 §9** made `Public` games readable by any authenticated user (previously
+  nothing was discoverable). No row became public retroactively, since the
+  double-mapping bug had stored everything as `'Group Only'`.
 - **014 §3** uses `ON DELETE CASCADE` on `games.created_by`, so deleting a user
-  deletes their games and other people's participation in them. `SET NULL` is the
-  alternative.
-- **015 §6** documents the `pg_cron` schedule but does not enable the extension —
-  without it, transitions still only run when someone opens the app.
+  deletes their games and other people's participation in them. `SET NULL` was
+  the alternative, not taken.
+- **015 §6** documents the `pg_cron` schedule but does not enable the
+  extension — without it, transitions still only run when someone opens the
+  app. Still true as of 019.
 
-Recommended: test on a Supabase branch before touching production.
+Going forward: any new migration should be verified the same two ways as 019 —
+`npx supabase start` against an empty database, **and** a
+`begin;...rollback;` dry run directly against the real, populated production
+project — before applying for real (see item 61 for why the empty-database
+test alone isn't enough).

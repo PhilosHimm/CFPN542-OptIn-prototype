@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 // ─── Environment ──────────────────────────────────────────────────────────────
 // VITE_APP_ENV values: "demo" | "development" | "production"
@@ -24,7 +25,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey)
   : null;
 
 // Dev-only: confirm the client was initialised with the anon key (not service_role).

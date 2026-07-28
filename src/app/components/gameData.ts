@@ -40,6 +40,12 @@ export interface Game {
   splitCost: boolean;
   /** Set when the host priced the game per person rather than as a fixed total. */
   perPersonCost?: number;
+  /**
+   * How the host priced the game (migration 019's games.cost_type). Optional
+   * because demo-mode games predate the column; GameViewScreen falls back to
+   * inferring it from totalCost/perPersonCost when absent, same as before.
+   */
+  costType?: "free" | "per_player" | "fixed";
   group: string;
   heroImage: string;
   timeOptions: VoteOption[];
@@ -565,6 +571,7 @@ function mapDbGameToGame(g: any): Game {
     // this the cost UI derived everything from total_cost and rendered paid
     // games as "Free".
     perPersonCost: g.per_person_cost || 0,
+    costType: g.cost_type as "free" | "per_player" | "fixed" | undefined,
     group: g.group_id || "",
     heroImage: SPORT_HERO_IMAGES[g.sport] || SPORT_HERO_IMAGES.Soccer,
     date: displayDate,
@@ -600,21 +607,6 @@ function mapDbGameToGame(g: any): Game {
 // so mapDbGameToGame can build genuine voter ID arrays and a real roster.
 const GAME_SELECT =
   "*, game_options(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
-
-/** Persists auto-transition status updates to Supabase */
-async function persistTransitions(transitions: { id: string; newStatus: "cancelled" | "completed" }[]): Promise<void> {
-  if (transitions.length === 0) return;
-  const results = await Promise.all(
-    transitions.map(({ id, newStatus }) =>
-      supabase!.from("games").update({ status: newStatus }).eq("id", id)
-    )
-  );
-  for (const result of results) {
-    if (result.error) {
-      console.error("Failed to update game status in Supabase", result.error);
-    }
-  }
-}
 
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
@@ -673,6 +665,7 @@ export async function saveGame(input: {
   title: string;
   sport: string;
   gameType: "casual" | "competitive";
+  costType: "free" | "per_player" | "fixed";
   maxPlayers: number | null;
   totalCost: number;
   perPersonCost: number;
@@ -684,8 +677,33 @@ export async function saveGame(input: {
   invitedPlayerIds: string[];
   votingPeriodHours?: number;
 }): Promise<{ id: string; error: string | null }> {
+  if (!input.title.trim()) {
+    return { id: "", error: "Give the game a title." };
+  }
+
+  const usableOptions = input.timeOptions.filter((o) => o.date && o.startTime);
+  if (usableOptions.length === 0) {
+    return { id: "", error: "Add at least one time option with a date and start time." };
+  }
+  const badRange = usableOptions.find((o) => o.endTime && o.endTime <= o.startTime);
+  if (badRange) {
+    return { id: "", error: "End time must be after the start time." };
+  }
+  // Compared as strings ("YYYY-MM-DD"), which sorts correctly and avoids the
+  // timezone ambiguity of parsing into a Date. See docs/BACKLOG.md item #42.
+  const today = new Date().toISOString().split("T")[0];
+  const pastDate = usableOptions.find((o) => o.date < today);
+  if (pastDate) {
+    return { id: "", error: "Proposed times can't be in the past." };
+  }
+
+  // Demo mode has no backend to persist to, so it mirrors every other demo
+  // mutation (joinGame, leaveGame, castVote, …) by validating like the real
+  // path and then reporting success, rather than either hard-failing (as this
+  // used to unconditionally do, breaking Create Game in demo mode entirely)
+  // or faking success with no validation. See docs/BACKLOG.md item #30.
   if (isDemoMode()) {
-    return { id: "", error: "Supabase is not configured." };
+    return { id: `demo-game-${Date.now()}`, error: null };
   }
 
   // Validate createdBy is a real UUID (auth user id)
@@ -720,15 +738,6 @@ export async function saveGame(input: {
   // entirely, so the default 24h period put the deadline *after* the game.
   const votingDeadline = computeVotingDeadline(input.timeOptions, input.votingPeriodHours);
 
-  const usableOptions = input.timeOptions.filter((o) => o.date && o.startTime);
-  if (usableOptions.length === 0) {
-    return { id: "", error: "Add at least one time option with a date and start time." };
-  }
-  const badRange = usableOptions.find((o) => o.endTime && o.endTime <= o.startTime);
-  if (badRange) {
-    return { id: "", error: "End time must be after the start time." };
-  }
-
   // Single transactional RPC (migration 016, applied 2026-07-27). The previous
   // three-insert sequence could commit a game and then fail on its options or
   // invites, orphaning a row the caller could not clean up because it discarded
@@ -740,14 +749,13 @@ export async function saveGame(input: {
     p_sport_emoji: sportEmojis[input.sport] || "",
     p_sport_color: "#2D7A3A",
     p_game_type: input.gameType === "casual" ? "Casual" : "Competitive",
-    p_max_players: input.maxPlayers,
-    p_min_players: null,
-    p_group_id: groupId,
+    p_max_players: input.maxPlayers ?? undefined,
+    p_group_id: groupId ?? undefined,
     p_voting_deadline: votingDeadline.toISOString(),
     p_total_cost: input.totalCost,
     p_per_person_cost: input.perPersonCost,
+    p_cost_type: input.costType,
     p_visibility: DB_VISIBILITIES.includes(input.visibility) ? input.visibility : "Private",
-    p_description: null,
     p_options: usableOptions.map((o) => ({
       date: o.date,
       start_time: o.startTime,
@@ -763,6 +771,19 @@ export async function saveGame(input: {
   return { id: rpc.data as string, error: null };
 }
 
+// Matches the server's `to_char(date, 'Dy, Mon FMDD')` format used by the
+// create_game_with_options RPC, so display_date reads the same everywhere
+// regardless of which code path wrote it. See docs/BACKLOG.md item #50 — this
+// used to be the raw ISO date string here and a differently-formatted string
+// in games.service.ts's now-deleted legacy createGame().
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short", month: "short", day: "numeric",
+  });
+}
+
 export async function addGameOption(
   gameId: string,
   option: { date: string; start_time: string; end_time: string; location?: string },
@@ -773,7 +794,7 @@ export async function addGameOption(
   const { error } = await supabase!.from("game_options").insert({
     game_id: gameId,
     date: option.date,
-    display_date: option.date,
+    display_date: formatDisplayDate(option.date),
     start_time: option.start_time,
     end_time: option.end_time,
     location: option.location || "",
@@ -796,7 +817,7 @@ export async function updateGameOption(optionId: string, option: { date: string,
   if (isDemoMode()) return false;
   const { error } = await supabase!.from("game_options").update({
     date: option.date,
-    display_date: option.date,
+    display_date: formatDisplayDate(option.date),
     start_time: option.start_time,
     end_time: option.end_time,
     location: option.location || "",
@@ -1018,6 +1039,7 @@ export async function getUserVotes(
 
   const result: Record<string, "in" | "maybe" | "out"> = {};
   for (const row of voteRows) {
+    if (!row.option_id) continue;
     result[row.option_id] = row.value as "in" | "maybe" | "out";
   }
   return result;

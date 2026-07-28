@@ -485,7 +485,7 @@ function RosterSection({
       </span>
     )}
   </span>
-            {isEditing ? (
+            {isEditing && player.id !== hostId ? (
               <button
                 onClick={() => onRemovePlayer?.(player.id)}
                 className="w-8 h-8 rounded-md3-full bg-error-container flex items-center justify-center flex-shrink-0 hover:bg-error transition-colors text-on-error-container hover:text-on-error"
@@ -960,20 +960,29 @@ export function GameViewScreen() {
 
   const perPersonCost = useMemo(() => {
     if (!game) return "Free";
+    // costType is the source of truth (migration 019); demo games predate the
+    // column, so fall back to the totalCost===0 inference used before it existed.
+    const costType = game.costType ?? (game.totalCost === 0 ? (game.perPersonCost ? "per_player" : "free") : "fixed");
+
+    if (costType === "free") return "Free";
+
     // Per-player pricing: the per-person amount is authoritative and does not
     // depend on headcount, so return it directly.
-    if (game.totalCost === 0) {
+    if (costType === "per_player") {
       const flat = game.perPersonCost ?? 0;
       return flat > 0 ? `$${flat.toFixed(2)}` : "Free";
     }
-    if (!game.splitCost) return `$${game.totalCost.toFixed(2)}`;
-    const confirmed =
+
+    // Fixed total, split live across whoever is actually attending. With
+    // nobody attending yet there's no meaningful per-person figure — showing
+    // the full total (dividing by the old `|| 1` fallback) misrepresented an
+    // empty roster's cost as the per-person price. See docs/BACKLOG.md #19, #45.
+    const attendeeCount =
       game.status === "confirmed" && game.confirmedOptionId
-        ? game.timeOptions
-            .find((o) => o.id === game.confirmedOptionId)
-            ?.votes.in.length || 1
-        : game.roster.length || 1;
-    return `$${(game.totalCost / confirmed).toFixed(2)}`;
+        ? game.timeOptions.find((o) => o.id === game.confirmedOptionId)?.votes.in.length ?? 0
+        : game.roster.length;
+    if (attendeeCount === 0) return "—";
+    return `$${(game.totalCost / attendeeCount).toFixed(2)}`;
   }, [game]);
 
   // ─── Loading / 404 ──────────────────────────────────────
@@ -1447,7 +1456,7 @@ export function GameViewScreen() {
                   Per Person
                 </span>
                 <span className="text-title-md text-primary font-medium leading-normal">
-                  {game.roster.length === 0 ? "—" : perPersonCost}
+                  {perPersonCost}
                 </span>
               </div>
             </div>
