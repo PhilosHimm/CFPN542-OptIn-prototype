@@ -15,6 +15,7 @@ const GameViewScreen = lazy(() => import("./components/GameViewScreen").then((m)
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("./pages/Signup").then((m) => ({ default: m.Signup })));
 const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
+const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 
 function RouteLoadingFallback() {
   return (
@@ -40,6 +41,9 @@ export const router = createBrowserRouter([
   {
     Component: AuthRoot,
     children: [
+      // Public marketing page. Sits outside `Layout` on purpose: no auth gate,
+      // no bottom nav, and none of the max-w-[430px] phone framing.
+      { path: "/landing", Component: Landing },
       { path: "/login", Component: Login },
       { path: "/signup", Component: Signup },
       { path: "/onboarding", Component: Onboarding },

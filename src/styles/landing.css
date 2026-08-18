@@ -1,0 +1,172 @@
+/*
+ * Landing page palette — scoped to `.ln`, deliberately NOT the app's MD3 theme.
+ *
+ * The in-app dark ramp (theme.css) is built around #1A1C19, where --surface,
+ * --background and --surface-container-low are all the same value, so there is
+ * no tonal separation to build a marketing page's depth out of. This scope
+ * borrows Spotify's near-black ladder (#121212 → #181818 → #1f1f1f → #252525)
+ * for exactly that, and its pill/circle geometry, while keeping OptIn's brand:
+ * Turf Green and Roboto.
+ *
+ * Two greens, for contrast reasons, not decoration:
+ *   --ln-accent      #2D7A3A  Turf Green. FILLS only. White on it = 5.4:1.
+ *   --ln-accent-text #ADF3B0  the app's dark-ramp primary. TEXT/ICONS on dark;
+ *                             Turf Green as text on #121212 is only 3.5:1 and
+ *                             would fail the 4.5:1 floor PRODUCT.md treats as
+ *                             binding. #ADF3B0 on #121212 is 14.6:1.
+ * Never swap these two roles.
+ */
+.ln {
+  --ln-bg: #121212;
+  --ln-surface: #181818;
+  --ln-surface-2: #1f1f1f;
+  --ln-surface-3: #252525;
+
+  --ln-text: #ffffff;
+  --ln-text-muted: #b3b3b3;
+  --ln-text-dim: #7c7c7c;
+
+  --ln-border: #2c2c2c;
+  --ln-border-strong: #4d4d4d;
+  --ln-border-outline: #7c7c7c;
+
+  --ln-accent: #2d7a3a;
+  --ln-accent-hover: #379246;
+  --ln-accent-text: #adf3b0;
+  --ln-on-accent: #ffffff;
+
+  --ln-shadow-card: 0 8px 8px rgba(0, 0, 0, 0.3);
+  --ln-shadow-heavy: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+  background-color: var(--ln-bg);
+  color: var(--ln-text);
+  font-family: var(--font-family);
+}
+
+/* `body` is painted with the app's --background (#1A1C19) by theme.css, which
+   shows through on overscroll behind this page's #121212. Repaint it only while
+   the landing page is mounted. */
+body:has(.ln) {
+  background-color: #121212;
+}
+
+@layer components {
+  /* ── Buttons: pill geometry, uppercase + wide tracking, 48px touch target ── */
+  .ln-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 12px 32px;
+    border-radius: 500px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1),
+      background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .ln-btn:hover {
+    transform: scale(1.04);
+  }
+  .ln-btn:active {
+    transform: scale(0.98);
+  }
+  .ln-btn:focus-visible {
+    outline: 2px solid var(--ln-accent-text);
+    outline-offset: 3px;
+  }
+
+  .ln-btn-primary {
+    background-color: var(--ln-accent);
+    color: var(--ln-on-accent);
+    box-shadow: var(--ln-shadow-card);
+  }
+  .ln-btn-primary:hover {
+    background-color: var(--ln-accent-hover);
+  }
+
+  .ln-btn-outline {
+    background-color: transparent;
+    color: var(--ln-text);
+    border-color: var(--ln-border-outline);
+  }
+  .ln-btn-outline:hover {
+    border-color: var(--ln-text);
+  }
+
+  .ln-btn-dark {
+    background-color: var(--ln-surface-2);
+    color: var(--ln-text);
+  }
+  .ln-btn-dark:hover {
+    background-color: var(--ln-surface-3);
+  }
+
+  /* Compact nav variant — narrower, but the 48dp touch target is binding
+     (PRODUCT.md), so only the horizontal padding shrinks. */
+  .ln-btn-sm {
+    padding: 12px 20px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Surfaces ────────────────────────────────────────────────────────────── */
+  .ln-card {
+    background-color: var(--ln-surface);
+    border-radius: 8px;
+    border: 1px solid var(--ln-border);
+    transition: background-color 0.2s, box-shadow 0.2s;
+  }
+  .ln-card-hover:hover {
+    background-color: var(--ln-surface-2);
+    box-shadow: var(--ln-shadow-card);
+  }
+
+  /* ── Eyebrow / section label — the systematic uppercase voice ────────────── */
+  .ln-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ln-accent-text);
+  }
+
+  /* ── Circular step / icon chip ───────────────────────────────────────────── */
+  .ln-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--ln-surface-2);
+    color: var(--ln-accent-text);
+    flex-shrink: 0;
+  }
+
+  /* ── Anchor links in nav / footer ────────────────────────────────────────── */
+  .ln-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ln-text-muted);
+    transition: color 0.15s;
+    border-radius: 4px;
+  }
+  .ln-link:hover {
+    color: var(--ln-text);
+  }
+  .ln-link:focus-visible {
+    outline: 2px solid var(--ln-accent-text);
+    outline-offset: 4px;
+  }
+}
