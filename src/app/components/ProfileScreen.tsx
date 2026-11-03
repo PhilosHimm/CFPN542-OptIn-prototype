@@ -24,8 +24,8 @@ export function ProfileScreen() {
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
 
   // Account Settings state
-  const [accountName, setAccountName] = useState(profile?.name || "Alex Rivera");
-  const [accountEmail, setAccountEmail] = useState(profile?.email || "alex@example.com");
+  const [accountName, setAccountName] = useState(profile?.name ?? "");
+  const [accountEmail, setAccountEmail] = useState(profile?.email ?? "");
   const [accountUsername, setAccountUsername] = useState(
     profile?.username || profile?.email?.split("@")[0] || ""
   );
@@ -107,10 +107,10 @@ export function ProfileScreen() {
           />
         </div>
         <h2 className="text-headline-sm font-medium text-on-surface mb-1">
-          {profile?.name || "Alex Rivera"}
+          {profile?.name ?? ""}
         </h2>
         <p className="text-label-lg text-on-surface-variant">
-          @{profile?.username || profile?.email?.split("@")[0] || "alexrivera"}
+          @{profile?.username || profile?.email?.split("@")[0] || ""}
         </p>
       </div>
 
