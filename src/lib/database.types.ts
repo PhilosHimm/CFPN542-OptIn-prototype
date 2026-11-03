@@ -302,9 +302,9 @@ export type Database = {
           max_players: number | null
           min_players: number | null
           per_person_cost: number
-          sport: string
-          sport_color: string
-          sport_emoji: string
+          activity: string
+          activity_color: string
+          activity_emoji: string
           status: string
           title: string
           total_cost: number
@@ -326,9 +326,9 @@ export type Database = {
           max_players?: number | null
           min_players?: number | null
           per_person_cost?: number
-          sport: string
-          sport_color: string
-          sport_emoji: string
+          activity: string
+          activity_color: string
+          activity_emoji: string
           status?: string
           title: string
           total_cost?: number
@@ -350,9 +350,9 @@ export type Database = {
           max_players?: number | null
           min_players?: number | null
           per_person_cost?: number
-          sport?: string
-          sport_color?: string
-          sport_emoji?: string
+          activity?: string
+          activity_color?: string
+          activity_emoji?: string
           status?: string
           title?: string
           total_cost?: number
@@ -433,8 +433,8 @@ export type Database = {
           member_count: number
           name: string
           next_game: string | null
-          sport: string
-          sport_emoji: string
+          activity: string | null
+          activity_emoji: string
         }
         Insert: {
           color: string
@@ -445,8 +445,8 @@ export type Database = {
           member_count?: number
           name: string
           next_game?: string | null
-          sport: string
-          sport_emoji: string
+          activity?: string | null
+          activity_emoji?: string
         }
         Update: {
           color?: string
@@ -457,8 +457,8 @@ export type Database = {
           member_count?: number
           name?: string
           next_game?: string | null
-          sport?: string
-          sport_emoji?: string
+          activity?: string | null
+          activity_emoji?: string
         }
         Relationships: [
           {
@@ -624,9 +624,9 @@ export type Database = {
           p_min_players?: number
           p_options?: Json
           p_per_person_cost?: number
-          p_sport: string
-          p_sport_color?: string
-          p_sport_emoji?: string
+          p_activity: string
+          p_activity_color?: string
+          p_activity_emoji?: string
           p_title: string
           p_total_cost?: number
           p_visibility?: string

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**OptIn** — a mobile-first PWA for scheduling recreational pickup sports games by group consensus voting. Coursework for CFPN542; originated as a Figma Make export. React 18 + Vite + Tailwind v4 + Neon (Neon Auth + Data API).
+**OptIn** — a mobile-first PWA for scheduling any in-person plan a friend group has to agree on, by consensus voting on candidate time slots. Recreational pickup sports is the launch wedge and what the current UI and demo data are built around; the scope was widened on 2026-11-03 (see the "Scope" section of [PRODUCT.md](PRODUCT.md)). Work meetings are out of scope. Coursework for CFPN542; originated as a Figma Make export. React 18 + Vite + Tailwind v4 + Neon (Neon Auth + Data API).
 
 ## Commands
 
@@ -62,7 +62,9 @@ The project is Neon `long-mode-22787064` ("optin", branch `main` = `br-rapid-too
 
 The Neon org is **managed by Vercel** — projects are created from the Vercel dashboard (Storage → Neon), not via the Neon API/MCP, which refuses `create_project`. Everything else (SQL, Auth, Data API config) works through the Neon MCP.
 
-**[neon/schema.sql](neon/schema.sql)** is the whole schema in one file, ported from the old Supabase baseline (see its header for each difference). There are no migrations and no CI integration — change the schema by editing that file **and** applying the same statement to the project (Neon MCP `run_sql`). Test risky changes on a Neon branch first.
+**[neon/schema.sql](neon/schema.sql)** is the whole schema in one file, ported from the old Supabase baseline (see its header for each difference). It is the source of truth for a fresh database. There is no CI integration — change the schema by editing that file **and** applying the same statement to the project (Neon MCP `run_sql`). Test risky changes on a Neon branch first. When a change can't be applied by re-running `schema.sql` (column renames, changed function parameter names), also add a one-off script under [neon/migrations/](neon/migrations/) named `YYYY-MM-DD_description.sql`.
+
+**Pending migration:** [neon/migrations/2026-11-03_activity_vocabulary.sql](neon/migrations/2026-11-03_activity_vocabulary.sql) renames the sport columns (below). It was tested on Neon branch `test-activity-vocabulary` (`br-little-scene-bbyp04sv`) but **has not been applied to `main`**. It must be applied at the same time the matching client code reaches production: PostgREST rejects the old column names the moment it runs, so applying it early breaks the live app, and deploying the code without it breaks game creation.
 
 Neon-specific rules that differ from Supabase and are easy to get wrong:
 - Use `public.current_uid()` (uuid) in policies and functions, never `auth.uid()` / `auth.user_id()` directly. `authenticated` has **no USAGE on the `auth` schema**, so calling those from a policy fails with `permission denied for schema auth`; `current_uid()` is `SECURITY DEFINER` to get around that. (`auth.user_id()` also returns text, not uuid.)
@@ -72,6 +74,8 @@ Neon-specific rules that differ from Supabase and are easy to get wrong:
 - Old Supabase accounts and data were **not** migrated (password hashes are incompatible).
 
 Tables: `profiles`, `groups`/`group_members`, `games`, `game_options`, `votes`, `game_players`, `conversations`/`conversation_members`/`messages`, `friend_requests`/`friendships`.
+
+**Activity vocabulary.** The kind of plan is stored generically: `games.activity` / `activity_emoji` / `activity_color`, and `groups.activity` / `activity_emoji`, where `groups.activity` is **nullable** because a friend group can do many things. `create_game_with_options` takes `p_activity` / `p_activity_emoji` / `p_activity_color`. Never reintroduce `sport*` column names. The rename stops at the database boundary: the TS `Game` / `Group` types in both data layers still call the field `sport` / `sportEmoji` / `sportColor`, mapped from `activity*` in [gameData.ts](src/app/components/gameData.ts) and [games.service.ts](src/app/services/games.service.ts). Table names (`games`, `game_players`, `game_options`) and `game_type` (`Casual` / `Competitive`) keep the word "game" until PRODUCT.md settles the neutral noun for a plan.
 
 Game lifecycle is `proposal → confirmed | cancelled → completed`, and the transitions are enforced **in Postgres, not in the client** — `auto_transition_game(uuid)` and `auto_transition_all_games()` are `SECURITY DEFINER` functions that close voting past `voting_deadline`, auto-confirm a unique winning option among `status = 'approved'` options, cancel when nobody voted "in" or `min_players` is unmet, record ties for the host to break, and mark past confirmed games completed. The client fires `auto_transition_all_games` fire-and-forget on load. Change status logic in SQL, not in TS.
 

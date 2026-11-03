@@ -559,8 +559,8 @@ function mapDbGameToGame(g: any): Game {
   return {
     id: g.id,
     title: g.title,
-    sport: g.sport,
-    sportEmoji: g.sport_emoji || "",
+    sport: g.activity,
+    sportEmoji: g.activity_emoji || "",
     location: displayOpt?.location || "",
     gameType: (g.game_type || "casual").toLowerCase() as "casual" | "competitive",
     status: g.status as GameStatus,
@@ -573,7 +573,7 @@ function mapDbGameToGame(g: any): Game {
     perPersonCost: g.per_person_cost || 0,
     costType: g.cost_type as "free" | "per_player" | "fixed" | undefined,
     group: g.group_id || "",
-    heroImage: SPORT_HERO_IMAGES[g.sport] || SPORT_HERO_IMAGES.Soccer,
+    heroImage: SPORT_HERO_IMAGES[g.activity] || SPORT_HERO_IMAGES.Soccer,
     date: displayDate,
     time: timeStr,
     votingDeadline: g.voting_deadline || "",
@@ -749,9 +749,9 @@ export async function saveGame(input: {
   // so input.createdBy is validated above but not sent.
   const rpc = await db!.rpc("create_game_with_options", {
     p_title: input.title,
-    p_sport: input.sport,
-    p_sport_emoji: sportEmojis[input.sport] || "",
-    p_sport_color: "#2D7A3A",
+    p_activity: input.sport,
+    p_activity_emoji: sportEmojis[input.sport] || "",
+    p_activity_color: "#2D7A3A",
     p_game_type: input.gameType === "casual" ? "Casual" : "Competitive",
     p_max_players: input.maxPlayers ?? undefined,
     p_group_id: groupId ?? undefined,

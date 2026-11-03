@@ -61,9 +61,9 @@ export async function getGames(userId?: string): Promise<Game[]> {
     return gamesData.map((g: any) => ({
       id: g.id,
       title: g.title,
-      sport: g.sport,
-      sportEmoji: g.sport_emoji,
-      sportColor: g.sport_color,
+      sport: g.activity,
+      sportEmoji: g.activity_emoji,
+      sportColor: g.activity_color,
       status: g.status as GameStatus,
       gameType: g.game_type,
       maxPlayers: g.max_players,
@@ -127,9 +127,9 @@ export async function getGameById(id: string): Promise<Game | null> {
     return {
       id: data.id,
       title: data.title,
-      sport: data.sport,
-      sportEmoji: data.sport_emoji,
-      sportColor: data.sport_color,
+      sport: data.activity,
+      sportEmoji: data.activity_emoji,
+      sportColor: data.activity_color,
       status: data.status as GameStatus,
       gameType: data.game_type as "Casual" | "Competitive",
       maxPlayers: data.max_players,
@@ -193,8 +193,8 @@ export async function getGroups(): Promise<Group[]> {
     return data.map((g: any) => ({
       id: g.id,
       name: g.name,
-      sport: g.sport,
-      sportEmoji: g.sport_emoji,
+      sport: g.activity ?? "",
+      sportEmoji: g.activity_emoji,
       color: g.color,
       memberCount: g.member_count,
       nextGame: g.next_game,
@@ -365,8 +365,8 @@ export async function createGroup(input: {
     const { error } = await db.from("groups").insert({
       id: groupId,
       name: input.name,
-      sport: input.sport,
-      sport_emoji: sportData?.emoji || "",
+      activity: input.sport,
+      activity_emoji: sportData?.emoji || "",
       color: sportData?.color || "#007AFF",
       initials,
       created_by: input.createdBy,
@@ -568,9 +568,9 @@ export async function getInvites(userId: string): Promise<GameInvite[]> {
         games (
           id,
           title,
-          sport,
-          sport_color,
-          sport_emoji,
+          activity,
+          activity_color,
+          activity_emoji,
           confirmed_option_id,
           game_options!game_options_game_id_fkey ( id, display_date, start_time, in_votes )
         )
@@ -593,9 +593,9 @@ export async function getInvites(userId: string): Promise<GameInvite[]> {
         gamePlayerId: row.id,
         gameId: game.id,
         title: game.title,
-        sport: game.sport,
-        sportColor: game.sport_color,
-        sportEmoji: game.sport_emoji,
+        sport: game.activity,
+        sportColor: game.activity_color,
+        sportEmoji: game.activity_emoji,
         bestOptionDisplayDate: bestOption?.display_date ?? null,
         bestOptionStartTime: bestOption?.start_time ?? null,
       } as GameInvite;
