@@ -30,7 +30,7 @@ import { getPlayers } from "../services/profiles.service";
 
 // ─── Constants ─────────────────────────────────────────────
 const TOTAL_STEPS = 5;
-const sports = [
+const activities = [
   "Soccer",
   "Basketball",
   "Volleyball",
@@ -63,7 +63,7 @@ type InvitePlayer = {
   avatar?: string;
   initials?: string;
   color?: string;
-  sport?: string;
+  activity?: string;
 };
 
 interface TimeOption {
@@ -221,9 +221,9 @@ export function CreateGameScreen() {
   const [showSuccess, setShowSuccess] = useState(mock && searchParams.get("step") === "success");
 
   // Step 1 state
-  const [selectedSport, setSelectedSport] = useState(mock ? "Soccer" : "");
-  const [customSportName, setCustomSportName] = useState("");
-  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(mock ? "Soccer" : "");
+  const [customActivityName, setCustomActivityName] = useState("");
+  const [activityDropdownOpen, setActivityDropdownOpen] = useState(false);
   const [gameTitle, setGameTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
   const [address, setAddress] = useState(mock ? "Riverside Park, Field 3, Chicago" : "");
   const [gameType, setGameType] = useState<"casual" | "competitive" | "">(mock ? "casual" : "");
@@ -402,9 +402,9 @@ export function CreateGameScreen() {
   // would both see isCreating === false.
   const isCreatingRef = useRef(false);
 
-  const effectiveSport = selectedSport === "Other / Custom..."
-    ? customSportName.trim()
-    : selectedSport;
+  const effectiveActivity = selectedActivity === "Other / Custom..."
+    ? customActivityName.trim()
+    : selectedActivity;
 
   const handleCreateGame = useCallback(async () => {
     // Without this guard each tap minted a fresh game: the button was always
@@ -416,7 +416,7 @@ export function CreateGameScreen() {
     try {
     const result = await saveGame({
       title: gameTitle,
-      sport: effectiveSport,
+      activity: effectiveActivity,
       gameType: gameType as "casual" | "competitive",
       costType,
       maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
@@ -456,11 +456,11 @@ export function CreateGameScreen() {
     }
     // costType/perPlayerCost/perPersonCost were missing here while the body reads
     // all three, so the memo closed over stale cost state and saved 0 or NaN.
-  }, [navigate, gameTitle, effectiveSport, gameType, maxPlayers, costType, totalCost, perPlayerCost, perPersonCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
+  }, [navigate, gameTitle, effectiveActivity, gameType, maxPlayers, costType, totalCost, perPlayerCost, perPersonCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
-    effectiveSport !== "" && gameTitle.trim() !== "" && gameType !== "";
+    effectiveActivity !== "" && gameTitle.trim() !== "" && gameType !== "";
   const isStep2Valid = timeOptions.every(
     (o) => o.date !== "" && o.startTime !== "" && o.endTime !== ""
   );
@@ -556,12 +556,12 @@ export function CreateGameScreen() {
           >
             {currentStep === 1 && (
               <StepDetails
-                selectedSport={selectedSport}
-                setSelectedSport={setSelectedSport}
-                customSportName={customSportName}
-                setCustomSportName={setCustomSportName}
-                sportDropdownOpen={sportDropdownOpen}
-                setSportDropdownOpen={setSportDropdownOpen}
+                selectedActivity={selectedActivity}
+                setSelectedActivity={setSelectedActivity}
+                customActivityName={customActivityName}
+                setCustomActivityName={setCustomActivityName}
+                activityDropdownOpen={activityDropdownOpen}
+                setActivityDropdownOpen={setActivityDropdownOpen}
                 gameTitle={gameTitle}
                 setGameTitle={setGameTitle}
                 address={address}
@@ -614,7 +614,7 @@ export function CreateGameScreen() {
             )}
             {currentStep === 5 && (
               <StepReview
-                selectedSport={effectiveSport}
+                selectedActivity={effectiveActivity}
                 gameTitle={gameTitle}
                 address={address}
                 gameType={gameType}
@@ -649,12 +649,12 @@ export function CreateGameScreen() {
 
 // ─── STEP 1: Game Details ──────────────────────────────────
 function StepDetails({
-  selectedSport,
-  setSelectedSport,
-  customSportName,
-  setCustomSportName,
-  sportDropdownOpen,
-  setSportDropdownOpen,
+  selectedActivity,
+  setSelectedActivity,
+  customActivityName,
+  setCustomActivityName,
+  activityDropdownOpen,
+  setActivityDropdownOpen,
   gameTitle,
   setGameTitle,
   address,
@@ -667,12 +667,12 @@ function StepDetails({
   isValid,
   mock,
 }: {
-  selectedSport: string;
-  setSelectedSport: (v: string) => void;
-  customSportName: string;
-  setCustomSportName: (v: string) => void;
-  sportDropdownOpen: boolean;
-  setSportDropdownOpen: (v: boolean) => void;
+  selectedActivity: string;
+  setSelectedActivity: (v: string) => void;
+  customActivityName: string;
+  setCustomActivityName: (v: string) => void;
+  activityDropdownOpen: boolean;
+  setActivityDropdownOpen: (v: boolean) => void;
   gameTitle: string;
   setGameTitle: (v: string) => void;
   address: string;
@@ -688,61 +688,61 @@ function StepDetails({
   return (
     <>
       <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
-        Let's get started. What are we playing?
+        Let's get started. What are we doing?
       </p>
 
-      {/* Sport Dropdown */}
+      {/* Activity Dropdown */}
       <div className="mb-4 relative">
         <label className="block text-label-md font-medium text-on-surface-variant mb-1.5 leading-none">
-          Sport
+          Activity
         </label>
         <button
-          onClick={() => setSportDropdownOpen(!sportDropdownOpen)}
+          onClick={() => setActivityDropdownOpen(!activityDropdownOpen)}
           className="w-full h-[56px] px-4 rounded-md3-extra-small border border-outline bg-transparent flex items-center justify-between text-left hover:border-on-surface transition-colors"
         >
           <span
             className={`text-body-lg ${
-              selectedSport ? "text-on-surface" : "text-on-surface-variant"
+              selectedActivity ? "text-on-surface" : "text-on-surface-variant"
             }`}
           >
-            {selectedSport || "Select Sport"}
+            {selectedActivity || "Select Activity"}
           </span>
           <ChevronDown
             className={`w-5 h-5 text-on-surface-variant transition-transform ${
-              sportDropdownOpen ? "rotate-180" : ""
+              activityDropdownOpen ? "rotate-180" : ""
             }`}
           />
         </button>
-        {sportDropdownOpen && (
+        {activityDropdownOpen && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-md3-extra-small shadow-md3-3 border border-outline-variant z-20 overflow-hidden max-h-60 overflow-y-auto">
-            {sports.map((sport) => (
+            {activities.map((activity) => (
               <button
-                key={sport}
+                key={activity}
                 onClick={() => {
-                  setSelectedSport(sport);
-                  setSportDropdownOpen(false);
+                  setSelectedActivity(activity);
+                  setActivityDropdownOpen(false);
                 }}
                 className={`w-full px-4 py-3 text-left text-body-md hover:bg-on-surface/8 transition-colors ${
-                  selectedSport === sport
+                  selectedActivity === activity
                     ? "bg-secondary-container text-on-secondary-container font-medium"
                     : "text-on-surface"
                 }`}
               >
-                {sport}
+                {activity}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Custom sport input */}
-      {selectedSport === "Other / Custom..." && (
+      {/* Custom activity input */}
+      {selectedActivity === "Other / Custom..." && (
         <div className="mb-4">
           <OutlinedTextField
-            label="Sport Name"
-            placeholder="e.g. Kickball, Dodgeball..."
-            value={customSportName}
-            onChange={setCustomSportName}
+            label="Activity Name"
+            placeholder="e.g. Kickball, Board games, Dinner..."
+            value={customActivityName}
+            onChange={setCustomActivityName}
           />
         </div>
       )}
@@ -1289,9 +1289,9 @@ function StepInvite({
                   <p className="text-body-md font-medium text-on-surface leading-tight">
                     {player.name}
                   </p>
-                  {player.sport && (
+                  {player.activity && (
                     <p className="text-label-md text-on-surface-variant leading-tight">
-                      {player.sport}
+                      {player.activity}
                     </p>
                   )}
                 </div>
@@ -1342,7 +1342,7 @@ function StepInvite({
 
 // ─── STEP 5: Review & Post ─────────────────────────────────
 function StepReview({
-  selectedSport,
+  selectedActivity,
   gameTitle,
   address,
   gameType,
@@ -1367,7 +1367,7 @@ function StepReview({
   error,
   isCreating,
 }: {
-  selectedSport: string;
+  selectedActivity: string;
   gameTitle: string;
   address: string;
   gameType: string;
@@ -1423,7 +1423,7 @@ function StepReview({
           Game Details
         </h3>
         <div className="flex flex-col gap-2">
-          <ReviewRow label="Sport" value={selectedSport || "—"} />
+          <ReviewRow label="Activity" value={selectedActivity || "—"} />
           <ReviewRow label="Title" value={gameTitle || "—"} />
           <ReviewRow label="Location" value={address || "—"} />
           <ReviewRow

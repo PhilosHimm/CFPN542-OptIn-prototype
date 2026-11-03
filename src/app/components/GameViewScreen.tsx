@@ -778,7 +778,7 @@ export function GameViewScreen() {
     if (!game) return;
     const opt = game.timeOptions.find((o) => o.id === optionId);
     const inCount = opt?.votes.in.length ?? 0;
-    const minRequired = getMinPlayers(game.sport);
+    const minRequired = getMinPlayers(game.activity);
     if (inCount < minRequired) {
       setShowMinPlayerWarning({ optionId, inCount, minRequired });
       return;
@@ -1038,7 +1038,7 @@ export function GameViewScreen() {
         </div>
         <div className="px-6 py-8 flex flex-col items-center flex-1 -mt-10 bg-surface rounded-t-[32px] relative z-10 shadow-[0_-4px_24px_rgba(0,0,0,0.1)]">
           <div className="w-16 h-16 bg-primary-container rounded-md3-full flex items-center justify-center mb-6 shadow-sm text-3xl">
-            {game.sportEmoji}
+            {game.activityEmoji}
           </div>
           <h1 className="text-title-lg text-on-surface font-semibold text-center mb-4 leading-tight">
             You've been invited to<br /> {game.title}
@@ -1132,9 +1132,9 @@ export function GameViewScreen() {
         {/* Quick Info Row */}
         <div className="flex items-center flex-wrap gap-2 mb-4">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md3-full">
-            <span className="text-body-md leading-none">{game.sportEmoji}</span>
+            <span className="text-body-md leading-none">{game.activityEmoji}</span>
             <span className="text-label-md font-medium text-on-surface leading-none">
-              {game.sport}
+              {game.activity}
             </span>
           </span>
           <span

@@ -17,6 +17,15 @@
 --   * Supabase's `anon` role is Neon's `anonymous`.
 --   * Explicit table grants (section 11); Supabase granted these implicitly.
 --
+-- Vocabulary (2026-11-03): OptIn schedules any in-person group plan, with sports
+-- as the launch wedge (PRODUCT.md, "Scope"). Columns that named the kind of
+-- activity are generic: sport -> activity, sport_emoji -> activity_emoji,
+-- sport_color -> activity_color, and the matching create_game_with_options
+-- parameters. groups.activity is nullable, because a friend group can span many
+-- activities. Table names (`games`, `game_players`, ...) and `game_type` are
+-- unchanged until PRODUCT.md settles the neutral noun for a plan. To migrate an
+-- existing database, see neon/migrations/2026-11-03_activity_vocabulary.sql.
+--
 -- Apply to an empty database in one go (Neon SQL editor, psql, or the Neon MCP).
 -- It is idempotent for tables/indexes/functions/triggers, but `create policy` is
 -- not — re-running needs the policies dropped first.
@@ -58,8 +67,8 @@ create table if not exists public.profiles (
 create table if not exists public.groups (
   id uuid default gen_random_uuid() not null,
   name text not null,
-  sport text not null,
-  sport_emoji text not null,
+  activity text,                          -- null: the group does many things
+  activity_emoji text default '' not null,
   color text not null,
   member_count integer default 0 not null,
   next_game text,
@@ -79,9 +88,9 @@ create table if not exists public.group_members (
 create table if not exists public.games (
   id uuid default gen_random_uuid() not null,
   title text not null,
-  sport text not null,
-  sport_emoji text not null,
-  sport_color text not null,
+  activity text not null,                 -- e.g. 'Basketball', 'Dinner', 'Board games'
+  activity_emoji text not null,
+  activity_color text not null,
   status text default 'proposal'::text not null,
   game_type text,
   max_players integer,
@@ -515,9 +524,9 @@ end$$;
 -- attribute a game to someone else.
 create or replace function public.create_game_with_options(
   p_title            text,
-  p_sport            text,
-  p_sport_emoji      text default '',
-  p_sport_color      text default '#2D7A3A',
+  p_activity         text,
+  p_activity_emoji   text default '',
+  p_activity_color   text default '#2D7A3A',
   p_game_type        text default 'Casual',
   p_max_players      integer default null,
   p_min_players      integer default null,
@@ -575,11 +584,11 @@ begin
   if v_deadline <= now() then v_deadline := least(now() + interval '1 hour', v_earliest); end if;
 
   insert into games (
-    title, sport, sport_emoji, sport_color, status, game_type,
+    title, activity, activity_emoji, activity_color, status, game_type,
     max_players, min_players, created_by, group_id, voting_deadline,
     total_cost, per_person_cost, confirmed_option_id, description, visibility
   ) values (
-    btrim(p_title), p_sport, coalesce(p_sport_emoji, ''), coalesce(p_sport_color, '#2D7A3A'),
+    btrim(p_title), p_activity, coalesce(p_activity_emoji, ''), coalesce(p_activity_color, '#2D7A3A'),
     'proposal', p_game_type,
     p_max_players, p_min_players, v_uid, p_group_id, v_deadline,
     coalesce(p_total_cost, 0), coalesce(p_per_person_cost, 0), null, p_description,

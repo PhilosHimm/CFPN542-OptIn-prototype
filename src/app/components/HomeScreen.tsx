@@ -383,9 +383,9 @@ export function HomeScreen() {
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
-                        style={{ backgroundColor: invite.sportColor }}
+                        style={{ backgroundColor: invite.activityColor }}
                       >
-                        <span className="text-lg">{invite.sportEmoji}</span>
+                        <span className="text-lg">{invite.activityEmoji}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-label-sm font-medium text-primary uppercase tracking-wider mb-0.5">Game Invite</p>

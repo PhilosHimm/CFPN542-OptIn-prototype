@@ -19,9 +19,9 @@ export interface TimeOption {
 export interface Game {
   id: string;
   title: string;
-  sport: string;
-  sportEmoji: string;
-  sportColor: string;
+  activity: string;
+  activityEmoji: string;
+  activityColor: string;
   status: GameStatus;
   gameType: "Casual" | "Competitive";
   maxPlayers: number | null;
@@ -42,8 +42,8 @@ export interface Game {
 export interface Group {
   id: string;
   name: string;
-  sport: string;
-  sportEmoji: string;
+  activity: string;
+  activityEmoji: string;
   color: string;
   memberCount: number;
   nextGame?: string;
@@ -86,10 +86,10 @@ export const players: Player[] = [
 
 // ─── Groups ──────────────────────────────────────────────────────────────────
 export const groups: Group[] = [
-  { id: "g1", name: "Tuesday Hoops",    sport: "Basketball", sportEmoji: "🏀", color: "#F97316", memberCount: 8,  nextGame: "Tue, Mar 25", initials: "TH" },
-  { id: "g2", name: "Weekend Warriors", sport: "Soccer",     sportEmoji: "⚽", color: "#22C55E", memberCount: 12, nextGame: "Sat, Mar 29", initials: "WW" },
-  { id: "g3", name: "Net Gang",         sport: "Volleyball", sportEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextGame: "Fri, Mar 28", initials: "NG" },
-  { id: "g4", name: "Smash Club",       sport: "Tennis",     sportEmoji: "🎾", color: "#EAB308", memberCount: 9,  nextGame: "Thu, Mar 27", initials: "SC" },
+  { id: "g1", name: "Tuesday Hoops",    activity: "Basketball", activityEmoji: "🏀", color: "#F97316", memberCount: 8,  nextGame: "Tue, Mar 25", initials: "TH" },
+  { id: "g2", name: "Weekend Warriors", activity: "Soccer",     activityEmoji: "⚽", color: "#22C55E", memberCount: 12, nextGame: "Sat, Mar 29", initials: "WW" },
+  { id: "g3", name: "Net Gang",         activity: "Volleyball", activityEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextGame: "Fri, Mar 28", initials: "NG" },
+  { id: "g4", name: "Smash Club",       activity: "Tennis",     activityEmoji: "🎾", color: "#EAB308", memberCount: 9,  nextGame: "Thu, Mar 27", initials: "SC" },
 ];
 
 // ─── Games ───────────────────────────────────────────────────────────────────
@@ -99,9 +99,9 @@ export const games: Game[] = [
   {
     id: "game1",
     title: "Tuesday Night Basketball",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "proposal",
     gameType: "Casual",
     maxPlayers: 10,
@@ -156,9 +156,9 @@ export const games: Game[] = [
   {
     id: "game3",
     title: "Friday Volleyball Meetup",
-    sport: "Volleyball",
-    sportEmoji: "🏐",
-    sportColor: "#3B82F6",
+    activity: "Volleyball",
+    activityEmoji: "🏐",
+    activityColor: "#3B82F6",
     status: "proposal",
     gameType: "Casual",
     maxPlayers: 8,
@@ -201,9 +201,9 @@ export const games: Game[] = [
   {
     id: "game5",
     title: "Thursday Pickleball Doubles",
-    sport: "Pickleball",
-    sportEmoji: "🏓",
-    sportColor: "#8B5CF6",
+    activity: "Pickleball",
+    activityEmoji: "🏓",
+    activityColor: "#8B5CF6",
     status: "proposal",
     gameType: "Competitive",
     maxPlayers: 8,
@@ -246,9 +246,9 @@ export const games: Game[] = [
   {
     id: "game6",
     title: "Saturday Morning Tennis",
-    sport: "Tennis",
-    sportEmoji: "🎾",
-    sportColor: "#EAB308",
+    activity: "Tennis",
+    activityEmoji: "🎾",
+    activityColor: "#EAB308",
     status: "proposal",
     gameType: "Casual",
     maxPlayers: 4,
@@ -293,9 +293,9 @@ export const games: Game[] = [
   {
     id: "game2",
     title: "Weekend Soccer Match",
-    sport: "Soccer",
-    sportEmoji: "⚽",
-    sportColor: "#22C55E",
+    activity: "Soccer",
+    activityEmoji: "⚽",
+    activityColor: "#22C55E",
     status: "confirmed",
     gameType: "Casual",
     maxPlayers: 14,
@@ -327,9 +327,9 @@ export const games: Game[] = [
   {
     id: "game7",
     title: "Wednesday Hoops Night",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "confirmed",
     gameType: "Casual",
     maxPlayers: 12,
@@ -361,9 +361,9 @@ export const games: Game[] = [
   {
     id: "game8",
     title: "Competitive Volleyball League Night",
-    sport: "Volleyball",
-    sportEmoji: "🏐",
-    sportColor: "#3B82F6",
+    activity: "Volleyball",
+    activityEmoji: "🏐",
+    activityColor: "#3B82F6",
     status: "confirmed",
     gameType: "Competitive",
     maxPlayers: 12,
@@ -397,9 +397,9 @@ export const games: Game[] = [
   {
     id: "game4",
     title: "Morning Pickup Basketball",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "completed",
     gameType: "Casual",
     maxPlayers: 10,
@@ -431,9 +431,9 @@ export const games: Game[] = [
   {
     id: "game9",
     title: "Saturday Soccer Scrimmage",
-    sport: "Soccer",
-    sportEmoji: "⚽",
-    sportColor: "#22C55E",
+    activity: "Soccer",
+    activityEmoji: "⚽",
+    activityColor: "#22C55E",
     status: "completed",
     gameType: "Casual",
     maxPlayers: 14,
@@ -465,9 +465,9 @@ export const games: Game[] = [
   {
     id: "game10",
     title: "Net Gang Volleyball",
-    sport: "Volleyball",
-    sportEmoji: "🏐",
-    sportColor: "#3B82F6",
+    activity: "Volleyball",
+    activityEmoji: "🏐",
+    activityColor: "#3B82F6",
     status: "completed",
     gameType: "Casual",
     maxPlayers: 8,
@@ -499,9 +499,9 @@ export const games: Game[] = [
   {
     id: "game11",
     title: "Competitive Hoops — Tuesday Hoops",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "completed",
     gameType: "Competitive",
     maxPlayers: 10,
@@ -533,9 +533,9 @@ export const games: Game[] = [
   {
     id: "game12",
     title: "Sunday Soccer Fun Run",
-    sport: "Soccer",
-    sportEmoji: "⚽",
-    sportColor: "#22C55E",
+    activity: "Soccer",
+    activityEmoji: "⚽",
+    activityColor: "#22C55E",
     status: "completed",
     gameType: "Casual",
     maxPlayers: 16,
@@ -567,9 +567,9 @@ export const games: Game[] = [
   {
     id: "game13",
     title: "Tuesday Hoops — Weekly Run",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "completed",
     gameType: "Casual",
     maxPlayers: 10,
@@ -600,9 +600,9 @@ export const games: Game[] = [
   {
     id: "game14",
     title: "Smash Club — Tennis Doubles",
-    sport: "Tennis",
-    sportEmoji: "🎾",
-    sportColor: "#EAB308",
+    activity: "Tennis",
+    activityEmoji: "🎾",
+    activityColor: "#EAB308",
     status: "completed",
     gameType: "Competitive",
     maxPlayers: 4,
@@ -636,9 +636,9 @@ export const games: Game[] = [
   {
     id: "game15",
     title: "Rainy Day Soccer — Cancelled",
-    sport: "Soccer",
-    sportEmoji: "⚽",
-    sportColor: "#22C55E",
+    activity: "Soccer",
+    activityEmoji: "⚽",
+    activityColor: "#22C55E",
     status: "cancelled",
     gameType: "Casual",
     maxPlayers: 14,
@@ -670,9 +670,9 @@ export const games: Game[] = [
   {
     id: "game16",
     title: "Late Night Basketball — Low Turnout",
-    sport: "Basketball",
-    sportEmoji: "🏀",
-    sportColor: "#F97316",
+    activity: "Basketball",
+    activityEmoji: "🏀",
+    activityColor: "#F97316",
     status: "cancelled",
     gameType: "Casual",
     maxPlayers: 10,
@@ -934,7 +934,7 @@ export const calendarMarkers: Record<string, { status: GameStatus; gameId: strin
   "2026-03-20": [{ status: "cancelled", gameId: "game16" }],
 };
 
-export const sports = [
+export const activities = [
   { name: "Basketball", emoji: "🏀", color: "#F97316" },
   { name: "Soccer",     emoji: "⚽", color: "#22C55E" },
   { name: "Volleyball", emoji: "🏐", color: "#3B82F6" },
