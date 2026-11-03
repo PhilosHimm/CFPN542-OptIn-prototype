@@ -138,6 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [isDemo]);
 
+  // Neon Auth announces sign-in through Better Auth's localStorage broadcast,
+  // and `storage` events only fire in *other* tabs — so onAuthStateChange never
+  // sees SIGNED_IN in the tab that signed in. Apply the session from the sign-in
+  // result directly instead of waiting for an event that won't arrive.
+  function applySession(newSession: Session | null) {
+    setSession(newSession);
+    setUser(newSession?.user ?? null);
+    if (newSession?.user) {
+      setLoading(true);
+      fetchProfile(newSession.user.id);
+    }
+  }
+
   async function fetchProfile(userId: string) {
     if (!db) { setLoading(false); return; }
     try {
@@ -209,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await db.auth.signUp({
+      const { data, error } = await db.auth.signUp({
         email,
         password,
         options: {
@@ -218,6 +231,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) return { error: error.message };
+      // Neon Auth signs the user in on sign-up (email verification is off).
+      if (data.session) applySession(data.session);
       return { error: null };
     } catch {
       return { error: "Something went wrong — please try again" };
@@ -229,13 +244,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await db.auth.signInWithPassword({ email, password });
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (!error) {
         setSessionExpired(false);
-        // Dev-only: confirm the user id is set correctly after sign-in
-        db.auth.getUser().then(({ data }) => {
-          devLog("Signed in — user id:", data.user?.id ?? "null");
-        });
+        applySession(data.session);
+        devLog("Signed in — user id:", data.user?.id ?? "null");
       }
       return { error: error?.message ?? null };
     } catch {
