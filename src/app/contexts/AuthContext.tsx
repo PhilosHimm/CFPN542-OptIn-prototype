@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
+        fetchProfile(currentSession.user);
       } else {
         setLoading(false);
       }
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (newSession?.user) {
-        fetchProfile(newSession.user.id);
+        fetchProfile(newSession.user);
       }
     });
 
@@ -147,31 +147,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newSession?.user ?? null);
     if (newSession?.user) {
       setLoading(true);
-      fetchProfile(newSession.user.id);
+      fetchProfile(newSession.user);
     }
   }
 
-  async function fetchProfile(userId: string) {
+  async function fetchProfile(authUser: User) {
     if (!db) { setLoading(false); return; }
+    const userId = authUser.id;
     try {
+      // maybeSingle(): "no row" is data === null with no error, so creating the
+      // profile doesn't depend on PostgREST's PGRST116 code, which the Neon
+      // Data API doesn't necessarily return.
       const { data, error } = await db
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
-      if (data && !error) {
+      if (error) {
+        console.error(`[OptIn] Profile fetch failed: ${error.code ?? ""} ${error.message}`);
+      } else if (data) {
         setProfile(data as UserProfile);
-      } else if (error?.code === "PGRST116") {
-        // No profile row — new OAuth user. Create a minimal profile from auth metadata.
-        const { data: { user: authUser } } = await db.auth.getUser();
-        if (authUser) {
-          const name =
-            authUser.user_metadata?.full_name ??
-            authUser.user_metadata?.name ??
-            authUser.email?.split("@")[0] ??
-            "User";
-          await db.from("profiles").insert({
+      } else {
+        // First sign-in for this user (email or Google): create the profile.
+        const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+        const name =
+          (typeof meta.full_name === "string" && meta.full_name) ||
+          (typeof meta.name === "string" && meta.name) ||
+          authUser.email?.split("@")[0] ||
+          "User";
+        const { data: created, error: insertError } = await db
+          .from("profiles")
+          .insert({
             id: userId,
             email: authUser.email ?? "",
             name,
@@ -182,17 +189,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             games_played: 0,
             weeks_played: 0,
             attendance_rate: 0,
-          });
-          const { data: newProfile } = await db
-            .from("profiles")
-            .select("*")
-            .eq("id", userId)
-            .single();
-          if (newProfile) setProfile(newProfile as UserProfile);
+          })
+          .select("*")
+          .single();
+        if (insertError) {
+          console.error(`[OptIn] Profile create failed: ${insertError.code ?? ""} ${insertError.message}`);
+        } else if (created) {
+          setProfile(created as UserProfile);
         }
       }
-    } catch {
-      // Profile fetch failed — proceed without profile
+    } catch (err) {
+      console.error("[OptIn] Profile fetch threw:", err);
     }
     setLoading(false);
   }
