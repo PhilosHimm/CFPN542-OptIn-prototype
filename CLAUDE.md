@@ -58,12 +58,15 @@ Note this removed the only consumers of the `services/*` + [data/games.ts](src/a
 
 The database is **Neon** (moved from Supabase on 2026-11-03), used through two Neon features: **Neon Auth** (managed Better Auth) for sign-in, and the **Data API** (PostgREST-compatible) for every `db.from()` / `db.rpc()` call. [db.ts](src/lib/db.ts) builds the client with `createClient` from `@neon/neon-js/supabase`, which keeps supabase-js's `auth.*` method names (`signInWithPassword`, `onAuthStateChange`, …) and query builder, so most call sites didn't change. There is no server and no secret key in the browser: **RLS is the only thing enforcing access.**
 
+The project is Neon `long-mode-22787064` ("optin", branch `main` = `br-rapid-tooth-bbbpk18h`, database `neondb`), linked to Vercel project `cfpn-542-opt-in-prototype`. `VITE_NEON_URL` is `https://ep-sweet-snow-bbd8dgld.c-15.us-east-1.aws.neon.tech/neondb`. Neon Auth has email/password and Google (Neon's shared OAuth app) enabled; `localhost` and `https://cfpn-542-opt-in-prototype.vercel.app` are the trusted redirect origins — Vercel **preview** URLs are not, so OAuth redirects fail there unless added.
+
 The Neon org is **managed by Vercel** — projects are created from the Vercel dashboard (Storage → Neon), not via the Neon API/MCP, which refuses `create_project`. Everything else (SQL, Auth, Data API config) works through the Neon MCP.
 
 **[neon/schema.sql](neon/schema.sql)** is the whole schema in one file, ported from the old Supabase baseline (see its header for each difference). There are no migrations and no CI integration — change the schema by editing that file **and** applying the same statement to the project (Neon MCP `run_sql`). Test risky changes on a Neon branch first.
 
 Neon-specific rules that differ from Supabase and are easy to get wrong:
-- Use `public.current_uid()` (uuid) in policies and functions, never `auth.uid()` — it doesn't exist. Neon's own `auth.user_id()` returns **text**.
+- Use `public.current_uid()` (uuid) in policies and functions, never `auth.uid()` / `auth.user_id()` directly. `authenticated` has **no USAGE on the `auth` schema**, so calling those from a policy fails with `permission denied for schema auth`; `current_uid()` is `SECURITY DEFINER` to get around that. (`auth.user_id()` also returns text, not uuid.)
+- The container this repo is worked on from usually can't reach Neon hosts directly (no psql). Apply SQL through the Neon MCP (`run_sql` takes one statement; use `run_sql_transaction` for several). To test RLS as a user, `set_config('request.jwt.claims', '{"sub":"<uuid>","role":"authenticated"}', true)` then `set local role authenticated` inside a `do` block that ends in `raise exception` so it rolls back.
 - Roles are `authenticated` and `anonymous` (not `anon`). New tables need `grant ... to authenticated` as well as RLS policies.
 - Neon Auth users live in the managed `neon_auth` schema. Nothing references it: `profiles` has no FK to it, and there is no signup trigger — `AuthContext.fetchProfile` creates the `profiles` row on first sign-in (`PGRST116`).
 - Old Supabase accounts and data were **not** migrated (password hashes are incompatible).

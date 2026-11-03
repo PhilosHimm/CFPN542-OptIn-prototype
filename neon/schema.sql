@@ -30,8 +30,11 @@ create extension if not exists "pgcrypto";
 -- as auth.user_id() (text). Every id column here is uuid, so policies and RPCs
 -- go through this wrapper instead of Supabase's auth.uid(). Returns null for
 -- anonymous requests and direct (non-Data-API) connections.
+-- SECURITY DEFINER because Neon does not grant `authenticated` USAGE on the
+-- `auth` schema — called as the invoker, every policy fails with
+-- "permission denied for schema auth".
 create or replace function public.current_uid()
-returns uuid language sql stable set search_path = '' as $$
+returns uuid language sql stable security definer set search_path = '' as $$
   select nullif(auth.user_id(), '')::uuid
 $$;
 
