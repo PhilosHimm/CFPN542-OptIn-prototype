@@ -264,6 +264,32 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 
 ---
 
+## 2026-11-03 backend audit (`neon/migrations/2026-11-03_backend_audit.sql`)
+
+**Root cause of most of it:** the Neon port was built from `000_baseline_schema.sql`, which predated Supabase migrations 019–023. Items #20, #22, #23, #24, #34, #39, #41, #42 and #48 were marked APPLIED above but were missing from production after the move. The worst effect: the client sends `p_cost_type` and the RPC had no such parameter, so **every activity creation failed**. All of them are restored.
+
+New findings, all fixed in the same migration and client change:
+
+| # | Finding | Fix |
+|---|---|---|
+| 62 | Any signed-in user could insert themselves into any conversation (`conversation_members` INSERT was `current_uid() is not null`) and then read it | No INSERT policies; conversations come only from `get_or_create_direct_conversation` / `create_group_conversation` |
+| 63 | `unread_count` was never incremented, so unread badges never showed | `trg_on_message_insert`; ChatView marks read on open |
+| 64 | "Start chat" created a new DM every time | get-or-create, serialised per pair |
+| 65 | Clients could insert `is_system` messages | Messages INSERT policy requires `is_system = false` |
+| 66 | Anyone could insert a friendship directly, skipping the request | Friend writes only via `send_friend_request` / `respond_to_friend_request` |
+| 67 | "Remove friend" had no DELETE policy, so it silently did nothing | DELETE policy plus a row-count check |
+| 68 | Accepting a request in Chats opened a chat with a `Date.now()` id, so messages went nowhere | Uses the returned conversation id |
+| 69 | Anyone could self-join a Private activity by id, and so read it | `can_self_join_activity` in the INSERT policy |
+| 70 | Anyone could propose times on any activity | Proposals require membership |
+| 71 | A host editing a time could only clear their own votes | "Host can clear votes on own options" policy |
+| 72 | Home and Calendar listed every user's Public activities and your own unaccepted invites | `fetchAllActivities` filters to created or joined |
+| 73 | The deadline sweep never ran (only the unused `getActivities` called it) | `fetchAllActivities` awaits it |
+| 74 | Profile search pasted raw input into a PostgREST `or=` filter and returned everyone's email | Input sanitised; email no longer selected |
+
+Still open: `profiles` UPDATE lets a user rewrite their own `activities_played` / `attendance_rate`; `profiles.email` is still readable by any signed-in user through a direct API call (the app no longer asks for it); a declined friend request can be re-sent immediately (no cool-down).
+
+---
+
 ## Pivot: sports → general group events
 
 > **Superseded 2026-11-03.** The pivot was decided (any in-person group plan,

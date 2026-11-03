@@ -621,10 +621,26 @@ function mapDbActivityToActivity(g: any): Activity {
 const ACTIVITY_SELECT =
   "*, activity_options!activity_options_activity_id_fkey(*, votes(value, user_id)), activity_players(status, user_id, profiles:user_id(id, name, avatar_url))";
 
-/** Fetch all activities — returns demo data in demo mode */
+/**
+ * The signed-in user's activities: ones they created or have joined. RLS also
+ * lets them read every Public activity and ones they're only invited to, so
+ * without this filter Home and Calendar listed strangers' Public activities,
+ * and invites that belong in the notifications panel. Returns demo data in
+ * demo mode.
+ */
 export async function fetchAllActivities(): Promise<Activity[]> {
   if (isDemoMode()) return applyAutoTransitions(DEMO_ACTIVITIES).activities;
   if (!db) return [];
+
+  const { data: { session } } = await db.auth.getSession();
+  const uid = session?.user?.id;
+  if (!uid) return [];
+
+  // Advance any activity past its voting deadline (or end time) before reading,
+  // so the list never shows a decided activity as still voting. There is no
+  // pg_cron, so opening the app is what runs this sweep.
+  const sweep = await db.rpc("auto_transition_all_activities");
+  if (sweep.error) console.error("[OptIn] auto_transition_all_activities failed:", sweep.error.message);
 
   const { data, error } = await db
     .from("activities")
@@ -633,7 +649,11 @@ export async function fetchAllActivities(): Promise<Activity[]> {
 
   if (error || !data) return [];
 
-  return data.map(mapDbActivityToActivity);
+  return data
+    .filter((a: any) =>
+      a.created_by === uid ||
+      (a.activity_players || []).some((p: any) => p.user_id === uid && p.status === "joined"))
+    .map(mapDbActivityToActivity);
 }
 
 /** Fetch a single activity by ID — returns demo activity in demo mode */
@@ -925,34 +945,13 @@ export async function completeActivity(activityId: string, attendeeUserIds: stri
 export async function clearVotesForOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
   if (!db) return false;
+  // Host-only (RLS "Host can clear votes on own options"); fn_sync_vote_counts
+  // resets the option's counters as each vote row is deleted.
   const { error } = await db.from("votes").delete().eq("option_id", optionId);
-  if (!error) {
-    await db
-      .from("activity_options")
-      .update({ in_votes: 0, maybe_votes: 0, out_votes: 0 })
-      .eq("id", optionId);
-  }
   return !error;
 }
 
 // ─── Vote helpers ─────────────────────────────────────────────────────────────
-
-/** Re-count votes for an option and sync the aggregate columns on activity_options. */
-async function syncVoteCounts(optionId: string): Promise<void> {
-  if (!db) return;
-  const { data: rows } = await db
-    .from("votes")
-    .select("value")
-    .eq("option_id", optionId);
-  if (!rows) return;
-  const counts = { in_votes: 0, maybe_votes: 0, out_votes: 0 };
-  for (const r of rows) {
-    if (r.value === "in") counts.in_votes++;
-    else if (r.value === "maybe") counts.maybe_votes++;
-    else if (r.value === "out") counts.out_votes++;
-  }
-  await db.from("activity_options").update(counts).eq("id", optionId);
-}
 
 /**
  * Upsert a vote for the current user on an activity option.
@@ -970,10 +969,9 @@ export async function castVote(
     { option_id: optionId, user_id: userId, value },
     { onConflict: "option_id,user_id" }
   );
-  if (error) return false;
-
-  await syncVoteCounts(optionId);
-  return true;
+  // fn_sync_vote_counts keeps the option's counters in step. The client used to
+  // rewrite them too, which RLS silently rejected for everyone but the host.
+  return !error;
 }
 
 /**
@@ -989,10 +987,7 @@ export async function deleteVote(optionId: string, userId: string): Promise<bool
     .delete()
     .eq("option_id", optionId)
     .eq("user_id", userId);
-  if (error) return false;
-
-  await syncVoteCounts(optionId);
-  return true;
+  return !error;
 }
 
 /**
@@ -1009,10 +1004,8 @@ export async function removePlayerFromActivity(activityId: string, playerId: str
   }
   if (!db) return false;
 
-  // The DELETE policy is `user_id = auth.uid()`, so a host removing someone
-  // else matches zero rows and PostgREST reports no error. Checking only
-  // `!error` made "Player removed" a lie. Until a host-can-remove policy exists
-  // this correctly returns false so the caller can surface a real failure.
+  // RLS ("Leave own activity or host removes player") allows the host. A delete
+  // RLS filters out reports no error, so check that a row actually went.
   const { data, error } = await db
     .from("activity_players")
     .delete()

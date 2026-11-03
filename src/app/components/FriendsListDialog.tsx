@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -72,26 +73,37 @@ export function FriendsListDialog({ open, onOpenChange }: FriendsListDialogProps
 
   const handleAddFriend = async (userId: string) => {
     if (!profile?.id) return;
-    await sendMessageRequest(profile.id, userId);
-    // Optionally show a toast
+    const result = await sendMessageRequest(profile.id, userId);
+    if (result.status === "error" || result.status === "invalid") {
+      toast.error(result.error ?? "Couldn't send the friend request.");
+      return;
+    }
+    if (result.status === "sent") toast.success("Friend request sent");
+    else if (result.status === "already_pending") toast("Request already pending");
+    else if (result.status === "already_friends") toast("You're already friends");
+    else if (result.status === "accepted") toast.success("They'd already asked you. You're now friends");
     setSearchResults(prev => prev.filter(r => r.id !== userId));
+    if (result.status === "accepted") loadFriendsAndRequests();
   };
 
   const handleAcceptRequest = async (requestId: string) => {
     if (!profile?.id) return;
-    await acceptMessageRequest(requestId, profile.id);
+    const { error } = await acceptMessageRequest(requestId, profile.id);
+    if (error) toast.error(error);
     loadFriendsAndRequests();
   };
 
   const handleDeclineRequest = async (requestId: string) => {
     if (!profile?.id) return;
-    await declineMessageRequest(requestId, profile.id);
+    const { error } = await declineMessageRequest(requestId, profile.id);
+    if (error) toast.error(error);
     loadFriendsAndRequests();
   };
 
   const handleRemoveFriend = async (friendId: string) => {
     if (!profile?.id) return;
-    await removeFriend(profile.id, friendId);
+    const { error } = await removeFriend(profile.id, friendId);
+    if (error) toast.error(error);
     loadFriendsAndRequests();
   };
 

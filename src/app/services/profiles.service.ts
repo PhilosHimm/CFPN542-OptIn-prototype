@@ -6,7 +6,8 @@ export interface ProfileSearchResult {
   name: string;
   username?: string | null;
   color?: string;
-  email?: string;
+  // Other users' emails are deliberately not selected: search results go to
+  // anyone signed in.
   avatar_url?: string | null;
 }
 
@@ -50,7 +51,7 @@ export async function getProfilesByIds(ids: string[]): Promise<ProfileSearchResu
   try {
     const { data, error } = await db
       .from("profiles")
-      .select("id, name, username, color, email, avatar_url")
+      .select("id, name, username, color, avatar_url")
       .in("id", ids);
 
     if (error || !data) return [];
@@ -60,7 +61,6 @@ export async function getProfilesByIds(ids: string[]): Promise<ProfileSearchResu
       name: profile.name,
       username: profile.username,
       color: profile.color,
-      email: profile.email,
       avatar_url: profile.avatar_url,
     }));
   } catch {
@@ -72,7 +72,10 @@ export async function searchProfiles(
   query: string,
   excludeUserId?: string
 ): Promise<ProfileSearchResult[]> {
-  const normalizedQuery = query.trim().toLowerCase();
+  // The query goes into a PostgREST `or=(...)` filter, where `,` `(` `)` `.`
+  // `:` and `*`/`%` are syntax: a name with a comma broke the search, and a
+  // crafted one could add filter terms. Keep letters, digits, spaces, `_`, `-`, `'`.
+  const normalizedQuery = query.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_'-]/gu, "").trim();
   if (!normalizedQuery) return [];
 
   if (isDemoMode()) {
@@ -95,7 +98,7 @@ export async function searchProfiles(
   try {
     const { data, error } = await db
       .from("profiles")
-      .select("id, name, username, color, email, avatar_url")
+      .select("id, name, username, color, avatar_url")
       .or(`name.ilike.%${normalizedQuery}%,username.ilike.%${normalizedQuery}%`)
       .limit(20);
 
@@ -108,8 +111,7 @@ export async function searchProfiles(
         name: profile.name,
         username: profile.username,
         color: profile.color,
-        email: profile.email,
-        avatar_url: profile.avatar_url,
+          avatar_url: profile.avatar_url,
       }));
   } catch {
     return [];

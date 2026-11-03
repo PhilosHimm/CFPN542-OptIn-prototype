@@ -31,7 +31,9 @@ import {
   type MessageRequestItem,
 } from "../services/friendships.service";
 import { demoConversations, type DemoConversation, type ChatMessage } from "../data/activities";
-  import { getDirectMessages, getGroupMessages, sendMessage as sendServiceMessage, createConversation as createServiceConv } from "../services/messages.service";
+import { getDirectMessages, getGroupMessages, sendMessage as sendServiceMessage, createConversation as createServiceConv, leaveConversation } from "../services/messages.service";
+import { poll } from "@/lib/db";
+import { toast } from "sonner";
 import { ChatView } from "./ChatView";
 
 type UserOption = {
@@ -99,11 +101,9 @@ export function ChatsScreen() {
 // Live mode: persistent chat sessions
   const [chats, setChats] = useState<ChatSession[]>([]);
 
-  useEffect(() => {
+  const loadChats = async () => {
     if (isDemo || !profile?.id) return;
-
-    // Load conversations from the database
-    Promise.all([
+    await Promise.all([
       getDirectMessages(profile.id),
       getGroupMessages(profile.id)
     ]).then(([direct, group]) => {
@@ -119,8 +119,17 @@ export function ChatsScreen() {
         messages: [],
         unread: m.unread,
       }));
-      setChats(liveChats);
+      // Keep any messages already loaded into open sessions; the list itself
+      // (names, previews, unread counts, order) comes from the server.
+      setChats((prev) => liveChats.map((c) => ({ ...c, messages: prev.find((p) => p.id === c.id)?.messages ?? [] })));
     });
+  };
+
+  // Load conversations, then poll so new chats, previews and unread counts
+  // from other people show up without a reload (there is no realtime).
+  useEffect(() => {
+    if (isDemo || !profile?.id) return;
+    return poll(loadChats, 10_000);
   }, [isDemo, profile?.id]);
 
   // Create chat sheet state
@@ -219,8 +228,6 @@ export function ChatsScreen() {
           color: r.color,
           username: r.username
             ? `@${r.username}`
-            : r.email?.includes("@")
-            ? `@${r.email.split("@")[0]}`
             : `@${r.name.toLowerCase().replace(/\s+/g, "")}`,
         }))
       );
@@ -270,6 +277,11 @@ export function ChatsScreen() {
     if (!isGroup && !isFriend(selectedChatUsers[0].id)) {
       const result = await sendMessageRequest(profile.id, selectedChatUsers[0].id);
       if (result.status === "sent") setComposerFeedback(`Message request sent to ${selectedChatUsers[0].name}.`);
+      else if (result.status === "accepted") {
+        // They had already sent us a request; it was accepted instead.
+        setComposerFeedback(`${selectedChatUsers[0].name} had already asked you. You're now friends.`);
+        loadChats();
+      }
       else if (result.status === "already_pending") setComposerFeedback("A message request is already pending.");
       else if (result.status === "already_friends") setComposerFeedback("You are already friends. Try again to start a chat.");
       else if (result.status === "invalid") setComposerFeedback("Select a valid user.");
@@ -301,7 +313,7 @@ export function ChatsScreen() {
       setActiveChatId(newId);
     } else {
       const participantIds = [profile.id, ...selectedChatUsers.map((u) => u.id)];
-      createServiceConv(isGroup, chatName, participantIds).then((newId) => {
+      createServiceConv(isGroup, chatName, participantIds, profile.id).then(({ id: newId, error }) => {
           if (newId) {
             const newSession: ChatSession = {
               id: newId,
@@ -316,11 +328,11 @@ export function ChatsScreen() {
               messages: [],
               unread: 0,
             };
-            setChats((prev) => [newSession, ...prev]);
+            // An existing 1:1 chat is reused rather than duplicated.
+            setChats((prev) => (prev.some((c) => c.id === newId) ? prev : [newSession, ...prev]));
             setActiveChatId(newId);
           } else {
-            console.error("Failed to create conversation");
-            setComposerFeedback("Failed to start chat.");
+            toast.error(error ?? "Failed to start chat.");
           }
         });
     }
@@ -336,10 +348,14 @@ export function ChatsScreen() {
   const handleAcceptRequest = async (request: MessageRequestItem) => {
     if (!profile || requestActionId) return;
     setRequestActionId(request.id);
-    const { error } = await acceptMessageRequest(request.id, profile.id);
-    if (!error) {
+    const { error, conversationId } = await acceptMessageRequest(request.id, profile.id);
+    if (error) {
+      toast.error(error);
+    } else if (conversationId) {
+      // Use the real conversation id: a Date.now() placeholder meant messages
+      // sent from this chat went to a conversation that didn't exist.
       const newSession: ChatSession = {
-        id: Date.now().toString(),
+        id: conversationId,
         isGroup: false,
         name: request.requesterName,
         initials: request.requesterName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
@@ -351,7 +367,8 @@ export function ChatsScreen() {
         messages: [],
         unread: 0,
       };
-      setChats((prev) => [newSession, ...prev]);
+      setChats((prev) => (prev.some((c) => c.id === conversationId) ? prev : [newSession, ...prev]));
+      loadChats();
     }
     await loadRelationships();
     setRequestActionId(null);
@@ -396,7 +413,8 @@ export function ChatsScreen() {
         )
       );
       if (profile?.id) {
-        await sendServiceMessage(conversationId, profile.id, content);
+        const { error } = await sendServiceMessage(conversationId, profile.id, content);
+        if (error) toast.error(`Message not sent: ${error}`);
       }
     }
   };
@@ -427,7 +445,13 @@ export function ChatsScreen() {
             conversation={sessionToConvo(chat)}
             onBack={() => setActiveChatId(null)}
             onSendMessage={handleSendMessage}
-            onDelete={(id) => {
+            onDelete={async (id) => {
+              // Leave on the server too; removing it only locally made it
+              // reappear on the next load.
+              if (profile?.id) {
+                const { error } = await leaveConversation(id, profile.id);
+                if (error) { toast.error(error); return; }
+              }
               setChats((prev) => prev.filter((c) => c.id !== id));
               setActiveChatId(null);
             }}
