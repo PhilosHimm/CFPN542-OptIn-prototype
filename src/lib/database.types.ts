@@ -634,6 +634,14 @@ export type Database = {
         }
         Returns: string
       }
+      can_self_join_activity: { Args: { p_activity_id: string }; Returns: boolean }
+      create_group_conversation: { Args: { p_name: string; p_member_ids: string[] }; Returns: string }
+      get_or_create_direct_conversation: { Args: { p_other: string }; Returns: string }
+      respond_to_friend_request: { Args: { p_request_id: string; p_accept: boolean }; Returns: string | null }
+      send_friend_request: {
+        Args: { p_addressee: string }
+        Returns: "sent" | "already_pending" | "already_friends" | "accepted"
+      }
       user_in_conversation: { Args: { conv_id: string }; Returns: boolean }
       user_in_activity: { Args: { p_activity_id: string }; Returns: boolean }
       user_in_group: { Args: { p_group_id: string }; Returns: boolean }

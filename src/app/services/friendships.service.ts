@@ -159,7 +159,7 @@ export async function getOutgoingMessageRequestUserIds(currentUserId: string): P
 export async function sendMessageRequest(
   requesterId: string,
   addresseeId: string
-): Promise<{ status: "sent" | "already_pending" | "already_friends" | "invalid" | "error"; error?: string }> {
+): Promise<{ status: "sent" | "already_pending" | "already_friends" | "accepted" | "invalid" | "error"; error?: string }> {
   if (!requesterId || !addresseeId || requesterId === addresseeId) {
     return { status: "invalid" };
   }
@@ -195,34 +195,12 @@ export async function sendMessageRequest(
   }
 
   if (!db) return { status: "error", error: "Unable to connect" };
-  const { data: existingFriendship, error: friendshipError } = await db
-    .from("friendships")
-    .select("id")
-    .eq("user_a_id", userAId)
-    .eq("user_b_id", userBId)
-    .maybeSingle();
-
-  if (friendshipError) return { status: "error", error: friendshipError.message };
-  if (existingFriendship) return { status: "already_friends" };
-
-  const { data: existingRequest, error: requestCheckError } = await db
-    .from("friend_requests")
-    .select("id")
-    .eq("status", "pending")
-    .or(
-      `and(requester_id.eq.${requesterId},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${requesterId})`
-    )
-    .maybeSingle();
-
-  if (requestCheckError) return { status: "error", error: requestCheckError.message };
-  if (existingRequest) return { status: "already_pending" };
-
-  const { error } = await db
-    .from("friend_requests")
-    .insert({ requester_id: requesterId, addressee_id: addresseeId, status: "pending" });
-
+  // send_friend_request does the already-friends / already-pending checks and
+  // the insert in one transaction. If the other person had already asked us,
+  // it accepts their request instead and returns 'accepted'.
+  const { data, error } = await db.rpc("send_friend_request", { p_addressee: addresseeId });
   if (error) return { status: "error", error: error.message };
-  return { status: "sent" };
+  return { status: data as "sent" | "already_pending" | "already_friends" | "accepted" };
 }
 
 export async function acceptMessageRequest(
@@ -254,43 +232,16 @@ export async function acceptMessageRequest(
     }
 
     // Create a demo conversation so messages have somewhere to go
-    const convId = await createConversation(false, "", [currentUserId, request.requesterId]);
+    const { id: convId } = await createConversation(false, "", [currentUserId, request.requesterId], currentUserId);
     return { error: null, conversationId: convId ?? undefined };
   }
 
   if (!db) return { error: "Unable to connect" };
-  const { data: requestRow, error: requestError } = await db
-    .from("friend_requests")
-    .select("id, requester_id, addressee_id")
-    .eq("id", requestId)
-    .eq("addressee_id", currentUserId)
-    .eq("status", "pending")
-    .single();
-
-  if (requestError || !requestRow) return { error: requestError?.message ?? "Request not found" };
-
-  const [userAId, userBId] = normalizePair(requestRow.requester_id, requestRow.addressee_id);
-
-  const { error: updateError } = await db
-    .from("friend_requests")
-    .update({ status: "accepted" })
-    .eq("id", requestId);
-
-  if (updateError) return { error: updateError.message };
-
-  const { error: friendshipError } = await db
-    .from("friendships")
-    .insert({ user_a_id: userAId, user_b_id: userBId })
-    .select("id")
-    .single();
-
-  if (friendshipError && friendshipError.code !== "23505") {
-    return { error: friendshipError.message };
-  }
-
-  // Create a conversation between the two users so they can start chatting
-  const convId = await createConversation(false, "", [currentUserId, requestRow.requester_id]);
-  return { error: null, conversationId: convId ?? undefined };
+  // Marks the request accepted, creates the friendship and returns the pair's
+  // direct conversation, all in one transaction.
+  const { data, error } = await db.rpc("respond_to_friend_request", { p_request_id: requestId, p_accept: true });
+  if (error) return { error: error.message };
+  return { error: null, conversationId: (data as string | null) ?? undefined };
 }
 
 export async function declineMessageRequest(
@@ -310,12 +261,7 @@ export async function declineMessageRequest(
   }
 
   if (!db) return { error: "Unable to connect" };
-  const { error } = await db
-    .from("friend_requests")
-    .update({ status: "declined" })
-    .eq("id", requestId)
-    .eq("addressee_id", currentUserId);
-
+  const { error } = await db.rpc("respond_to_friend_request", { p_request_id: requestId, p_accept: false });
   return { error: error?.message ?? null };
 }
 
@@ -336,10 +282,13 @@ export async function removeFriend(
 
   if (!db) return { error: "Unable to connect" };
 
-  const { error } = await db
+  const { data, error } = await db
     .from("friendships")
     .delete()
-    .or(`and(user_a_id.eq.${currentUserId},user_b_id.eq.${friendId}),and(user_a_id.eq.${friendId},user_b_id.eq.${currentUserId})`);
+    .or(`and(user_a_id.eq.${currentUserId},user_b_id.eq.${friendId}),and(user_a_id.eq.${friendId},user_b_id.eq.${currentUserId})`)
+    .select("id");
 
-  return { error: error?.message ?? null };
+  // A delete RLS filters out reports no error, so check a row actually went.
+  if (error) return { error: error.message };
+  return { error: (data?.length ?? 0) > 0 ? null : "Couldn't remove this friend." };
 }

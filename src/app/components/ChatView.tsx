@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Users, MoreHorizontal, BellOff, Trash2, Ban, MessageCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getChatMessages, subscribeToMessages } from "../services/messages.service";
+import { getChatMessages, subscribeToMessages, markConversationRead } from "../services/messages.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +46,11 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
       // Unmounted before the fetch resolved — don't start a poller nobody stops.
       if (cancelled) return;
       setMessages(initialMsgs);
+      // Opening the chat clears its unread badge; so does anything that
+      // arrives while it's open.
+      markConversationRead(conversation.id, profile.id);
       sub = subscribeToMessages(conversation.id, profile.id, (newMsg) => {
+        if (!newMsg.isMe) markConversationRead(conversation.id, profile.id);
         setMessages((prev) => {
           if (prev.some(m => m.id === newMsg.id)) return prev;
           const filtered = prev.filter(m => !(m.id.startsWith("temp-") && m.content === newMsg.content));

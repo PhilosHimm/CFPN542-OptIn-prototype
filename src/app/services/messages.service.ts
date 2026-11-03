@@ -37,24 +37,26 @@ async function fetchConversations(type: "direct" | "group", currentUserId?: stri
   }
 
   try {
+    // Only the latest message per conversation is needed for the list preview;
+    // embedding every message of every conversation scaled with chat history.
     const { data, error } = await db
       .from("conversations")
       .select("*, conversation_members(user_id, unread_count, profiles:user_id(name, initials, color)), messages(content, created_at, is_system)")
       .eq("type", type)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .order("created_at", { referencedTable: "messages", ascending: false })
+      .limit(1, { referencedTable: "messages" });
 
     if (error) console.error("fetchConversations error:", error);
     if (error || !data || data.length === 0) return [];
 
     return data.map((conv: any) => {
       const members = conv.conversation_members || [];
-      const messages = conv.messages || [];
-
-      // Sort messages to get the latest one
-      const sorted = [...messages].sort(
+      // The embed is already ordered newest-first and limited to one; sorting
+      // again keeps the preview right even if a backend ignored the embed limit.
+      const lastMsg = [...(conv.messages || [])].sort(
         (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      const lastMsg = sorted[0];
+      )[0];
 
       // For direct chats, show the other user's info; for groups, use the conversation name
       let name = conv.name || "Chat";
@@ -149,18 +151,13 @@ export async function sendMessage(
   if (!db) return { error: "Unable to connect to the server. Please try again later." };
 
   try {
+    // trg_on_message_insert bumps conversations.updated_at and every other
+    // member's unread_count, so the insert is the whole operation.
     const { error } = await db.from("messages").insert({
       conversation_id: conversationId,
       sender_id: senderId,
       content: trimmedContent,
     });
-
-    if (!error) {
-      await db
-        .from("conversations")
-        .update({ updated_at: new Date().toISOString() })
-        .eq("id", conversationId);
-    }
 
     return { error: error?.message ?? null };
   } catch {
@@ -225,42 +222,53 @@ function formatTimestamp(isoString: string): string {
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+/**
+ * Open (or create) a chat. Conversations are only created server-side:
+ * a 1:1 chat goes through get_or_create_direct_conversation, which reuses the
+ * pair's existing conversation instead of making a new one every time, and a
+ * group through create_group_conversation. Both require the other people to be
+ * friends. `participantIds` may include the caller; they are filtered out.
+ */
 export async function createConversation(
   isGroup: boolean,
   name: string,
-  participantIds: string[]
-): Promise<string | null> {
-  if (isDemoMode() || !db) return Date.now().toString();
+  participantIds: string[],
+  currentUserId?: string
+): Promise<{ id: string | null; error: string | null }> {
+  if (isDemoMode() || !db) return { id: Date.now().toString(), error: null };
 
+  const others = [...new Set(participantIds)].filter((id) => id && id !== currentUserId);
   try {
-    // Generate an ID up-front so we don't have to rely on a .select() which fails RLS
-    // since the user isn't a part of the conversation yet.
-    const newConvId = crypto.randomUUID();
-
-    const { error: convError } = await db
-      .from("conversations")
-      .insert({
-        id: newConvId,
-        type: isGroup ? "group" : "direct",
-        name: isGroup ? name : null,
-      });
-
-    if (convError) throw convError;
-
-    const membersToInsert = participantIds.map((id) => ({
-      conversation_id: newConvId,
-      user_id: id,
-    }));
-
-    const { error: memError } = await db
-      .from("conversation_members")
-      .insert(membersToInsert);
-
-    if (memError) throw memError;
-
-    return newConvId;
-  } catch (err) {
-    console.error("Failed to create conversation", err);
-    return null;
+    const { data, error } = isGroup
+      ? await db.rpc("create_group_conversation", { p_name: name, p_member_ids: others })
+      : await db.rpc("get_or_create_direct_conversation", { p_other: others[0] });
+    if (error) return { id: null, error: error.message };
+    return { id: data as string, error: null };
+  } catch {
+    return { id: null, error: "Failed to start chat. Please try again." };
   }
+}
+
+/** Clear the caller's unread badge for a conversation. */
+export async function markConversationRead(conversationId: string, userId: string): Promise<void> {
+  if (isDemoMode() || !db) return;
+  await db
+    .from("conversation_members")
+    .update({ unread_count: 0, last_read_at: new Date().toISOString() })
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId);
+}
+
+/** Leave a conversation. It disappears from the caller's list; others keep it. */
+export async function leaveConversation(conversationId: string, userId: string): Promise<{ error: string | null }> {
+  if (isDemoMode()) return { error: null };
+  if (!db) return { error: "Unable to connect to the server. Please try again later." };
+  const { data, error } = await db
+    .from("conversation_members")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId)
+    .select("id");
+  if (error) return { error: error.message };
+  return { error: (data?.length ?? 0) > 0 ? null : "Couldn't leave this chat." };
 }
