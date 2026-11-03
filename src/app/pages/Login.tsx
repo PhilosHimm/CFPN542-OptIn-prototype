@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router";
+import { useNavigate, Navigate, useLocation } from "react-router";
 import { Mail, Lock, Eye, EyeOff, LogIn, Play } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { APP_NAME } from "../constants/app";
@@ -17,7 +17,13 @@ export function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetMessage, setResetMessage] = useState("");
 
-  if (!authLoading && (isDemo || user)) return <Navigate to="/" replace />;
+  // Where Layout's auth gate was sending the visitor. Only same-app paths are
+  // honoured ("/x", not "//evil.com" or "https://..."), so this can't be used
+  // as an open redirect.
+  const fromState = (useLocation().state as { from?: unknown } | null)?.from;
+  const returnTo = typeof fromState === "string" && fromState.startsWith("/") && !fromState.startsWith("//") ? fromState : "/";
+
+  if (!authLoading && (isDemo || user)) return <Navigate to={returnTo} replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +49,7 @@ export function Login() {
     if (result.error) {
       setError(result.error);
     } else {
-      navigate("/");
+      navigate(returnTo, { replace: true });
     }
   };
 
@@ -142,7 +148,7 @@ export function Login() {
         <button
           type="button"
           onClick={async () => {
-            const result = await signInWithGoogle();
+            const result = await signInWithGoogle(returnTo);
             if (result.error) setError(result.error);
           }}
           className="w-full h-12 border border-outline text-on-surface text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-3 hover:bg-on-surface/8 active:bg-on-surface/12 transition-all"

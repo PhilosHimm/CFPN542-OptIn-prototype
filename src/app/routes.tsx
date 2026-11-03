@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, Outlet } from "react-router";
+import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Layout } from "./components/Layout";
 import { ChatsScreen } from "./components/ChatsScreen";
@@ -36,6 +36,16 @@ function AuthRoot() {
   );
 }
 
+// "Game" was renamed "activity" on 2026-11-03. Old /game/:id links (shared,
+// bookmarked, in browser history) land here and are forwarded with any query
+// string and hash intact. Production also 308s this path in vercel.json before
+// the app loads; this route covers the dev server and in-app history.
+function LegacyActivityRedirect() {
+  const { id } = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate to={`/activity/${encodeURIComponent(id ?? "")}${search}${hash}`} replace />;
+}
+
 export const router = createBrowserRouter([
   {
     Component: AuthRoot,
@@ -43,6 +53,7 @@ export const router = createBrowserRouter([
       { path: "/login", Component: Login },
       { path: "/signup", Component: Signup },
       { path: "/onboarding", Component: Onboarding },
+      { path: "/game/:id", Component: LegacyActivityRedirect },
       {
         path: "/",
         Component: Layout,

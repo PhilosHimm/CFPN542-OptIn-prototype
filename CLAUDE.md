@@ -35,7 +35,7 @@ if (!db) return [];   // db is the Neon client or `null` — always narrow it
 
 ## Architecture
 
-**Routing** — [routes.tsx](src/app/routes.tsx) builds a `createBrowserRouter` tree: `AuthRoot` (wraps `AuthProvider` + `Suspense`) → public routes (`/login`, `/signup`, `/onboarding`) and `Layout` → the four tab screens plus `/activity/:id`. Screens are `lazy()`-imported for code splitting; `ChatsScreen` is eager.
+**Routing** — [routes.tsx](src/app/routes.tsx) builds a `createBrowserRouter` tree: `AuthRoot` (wraps `AuthProvider` + `Suspense`) → public routes (`/login`, `/signup`, `/onboarding`, and `/game/:id`, which only redirects to `/activity/:id`) and `Layout` → the four tab screens plus `/activity/:id`. Screens are `lazy()`-imported for code splitting; `ChatsScreen` is eager.
 
 **[Layout.tsx](src/app/components/Layout.tsx)** is the app shell and the auth gate in one: it redirects unauthenticated non-demo users to `/login`, redirects real users without a `profile.username` to `/onboarding`, renders the offline / session-expired / demo banners, constrains the viewport to `max-w-[430px]`, and mounts `BottomNav`.
 
@@ -58,7 +58,7 @@ Note this removed the only consumers of the `services/*` + [data/activities.ts](
 
 The database is **Neon** (moved from Supabase on 2026-11-03), used through two Neon features: **Neon Auth** (managed Better Auth) for sign-in, and the **Data API** (PostgREST-compatible) for every `db.from()` / `db.rpc()` call. [db.ts](src/lib/db.ts) builds the client with `createClient` from `@neon/neon-js/supabase`, which keeps supabase-js's `auth.*` method names (`signInWithPassword`, `onAuthStateChange`, …) and query builder, so most call sites didn't change. There is no server and no secret key in the browser: **RLS is the only thing enforcing access.**
 
-The project is Neon `long-mode-22787064` ("optin", branch `main` = `br-rapid-tooth-bbbpk18h`, database `neondb`), linked to Vercel project `cfpn-542-opt-in-prototype`. `VITE_NEON_URL` is `https://ep-sweet-snow-bbd8dgld.c-15.us-east-1.aws.neon.tech/neondb`. Neon Auth has email/password and Google (Neon's shared OAuth app) enabled; `localhost` and `https://cfpn-542-opt-in-prototype.vercel.app` are the trusted redirect origins — Vercel **preview** URLs are not, so OAuth redirects fail there unless added.
+The project is Neon `long-mode-22787064` ("optin", branch `main` = `br-rapid-tooth-bbbpk18h`, database `neondb`), linked to Vercel project `optin` (`prj_OItUgImRuE8JOegmg7Yl9FA7NRNm`, formerly `cfpn-542-opt-in-prototype`). Production is **https://optinapp.vercel.app**; the old `cfpn-542-opt-in-prototype.vercel.app` is attached as a 308 redirect to it. `VITE_NEON_URL` is `https://ep-sweet-snow-bbd8dgld.c-15.us-east-1.aws.neon.tech/neondb`. Neon Auth has email/password and Google (Neon's shared OAuth app) enabled. Its trusted redirect origins are `localhost`, `optinapp.vercel.app` and a list of older `optin-*` / `cfpn-542-*` deployment URLs; arbitrary Vercel **preview** URLs are not trusted, so OAuth redirects fail there unless added. Sign-in keeps the path: Layout sends signed-out visitors to `/login` with `state.from`, and Login (and Google's `redirectTo`) returns them to it. Only same-app paths starting with a single `/` are honoured.
 
 The Neon org is **managed by Vercel** — projects are created from the Vercel dashboard (Storage → Neon), not via the Neon API/MCP, which refuses `create_project`. Everything else (SQL, Auth, Data API config) works through the Neon MCP.
 
@@ -105,6 +105,6 @@ The original coursework constraints (MD3, 48dp touch targets, 4.5:1 contrast, 4-
 
 The repo root previously held 38 one-off codemods and merge leftovers (`fix_*.cjs`, `patch_*.cjs`, `*.patch`, `tmp_screen.txt`, `typecheck.log`, `.orig`/`.rej`). **All were deleted on 2026-07-27** and [.gitignore](.gitignore) now blocks the patterns. Edit source files directly — do not generate scripts to rewrite them. They remain in git history if you ever need one.
 
-Deployment is Vercel; [vercel.json](vercel.json) rewrites everything to `index.html` for client-side routing.
+Deployment is Vercel; [vercel.json](vercel.json) 308-redirects the legacy `/game/:id` to `/activity/:id`, then rewrites everything to `index.html` for client-side routing. Keep `LegacyActivityRedirect` in [routes.tsx](src/app/routes.tsx) as well: it covers the dev server and in-app history, where `vercel.json` doesn't run.
 
 See [AGENTS.md](AGENTS.md) for the skills-junction setup on this machine (skills live globally at `C:\Users\philo\.agents\skills\`, not in this repo).

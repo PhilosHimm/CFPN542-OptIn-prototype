@@ -1,7 +1,7 @@
 {
-  "name": "OptIn — Pickup Sports Scheduling",
+  "name": "OptIn — Group Plans, Simplified",
   "short_name": "OptIn",
-  "description": "Create games, vote on times, and rally your crew for pickup sports.",
+  "description": "Propose a few times, let everyone vote, and lock in plans with your crew — pickup games, dinners, game nights and more.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F2F2F7",

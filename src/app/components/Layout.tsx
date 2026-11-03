@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Navigate, Outlet, useNavigate } from "react-router";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Layout() {
   const { user, profile, loading, isDemo, sessionExpired } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -30,7 +31,9 @@ export function Layout() {
   }
 
   if (!isDemo && !user) {
-    return <Navigate to="/login" replace />;
+    // Keep the destination (e.g. a shared /activity/:id link) so Login can
+    // send the visitor back to it after they sign in.
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />;
   }
 
   // Send new real users to onboarding until they set a username.
