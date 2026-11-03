@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Bell, ChevronRight, Plus, CalendarDays, X } from "lucide-react";
 import { ActivityCard } from "./ActivityCard";
-import { fetchAllActivities, type Activity, DEMO_REFERENCE_DATE } from "./activityData";
+import { fetchAllActivities, type Activity } from "./activityData";
 import { useAuth } from "../contexts/AuthContext";
 import { getInvites, respondToInvite, type ActivityInvite } from "../services/activities.service";
 import { db, isDemoMode, poll } from "@/lib/db";
@@ -73,12 +73,8 @@ export function HomeScreen() {
   const [invites, setInvites] = useState<ActivityInvite[]>([]);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
-  const todayObj = isDemoMode()
-    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z")
-    : new Date();
-  const todayStr = isDemoMode()
-    ? DEMO_REFERENCE_DATE
-    : `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
+  const todayObj = new Date();
+  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
 
   useEffect(() => {

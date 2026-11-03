@@ -63,7 +63,6 @@ VITE_NEON_URL=https://<endpoint>.neon.tech/<database>
 
 ## Known issues
 
-- **Demo data is stuck in March 2026.** The sample activities' voting deadlines have passed, so opening one in demo mode shows an expired countdown and a misleading "Only the host can confirm this activity" error.
 - **Deadlines only resolve when someone opens the app.** Nothing runs on a schedule, so an activity stays open past its deadline until someone loads Home or Calendar.
 - **No push notifications.** Invites, votes and messages only show up while the app is open.
 - **The vocabulary is still partly about sport.** Plans are "activities" now, but participants are still called "players" and the "roster", and only sport types have hero photos. Other types get a gray placeholder.

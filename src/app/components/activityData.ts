@@ -85,21 +85,33 @@ export function getMinPlayers(type: string): number {
   return TYPE_MINIMUMS[type] ?? 2;
 }
 
-/** Fixed reference date for demo mode — all demo activities are on/after this date. */
-export const DEMO_REFERENCE_DATE = "2026-03-24"; // Monday; demo activities span Tue 25 – Sat 29
+/**
+ * The demo activities below are written as if today were this date. Every demo
+ * date is shifted by the same number of days so the data always reads relative
+ * to the real today: "tomorrow" stays tomorrow, last week stays last week.
+ * (Demo mode used to freeze its own clock at this date instead, but countdowns
+ * and the calendar read the real clock, so every proposal looked expired.)
+ */
+const DEMO_AUTHORED_TODAY = "2026-03-24";
 
-/** Returns the current Date, substituting the fixed demo reference date in demo mode. */
-function demoAwareNow(): Date {
-  return isDemoMode()
-    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z")
-    : new Date();
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Returns today as a YYYY-MM-DD string, substituting the fixed demo date in demo mode. */
-function demoAwareTodayStr(): string {
-  if (isDemoMode()) return DEMO_REFERENCE_DATE;
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const DEMO_DAY_OFFSET = Math.round(
+  (Date.parse(toDateStr(new Date()) + "T00:00:00Z") - Date.parse(DEMO_AUTHORED_TODAY + "T00:00:00Z")) / 86_400_000
+);
+
+/** Shifts an authored demo date (YYYY-MM-DD) to the same distance from today. */
+function demoDate(authored: string): string {
+  const d = new Date(authored + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + DEMO_DAY_OFFSET);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Display form ("Wed, Nov 4") of a shifted demo date. */
+function demoDisplayDate(authored: string): string {
+  return formatDisplayDate(demoDate(authored));
 }
 
 /**
@@ -108,8 +120,8 @@ function demoAwareTodayStr(): string {
  *  - confirmed + confirmed date past → completed (activity already happened)
  */
 function applyAutoTransitions(activities: Activity[]): { activities: Activity[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
-  const now = demoAwareNow();
-  const todayStr = demoAwareTodayStr();
+  const now = new Date();
+  const todayStr = toDateStr(now);
   const transitions: { id: string; newStatus: "cancelled" | "completed" }[] = [];
   const updated = activities.map((g) => {
     if (g.status === "proposal") {
@@ -135,7 +147,7 @@ function applyAutoTransitions(activities: Activity[]): { activities: Activity[];
 /** Returns true if the activity has at least one option whose date is today or in the future. */
 export function isActivityVotable(activity: Activity): boolean {
   if (activity.status !== "proposal") return false;
-  const today = demoAwareNow();
+  const today = new Date();
   today.setHours(0, 0, 0, 0);
   return activity.timeOptions.some((opt) => {
     const optDate = new Date(opt.date + "T00:00:00");
@@ -186,93 +198,90 @@ function votes(ins: string[], maybes: string[] = [], outs: string[] = []) {
 }
 
 function deadline(hoursFromNow: number): string {
-  const base = isDemoMode()
-    ? new Date(DEMO_REFERENCE_DATE + "T12:00:00.000Z").getTime()
-    : Date.now();
-  return new Date(base + hoursFromNow * 3600_000).toISOString();
+  return new Date(Date.now() + hoursFromNow * 3600_000).toISOString();
 }
 
 export const DEMO_ACTIVITIES: Activity[] = [
   // ── PROPOSALS ─────────────────────────────────────────────────────────────
   {
     id: "activity1",
-    title: "Tuesday Night Basketball",
+    title: "Night Court Basketball",
     type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
     intensity: "casual", status: "proposal",
     maxPlayers: 10, totalCost: 40, splitCost: true, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Tue, Mar 25", time: "7:00 PM - 9:00 PM",
+    date: demoDisplayDate("2026-03-25"), time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(14), createdBy: "Sam Wilson",
     roster: p(["AR", "JK", "TS", "RP", "SW", "ML", "CT"]),
     timeOptions: [
-      { id: "o1a", date: "2026-03-25", startTime: "7:00 PM", endTime: "9:00 PM",
+      { id: "o1a", date: demoDate("2026-03-25"), startTime: "19:00", endTime: "21:00",
         location: "Riverside Community Courts",
         votes: votes(["AR","JK","TS","RP","SW"], ["ML","CT"], ["DC"]) },
-      { id: "o1b", date: "2026-03-25", startTime: "6:30 PM", endTime: "8:30 PM",
+      { id: "o1b", date: demoDate("2026-03-25"), startTime: "18:30", endTime: "20:30",
         location: "City Gym — Court B",
         votes: votes(["ML","CT","DC"], ["AR","JK","TS"], ["RP","SW"]) },
-      { id: "o1c", date: "2026-03-26", startTime: "8:00 PM", endTime: "10:00 PM",
+      { id: "o1c", date: demoDate("2026-03-26"), startTime: "20:00", endTime: "22:00",
         location: "Riverside Community Courts",
         votes: votes(["AR","TS","RP","SW"], ["JK"], []) },
     ],
   },
   {
     id: "activity3",
-    title: "Friday Volleyball Meetup",
+    title: "After-Work Volleyball Meetup",
     type: "Volleyball", typeEmoji: "🏐",
     location: "Beach Volleyball Courts — Court 1",
     intensity: "casual", status: "proposal",
     maxPlayers: 8, totalCost: 20, splitCost: true, visibility: "Public",
     group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
-    date: "Fri, Mar 28", time: "5:30 PM - 7:30 PM",
+    date: demoDisplayDate("2026-03-28"), time: "5:30 PM - 7:30 PM",
     votingDeadline: deadline(6), createdBy: "Taylor Smith",
     roster: p(["TS","AR","JK","DC","RP"]),
     timeOptions: [
-      { id: "o3a", date: "2026-03-28", startTime: "5:30 PM", endTime: "7:30 PM",
+      { id: "o3a", date: demoDate("2026-03-28"), startTime: "17:30", endTime: "19:30",
         location: "Beach Volleyball Courts — Court 1",
         votes: votes(["TS","AR","JK","DC"], ["RP"], []) },
-      { id: "o3b", date: "2026-03-29", startTime: "9:00 AM", endTime: "11:00 AM",
+      { id: "o3b", date: demoDate("2026-03-29"), startTime: "09:00", endTime: "11:00",
         location: "Rec Center — Gym 2",
         votes: votes(["RP","ML"], ["CT","DC"], ["TS"]) },
     ],
   },
   {
     id: "activity5",
-    title: "Thursday Pickleball Doubles",
+    title: "Pickleball Doubles",
     type: "Pickleball", typeEmoji: "🏓",
     location: "Westside Pickleball Club — Courts 3 & 4",
     intensity: "competitive", status: "proposal",
     maxPlayers: 8, totalCost: 32, splitCost: true, visibility: "Public",
     group: "g4", heroImage: TYPE_HERO_IMAGES.Pickleball,
-    date: "Thu, Mar 27", time: "6:00 PM - 8:00 PM",
+    date: demoDisplayDate("2026-03-27"), time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(38), createdBy: "Alex Rivera",
     roster: p(["AR","TS","RP","JK"]),
     timeOptions: [
-      { id: "o5a", date: "2026-03-27", startTime: "6:00 PM", endTime: "8:00 PM",
+      { id: "o5a", date: demoDate("2026-03-27"), startTime: "18:00", endTime: "20:00",
         location: "Westside Pickleball Club — Courts 3 & 4",
         votes: votes(["AR","TS","RP"], ["JK"], []) },
-      { id: "o5b", date: "2026-03-28", startTime: "7:00 PM", endTime: "9:00 PM",
+      { id: "o5b", date: demoDate("2026-03-28"), startTime: "19:00", endTime: "21:00",
         location: "Westside Pickleball Club — Courts 3 & 4",
         votes: votes(["JK"], ["AR","TS"], ["RP"]) },
     ],
   },
   {
     id: "activity6",
-    title: "Saturday Morning Tennis",
+    title: "Morning Tennis",
     type: "Tennis", typeEmoji: "🎾",
     location: "Lakeside Tennis Center — Court 2",
     intensity: "casual", status: "proposal",
     maxPlayers: 4, totalCost: 24, splitCost: true, visibility: "Public",
     group: "g4", heroImage: TYPE_HERO_IMAGES.Tennis,
-    date: "Sat, Mar 29", time: "8:00 AM - 10:00 AM",
+    date: demoDisplayDate("2026-03-29"), time: "8:00 AM - 10:00 AM",
     votingDeadline: deadline(62), createdBy: "Riley Park",
     roster: p(["RP","SW"]),
     timeOptions: [
-      { id: "o6a", date: "2026-03-29", startTime: "8:00 AM", endTime: "10:00 AM",
+      { id: "o6a", date: demoDate("2026-03-29"), startTime: "08:00", endTime: "10:00",
         location: "Lakeside Tennis Center — Court 2",
         votes: votes(["RP","SW"], ["TS"], []) },
-      { id: "o6b", date: "2026-03-29", startTime: "10:30 AM", endTime: "12:30 PM",
+      { id: "o6b", date: demoDate("2026-03-29"), startTime: "10:30", endTime: "12:30",
         location: "Lakeside Tennis Center — Court 2",
         votes: votes([], ["RP","SW"], ["TS"]) },
     ],
@@ -287,30 +296,30 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "casual", status: "confirmed",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
-    date: "Sat, Mar 29", time: "10:00 AM - 12:00 PM",
+    date: demoDisplayDate("2026-03-29"), time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-2), createdBy: "Riley Park",
     confirmedOptionId: "o2a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o2a", date: "2026-03-29", startTime: "10:00 AM", endTime: "12:00 PM",
+      { id: "o2a", date: demoDate("2026-03-29"), startTime: "10:00", endTime: "12:00",
         location: "Lakeside Park — Pitch 3",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
     ],
   },
   {
     id: "activity7",
-    title: "Wednesday Hoops Night",
+    title: "Hoops Night",
     type: "Basketball", typeEmoji: "🏀",
     location: "City Gym — Main Court",
     intensity: "casual", status: "confirmed",
     maxPlayers: 12, totalCost: 50, splitCost: true, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Wed, Mar 26", time: "7:30 PM - 9:30 PM",
+    date: demoDisplayDate("2026-03-26"), time: "7:30 PM - 9:30 PM",
     votingDeadline: deadline(-1), createdBy: "Jordan Kim",
     confirmedOptionId: "o7a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o7a", date: "2026-03-26", startTime: "7:30 PM", endTime: "9:30 PM",
+      { id: "o7a", date: demoDate("2026-03-26"), startTime: "19:30", endTime: "21:30",
         location: "City Gym — Main Court",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
     ],
@@ -323,12 +332,12 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "competitive", status: "confirmed",
     maxPlayers: 12, totalCost: 60, splitCost: true, visibility: "Public",
     group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
-    date: "Thu, Mar 27", time: "8:00 PM - 10:00 PM",
+    date: demoDisplayDate("2026-03-27"), time: "8:00 PM - 10:00 PM",
     votingDeadline: deadline(-3), createdBy: "Casey Torres",
     confirmedOptionId: "o8a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o8a", date: "2026-03-27", startTime: "8:00 PM", endTime: "10:00 PM",
+      { id: "o8a", date: demoDate("2026-03-27"), startTime: "20:00", endTime: "22:00",
         location: "Rec Center — Gym 1",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], []) },
     ],
@@ -343,30 +352,30 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "casual", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Sun, Mar 16", time: "9:00 AM - 11:00 AM",
+    date: demoDisplayDate("2026-03-16"), time: "9:00 AM - 11:00 AM",
     votingDeadline: deadline(-192), createdBy: "Jordan Kim",
     confirmedOptionId: "o4a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o4a", date: "2026-03-16", startTime: "9:00 AM", endTime: "11:00 AM",
+      { id: "o4a", date: demoDate("2026-03-16"), startTime: "09:00", endTime: "11:00",
         location: "Riverside Community Courts",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], ["DC"]) },
     ],
   },
   {
     id: "activity9",
-    title: "Saturday Soccer Scrimmage",
+    title: "Soccer Scrimmage",
     type: "Soccer", typeEmoji: "⚽",
     location: "Lakeside Park — Pitch 1",
     intensity: "casual", status: "completed",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
-    date: "Sat, Mar 15", time: "11:00 AM - 1:00 PM",
+    date: demoDisplayDate("2026-03-15"), time: "11:00 AM - 1:00 PM",
     votingDeadline: deadline(-216), createdBy: "Alex Rivera",
     confirmedOptionId: "o9a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o9a", date: "2026-03-15", startTime: "11:00 AM", endTime: "1:00 PM",
+      { id: "o9a", date: demoDate("2026-03-15"), startTime: "11:00", endTime: "13:00",
         location: "Lakeside Park — Pitch 1",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
     ],
@@ -379,12 +388,12 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "casual", status: "completed",
     maxPlayers: 8, totalCost: 24, splitCost: true, visibility: "Public",
     group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
-    date: "Fri, Mar 14", time: "6:00 PM - 8:00 PM",
+    date: demoDisplayDate("2026-03-14"), time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(-240), createdBy: "Taylor Smith",
     confirmedOptionId: "o10a",
     roster: p(["TS","AR","JK","ML","CT","RP","DC","SW"]),
     timeOptions: [
-      { id: "o10a", date: "2026-03-14", startTime: "6:00 PM", endTime: "8:00 PM",
+      { id: "o10a", date: demoDate("2026-03-14"), startTime: "18:00", endTime: "20:00",
         location: "Rec Center — Gym 2",
         votes: votes(["TS","AR","JK","ML","CT","RP","DC","SW"], [], []) },
     ],
@@ -397,48 +406,48 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "competitive", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Tue, Mar 11", time: "7:00 PM - 9:00 PM",
+    date: demoDisplayDate("2026-03-11"), time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-312), createdBy: "Sam Wilson",
     confirmedOptionId: "o11a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o11a", date: "2026-03-11", startTime: "7:00 PM", endTime: "9:00 PM",
+      { id: "o11a", date: demoDate("2026-03-11"), startTime: "19:00", endTime: "21:00",
         location: "Riverside Community Courts",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], [], []) },
     ],
   },
   {
     id: "activity12",
-    title: "Sunday Soccer Fun Run",
+    title: "Soccer Fun Run",
     type: "Soccer", typeEmoji: "⚽",
     location: "Greenfield Soccer Park — Pitch 2",
     intensity: "casual", status: "completed",
     maxPlayers: 16, totalCost: 28, splitCost: true, visibility: "Public",
     group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
-    date: "Sun, Mar 9", time: "2:00 PM - 4:30 PM",
+    date: demoDisplayDate("2026-03-09"), time: "2:00 PM - 4:30 PM",
     votingDeadline: deadline(-360), createdBy: "Casey Torres",
     confirmedOptionId: "o12a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"]),
     timeOptions: [
-      { id: "o12a", date: "2026-03-09", startTime: "2:00 PM", endTime: "4:30 PM",
+      { id: "o12a", date: demoDate("2026-03-09"), startTime: "14:00", endTime: "16:30",
         location: "Greenfield Soccer Park — Pitch 2",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW","MJ"], ["DC"], []) },
     ],
   },
   {
     id: "activity13",
-    title: "Tuesday Hoops — Weekly Run",
+    title: "Hoops — Weekly Run",
     type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
     intensity: "casual", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Tue, Mar 4", time: "7:00 PM - 9:00 PM",
+    date: demoDisplayDate("2026-03-04"), time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-480), createdBy: "Marcus Johnson",
     confirmedOptionId: "o13a",
     roster: p(["AR","JK","TS","ML","CT","RP","DC","SW"]),
     timeOptions: [
-      { id: "o13a", date: "2026-03-04", startTime: "7:00 PM", endTime: "9:00 PM",
+      { id: "o13a", date: demoDate("2026-03-04"), startTime: "19:00", endTime: "21:00",
         location: "Riverside Community Courts",
         votes: votes(["AR","JK","TS","ML","CT","RP","DC","SW"], ["MJ"], ["CT"]) },
     ],
@@ -451,12 +460,12 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "competitive", status: "completed",
     maxPlayers: 4, totalCost: 48, splitCost: true, visibility: "Public",
     group: "g4", heroImage: TYPE_HERO_IMAGES.Tennis,
-    date: "Sun, Mar 1", time: "10:00 AM - 12:00 PM",
+    date: demoDisplayDate("2026-03-01"), time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-552), createdBy: "Riley Park",
     confirmedOptionId: "o14a",
     roster: p(["RP","AR","SW","TS"]),
     timeOptions: [
-      { id: "o14a", date: "2026-03-01", startTime: "10:00 AM", endTime: "12:00 PM",
+      { id: "o14a", date: demoDate("2026-03-01"), startTime: "10:00", endTime: "12:00",
         location: "Lakeside Tennis Center — Court 1",
         votes: votes(["RP","AR","SW","TS"], [], []) },
     ],
@@ -471,11 +480,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "casual", status: "cancelled",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
     group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
-    date: "Sun, Mar 22", time: "1:00 PM - 3:00 PM",
+    date: demoDisplayDate("2026-03-22"), time: "1:00 PM - 3:00 PM",
     votingDeadline: deadline(-48), createdBy: "Morgan Lee",
     roster: p(["ML","CT","DC","JK"]),
     timeOptions: [
-      { id: "o15a", date: "2026-03-22", startTime: "1:00 PM", endTime: "3:00 PM",
+      { id: "o15a", date: demoDate("2026-03-22"), startTime: "13:00", endTime: "15:00",
         location: "Greenfield Soccer Park — Pitch 1",
         votes: votes(["ML","CT","DC","JK"], ["AR"], ["TS","RP","SW"]) },
     ],
@@ -488,11 +497,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
     intensity: "casual", status: "cancelled",
     maxPlayers: 10, totalCost: 30, splitCost: true, visibility: "Public",
     group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
-    date: "Thu, Mar 20", time: "9:00 PM - 11:00 PM",
+    date: demoDisplayDate("2026-03-20"), time: "9:00 PM - 11:00 PM",
     votingDeadline: deadline(-96), createdBy: "Drew Chen",
     roster: p(["DC","JK","ML"]),
     timeOptions: [
-      { id: "o16a", date: "2026-03-20", startTime: "9:00 PM", endTime: "11:00 PM",
+      { id: "o16a", date: demoDate("2026-03-20"), startTime: "21:00", endTime: "23:00",
         location: "City Gym — Court B",
         votes: votes(["DC","JK","ML"], ["AR"], ["TS","RP","SW","CT","MJ"]) },
     ],
@@ -901,7 +910,15 @@ export async function cancelActivity(activityId: string, reason?: string): Promi
 }
 
 export async function confirmActivity(activityId: string, optionId: string): Promise<boolean> {
-  if (isDemoMode()) return false;
+  if (isDemoMode()) {
+    // Demo voting deadlines run on the real clock, so they can expire while the
+    // activity is open; confirm locally rather than report a permissions error.
+    const activity = DEMO_ACTIVITIES.find((g) => g.id === activityId);
+    if (!activity) return false;
+    activity.status = "confirmed";
+    activity.confirmedOptionId = optionId;
+    return true;
+  }
   const { data, error } = await db!
     .from("activities")
     .update({ status: "confirmed", confirmed_option_id: optionId })
