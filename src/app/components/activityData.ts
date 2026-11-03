@@ -1,4 +1,4 @@
-// ─── Shared game data — Neon-backed ───
+// ─── Shared activity data — Neon-backed ───
 import { db, isDemoMode } from "@/lib/db";
 import { toast } from "sonner";
 
@@ -23,26 +23,26 @@ export interface VoteOption {
   };
 }
 
-export type GameStatus = "proposal" | "confirmed" | "completed" | "cancelled";
+export type ActivityStatus = "proposal" | "confirmed" | "completed" | "cancelled";
 
-export interface Game {
+export interface Activity {
   id: string;
   title: string;
-  activity: string;
-  activityEmoji: string;
+  type: string;
+  typeEmoji: string;
   location: string;
-  gameType: "casual" | "competitive";
-  status: GameStatus;
+  intensity: "casual" | "competitive";
+  status: ActivityStatus;
   // Nullable in Postgres (max_players has no NOT NULL in the live schema), so
   // every consumer must guard. Declaring it non-null produced "5/null" in the UI.
   maxPlayers: number | null;
   totalCost: number;
   splitCost: boolean;
-  /** Set when the host priced the game per person rather than as a fixed total. */
+  /** Set when the host priced the activity per person rather than as a fixed total. */
   perPersonCost?: number;
   /**
-   * How the host priced the game (migration 019's games.cost_type). Optional
-   * because demo-mode games predate the column; GameViewScreen falls back to
+   * How the host priced the activity (migration 019's activities.cost_type). Optional
+   * because demo-mode activities predate the column; ActivityViewScreen falls back to
    * inferring it from totalCost/perPersonCost when absent, same as before.
    */
   costType?: "free" | "per_player" | "fixed";
@@ -61,9 +61,9 @@ export interface Game {
 
 // ─── Helpers ──────────────────────────────────────────────
 
-// ─── Activity Minimums ─────────────────────────────────────
+// ─── Type Minimums ─────────────────────────────────────────
 
-export const ACTIVITY_MINIMUMS: Record<string, number> = {
+export const TYPE_MINIMUMS: Record<string, number> = {
   Soccer: 10,
   Basketball: 5,
   Volleyball: 6,
@@ -81,12 +81,12 @@ export const ACTIVITY_MINIMUMS: Record<string, number> = {
   Cricket: 11,
 };
 
-export function getMinPlayers(activity: string): number {
-  return ACTIVITY_MINIMUMS[activity] ?? 2;
+export function getMinPlayers(type: string): number {
+  return TYPE_MINIMUMS[type] ?? 2;
 }
 
-/** Fixed reference date for demo mode — all demo games are on/after this date. */
-export const DEMO_REFERENCE_DATE = "2026-03-24"; // Monday; demo games span Tue 25 – Sat 29
+/** Fixed reference date for demo mode — all demo activities are on/after this date. */
+export const DEMO_REFERENCE_DATE = "2026-03-24"; // Monday; demo activities span Tue 25 – Sat 29
 
 /** Returns the current Date, substituting the fixed demo reference date in demo mode. */
 function demoAwareNow(): Date {
@@ -103,49 +103,58 @@ function demoAwareTodayStr(): string {
 }
 
 /**
- * Applies automatic status transitions for expired games:
+ * Applies automatic status transitions for expired activities:
  *  - proposal  + all dates past → cancelled  (voting closed, never confirmed)
- *  - confirmed + confirmed date past → completed (game already happened)
+ *  - confirmed + confirmed date past → completed (activity already happened)
  */
-function applyAutoTransitions(games: Game[]): { games: Game[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
+function applyAutoTransitions(activities: Activity[]): { activities: Activity[]; transitions: { id: string; newStatus: "cancelled" | "completed" }[] } {
   const now = demoAwareNow();
   const todayStr = demoAwareTodayStr();
   const transitions: { id: string; newStatus: "cancelled" | "completed" }[] = [];
-  const updated = games.map((g) => {
+  const updated = activities.map((g) => {
     if (g.status === "proposal") {
       const deadlinePassed = g.votingDeadline ? new Date(g.votingDeadline) < now : false;
       const allPast = g.timeOptions.length > 0 && g.timeOptions.every((o) => o.date < todayStr);
       if (deadlinePassed && allPast) {
         transitions.push({ id: g.id, newStatus: "cancelled" });
-        return { ...g, status: "cancelled" as GameStatus };
+        return { ...g, status: "cancelled" as ActivityStatus };
       }
     }
     if (g.status === "confirmed") {
       const confirmedOpt = g.timeOptions.find((o) => o.id === g.confirmedOptionId);
       if (confirmedOpt && confirmedOpt.date < todayStr) {
         transitions.push({ id: g.id, newStatus: "completed" });
-        return { ...g, status: "completed" as GameStatus };
+        return { ...g, status: "completed" as ActivityStatus };
       }
     }
     return g;
   });
-  return { games: updated, transitions };
+  return { activities: updated, transitions };
 }
 
-/** Returns true if the game has at least one option whose date is today or in the future. */
-export function isGameVotable(game: Game): boolean {
-  if (game.status !== "proposal") return false;
+/** Returns true if the activity has at least one option whose date is today or in the future. */
+export function isActivityVotable(activity: Activity): boolean {
+  if (activity.status !== "proposal") return false;
   const today = demoAwareNow();
   today.setHours(0, 0, 0, 0);
-  return game.timeOptions.some((opt) => {
+  return activity.timeOptions.some((opt) => {
     const optDate = new Date(opt.date + "T00:00:00");
     return optDate >= today;
   });
 }
 
-// ─── Demo game data ───────────────────────────────────────
+// ─── Demo activity data ───────────────────────────────────────
 
-const ACTIVITY_HERO_IMAGES: Record<string, string> = {
+/**
+ * Plain gray hero for activity types with no photo in TYPE_HERO_IMAGES
+ * (custom activity types, non-sport plans). #2D2F2C is --surface-container-high in
+ * the .dark ramp, the only palette users see. A data URI can't read CSS tokens.
+ */
+export const DEFAULT_HERO_IMAGE =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9"><rect width="16" height="9" fill="#2D2F2C"/></svg>');
+
+const TYPE_HERO_IMAGES: Record<string, string> = {
   Soccer:           "https://images.unsplash.com/photo-1767406657699-9f3e01a48ea5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBmaWVsZCUyMG91dGRvb3IlMjByZWNyZWF0aW9uJTIwZ3JlZW58ZW58MXx8fHwxNzcxNjMxNDI1fDA&ixlib=rb-4.1.0&q=80&w=1080",
   Basketball:       "https://images.unsplash.com/photo-1762025858816-bb383940763a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3IlMjByZWNyZWF0aW9uJTIwZ2FtZXxlbnwxfHx8fDE3NzE2MzE0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
   Volleyball:       "https://images.unsplash.com/photo-1771526087551-db6be2f51a28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2b2xsZXliYWxsJTIwc2FuZCUyMGJlYWNoJTIwc3BvcnQlMjBjb3VydHxlbnwxfHx8fDE3NzE2MzE0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
@@ -183,16 +192,16 @@ function deadline(hoursFromNow: number): string {
   return new Date(base + hoursFromNow * 3600_000).toISOString();
 }
 
-export const DEMO_GAMES: Game[] = [
+export const DEMO_ACTIVITIES: Activity[] = [
   // ── PROPOSALS ─────────────────────────────────────────────────────────────
   {
-    id: "game1",
+    id: "activity1",
     title: "Tuesday Night Basketball",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
-    gameType: "casual", status: "proposal",
+    intensity: "casual", status: "proposal",
     maxPlayers: 10, totalCost: 40, splitCost: true, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Tue, Mar 25", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(14), createdBy: "Sam Wilson",
     roster: p(["AR", "JK", "TS", "RP", "SW", "ML", "CT"]),
@@ -209,13 +218,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game3",
+    id: "activity3",
     title: "Friday Volleyball Meetup",
-    activity: "Volleyball", activityEmoji: "🏐",
+    type: "Volleyball", typeEmoji: "🏐",
     location: "Beach Volleyball Courts — Court 1",
-    gameType: "casual", status: "proposal",
+    intensity: "casual", status: "proposal",
     maxPlayers: 8, totalCost: 20, splitCost: true, visibility: "Public",
-    group: "g3", heroImage: ACTIVITY_HERO_IMAGES.Volleyball,
+    group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
     date: "Fri, Mar 28", time: "5:30 PM - 7:30 PM",
     votingDeadline: deadline(6), createdBy: "Taylor Smith",
     roster: p(["TS","AR","JK","DC","RP"]),
@@ -229,13 +238,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game5",
+    id: "activity5",
     title: "Thursday Pickleball Doubles",
-    activity: "Pickleball", activityEmoji: "🏓",
+    type: "Pickleball", typeEmoji: "🏓",
     location: "Westside Pickleball Club — Courts 3 & 4",
-    gameType: "competitive", status: "proposal",
+    intensity: "competitive", status: "proposal",
     maxPlayers: 8, totalCost: 32, splitCost: true, visibility: "Public",
-    group: "g4", heroImage: ACTIVITY_HERO_IMAGES.Pickleball,
+    group: "g4", heroImage: TYPE_HERO_IMAGES.Pickleball,
     date: "Thu, Mar 27", time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(38), createdBy: "Alex Rivera",
     roster: p(["AR","TS","RP","JK"]),
@@ -249,13 +258,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game6",
+    id: "activity6",
     title: "Saturday Morning Tennis",
-    activity: "Tennis", activityEmoji: "🎾",
+    type: "Tennis", typeEmoji: "🎾",
     location: "Lakeside Tennis Center — Court 2",
-    gameType: "casual", status: "proposal",
+    intensity: "casual", status: "proposal",
     maxPlayers: 4, totalCost: 24, splitCost: true, visibility: "Public",
-    group: "g4", heroImage: ACTIVITY_HERO_IMAGES.Tennis,
+    group: "g4", heroImage: TYPE_HERO_IMAGES.Tennis,
     date: "Sat, Mar 29", time: "8:00 AM - 10:00 AM",
     votingDeadline: deadline(62), createdBy: "Riley Park",
     roster: p(["RP","SW"]),
@@ -271,13 +280,13 @@ export const DEMO_GAMES: Game[] = [
 
   // ── CONFIRMED ─────────────────────────────────────────────────────────────
   {
-    id: "game2",
+    id: "activity2",
     title: "Weekend Soccer Match",
-    activity: "Soccer", activityEmoji: "⚽",
+    type: "Soccer", typeEmoji: "⚽",
     location: "Lakeside Park — Pitch 3",
-    gameType: "casual", status: "confirmed",
+    intensity: "casual", status: "confirmed",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g2", heroImage: ACTIVITY_HERO_IMAGES.Soccer,
+    group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
     date: "Sat, Mar 29", time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-2), createdBy: "Riley Park",
     confirmedOptionId: "o2a",
@@ -289,13 +298,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game7",
+    id: "activity7",
     title: "Wednesday Hoops Night",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "City Gym — Main Court",
-    gameType: "casual", status: "confirmed",
+    intensity: "casual", status: "confirmed",
     maxPlayers: 12, totalCost: 50, splitCost: true, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Wed, Mar 26", time: "7:30 PM - 9:30 PM",
     votingDeadline: deadline(-1), createdBy: "Jordan Kim",
     confirmedOptionId: "o7a",
@@ -307,13 +316,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game8",
+    id: "activity8",
     title: "Competitive Volleyball League Night",
-    activity: "Volleyball", activityEmoji: "🏐",
+    type: "Volleyball", typeEmoji: "🏐",
     location: "Rec Center — Gym 1",
-    gameType: "competitive", status: "confirmed",
+    intensity: "competitive", status: "confirmed",
     maxPlayers: 12, totalCost: 60, splitCost: true, visibility: "Public",
-    group: "g3", heroImage: ACTIVITY_HERO_IMAGES.Volleyball,
+    group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
     date: "Thu, Mar 27", time: "8:00 PM - 10:00 PM",
     votingDeadline: deadline(-3), createdBy: "Casey Torres",
     confirmedOptionId: "o8a",
@@ -327,13 +336,13 @@ export const DEMO_GAMES: Game[] = [
 
   // ── COMPLETED ─────────────────────────────────────────────────────────────
   {
-    id: "game4",
+    id: "activity4",
     title: "Morning Pickup Basketball",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
-    gameType: "casual", status: "completed",
+    intensity: "casual", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Sun, Mar 16", time: "9:00 AM - 11:00 AM",
     votingDeadline: deadline(-192), createdBy: "Jordan Kim",
     confirmedOptionId: "o4a",
@@ -345,13 +354,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game9",
+    id: "activity9",
     title: "Saturday Soccer Scrimmage",
-    activity: "Soccer", activityEmoji: "⚽",
+    type: "Soccer", typeEmoji: "⚽",
     location: "Lakeside Park — Pitch 1",
-    gameType: "casual", status: "completed",
+    intensity: "casual", status: "completed",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g2", heroImage: ACTIVITY_HERO_IMAGES.Soccer,
+    group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
     date: "Sat, Mar 15", time: "11:00 AM - 1:00 PM",
     votingDeadline: deadline(-216), createdBy: "Alex Rivera",
     confirmedOptionId: "o9a",
@@ -363,13 +372,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game10",
+    id: "activity10",
     title: "Net Gang Volleyball",
-    activity: "Volleyball", activityEmoji: "🏐",
+    type: "Volleyball", typeEmoji: "🏐",
     location: "Rec Center — Gym 2",
-    gameType: "casual", status: "completed",
+    intensity: "casual", status: "completed",
     maxPlayers: 8, totalCost: 24, splitCost: true, visibility: "Public",
-    group: "g3", heroImage: ACTIVITY_HERO_IMAGES.Volleyball,
+    group: "g3", heroImage: TYPE_HERO_IMAGES.Volleyball,
     date: "Fri, Mar 14", time: "6:00 PM - 8:00 PM",
     votingDeadline: deadline(-240), createdBy: "Taylor Smith",
     confirmedOptionId: "o10a",
@@ -381,13 +390,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game11",
+    id: "activity11",
     title: "Competitive Hoops — 5v5",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
-    gameType: "competitive", status: "completed",
+    intensity: "competitive", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Tue, Mar 11", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-312), createdBy: "Sam Wilson",
     confirmedOptionId: "o11a",
@@ -399,13 +408,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game12",
+    id: "activity12",
     title: "Sunday Soccer Fun Run",
-    activity: "Soccer", activityEmoji: "⚽",
+    type: "Soccer", typeEmoji: "⚽",
     location: "Greenfield Soccer Park — Pitch 2",
-    gameType: "casual", status: "completed",
+    intensity: "casual", status: "completed",
     maxPlayers: 16, totalCost: 28, splitCost: true, visibility: "Public",
-    group: "g2", heroImage: ACTIVITY_HERO_IMAGES.Soccer,
+    group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
     date: "Sun, Mar 9", time: "2:00 PM - 4:30 PM",
     votingDeadline: deadline(-360), createdBy: "Casey Torres",
     confirmedOptionId: "o12a",
@@ -417,13 +426,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game13",
+    id: "activity13",
     title: "Tuesday Hoops — Weekly Run",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "Riverside Community Courts",
-    gameType: "casual", status: "completed",
+    intensity: "casual", status: "completed",
     maxPlayers: 10, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Tue, Mar 4", time: "7:00 PM - 9:00 PM",
     votingDeadline: deadline(-480), createdBy: "Marcus Johnson",
     confirmedOptionId: "o13a",
@@ -435,13 +444,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game14",
+    id: "activity14",
     title: "Smash Club — Tennis Doubles",
-    activity: "Tennis", activityEmoji: "🎾",
+    type: "Tennis", typeEmoji: "🎾",
     location: "Lakeside Tennis Center — Court 1",
-    gameType: "competitive", status: "completed",
+    intensity: "competitive", status: "completed",
     maxPlayers: 4, totalCost: 48, splitCost: true, visibility: "Public",
-    group: "g4", heroImage: ACTIVITY_HERO_IMAGES.Tennis,
+    group: "g4", heroImage: TYPE_HERO_IMAGES.Tennis,
     date: "Sun, Mar 1", time: "10:00 AM - 12:00 PM",
     votingDeadline: deadline(-552), createdBy: "Riley Park",
     confirmedOptionId: "o14a",
@@ -455,13 +464,13 @@ export const DEMO_GAMES: Game[] = [
 
   // ── CANCELLED ─────────────────────────────────────────────────────────────
   {
-    id: "game15",
+    id: "activity15",
     title: "Rainy Day Soccer",
-    activity: "Soccer", activityEmoji: "⚽",
+    type: "Soccer", typeEmoji: "⚽",
     location: "Greenfield Soccer Park — Pitch 1",
-    gameType: "casual", status: "cancelled",
+    intensity: "casual", status: "cancelled",
     maxPlayers: 14, totalCost: 0, splitCost: false, visibility: "Public",
-    group: "g2", heroImage: ACTIVITY_HERO_IMAGES.Soccer,
+    group: "g2", heroImage: TYPE_HERO_IMAGES.Soccer,
     date: "Sun, Mar 22", time: "1:00 PM - 3:00 PM",
     votingDeadline: deadline(-48), createdBy: "Morgan Lee",
     roster: p(["ML","CT","DC","JK"]),
@@ -472,13 +481,13 @@ export const DEMO_GAMES: Game[] = [
     ],
   },
   {
-    id: "game16",
+    id: "activity16",
     title: "Late Night Basketball",
-    activity: "Basketball", activityEmoji: "🏀",
+    type: "Basketball", typeEmoji: "🏀",
     location: "City Gym — Court B",
-    gameType: "casual", status: "cancelled",
+    intensity: "casual", status: "cancelled",
     maxPlayers: 10, totalCost: 30, splitCost: true, visibility: "Public",
-    group: "g1", heroImage: ACTIVITY_HERO_IMAGES.Basketball,
+    group: "g1", heroImage: TYPE_HERO_IMAGES.Basketball,
     date: "Thu, Mar 20", time: "9:00 PM - 11:00 PM",
     votingDeadline: deadline(-96), createdBy: "Drew Chen",
     roster: p(["DC","JK","ML"]),
@@ -490,14 +499,14 @@ export const DEMO_GAMES: Game[] = [
   },
 ];
 
-/** Visibility values the `games.visibility` CHECK constraint accepts. */
+/** Visibility values the `activities.visibility` CHECK constraint accepts. */
 const DB_VISIBILITIES = ["Public", "Group Only", "Private"];
 
 /**
  * Voting closes `hours` before the earliest proposed start time.
  * Falls back to now()+hours when there are no usable options, and clamps into
  * (now, earliestStart) so the deadline can never land in the past or after the
- * game itself.
+ * activity itself.
  */
 export function computeVotingDeadline(
   timeOptions: { date: string; startTime: string }[],
@@ -518,7 +527,7 @@ export function computeVotingDeadline(
   const earliest = new Date(Math.min(...starts.map((d) => d.getTime())));
   const target = new Date(earliest.getTime() - period * 3600_000);
 
-  // Deadline already passed (short-notice game): give voters a slice of the
+  // Deadline already passed (short-notice activity): give voters a slice of the
   // remaining time instead of a deadline in the past.
   if (target <= now) {
     const midpoint = new Date((now.getTime() + earliest.getTime()) / 2);
@@ -533,8 +542,8 @@ function formatTime12h(t: string): string {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
 
-function mapDbGameToGame(g: any): Game {
-  const opts = (g.game_options || []) as any[];
+function mapDbActivityToActivity(g: any): Activity {
+  const opts = (g.activity_options || []) as any[];
   const first = opts[0];
   const confirmedOpt = g.confirmed_option_id
     ? opts.find((o: any) => o.id === g.confirmed_option_id) || first
@@ -546,9 +555,9 @@ function mapDbGameToGame(g: any): Game {
     ? `${formatTime12h(displayOpt.start_time)} - ${formatTime12h(displayOpt.end_time)}`
     : "";
 
-  // Build real roster from game_players joined with profiles
-  const gamePlayers = (g.game_players || []) as any[];
-  const roster: Player[] = gamePlayers
+  // Build real roster from activity_players joined with profiles
+  const activityPlayers = (g.activity_players || []) as any[];
+  const roster: Player[] = activityPlayers
     .filter((p: any) => p.status === "joined")
     .map((p: any) => ({
       id: p.user_id,
@@ -559,21 +568,21 @@ function mapDbGameToGame(g: any): Game {
   return {
     id: g.id,
     title: g.title,
-    activity: g.activity,
-    activityEmoji: g.activity_emoji || "",
+    type: g.type,
+    typeEmoji: g.type_emoji || "",
     location: displayOpt?.location || "",
-    gameType: (g.game_type || "casual").toLowerCase() as "casual" | "competitive",
-    status: g.status as GameStatus,
+    intensity: (g.intensity || "casual").toLowerCase() as "casual" | "competitive",
+    status: g.status as ActivityStatus,
     maxPlayers: g.max_players,
     totalCost: g.total_cost || 0,
     splitCost: (g.total_cost || 0) > 0,
     // Per-player pricing writes total_cost=0 and per_person_cost=X. Without
     // this the cost UI derived everything from total_cost and rendered paid
-    // games as "Free".
+    // activities as "Free".
     perPersonCost: g.per_person_cost || 0,
     costType: g.cost_type as "free" | "per_player" | "fixed" | undefined,
     group: g.group_id || "",
-    heroImage: ACTIVITY_HERO_IMAGES[g.activity] || ACTIVITY_HERO_IMAGES.Soccer,
+    heroImage: TYPE_HERO_IMAGES[g.type] || DEFAULT_HERO_IMAGE,
     date: displayDate,
     time: timeStr,
     votingDeadline: g.voting_deadline || "",
@@ -604,59 +613,59 @@ function mapDbGameToGame(g: any): Game {
 }
 
 // Data API select string — fetches individual vote rows and real player profiles
-// so mapDbGameToGame can build genuine voter ID arrays and a real roster.
-// game_options!game_options_game_id_fkey disambiguates the embed: games and
-// game_options have two FKs between them (game_options.game_id -> games.id,
-// and games.confirmed_option_id -> game_options.id), so an unqualified
-// `game_options(...)` embed is ambiguous to PostgREST and 300s.
-const GAME_SELECT =
-  "*, game_options!game_options_game_id_fkey(*, votes(value, user_id)), game_players(status, user_id, profiles:user_id(id, name, avatar_url))";
+// so mapDbActivityToActivity can build genuine voter ID arrays and a real roster.
+// activity_options!activity_options_activity_id_fkey disambiguates the embed: activities and
+// activity_options have two FKs between them (activity_options.activity_id -> activities.id,
+// and activities.confirmed_option_id -> activity_options.id), so an unqualified
+// `activity_options(...)` embed is ambiguous to PostgREST and 300s.
+const ACTIVITY_SELECT =
+  "*, activity_options!activity_options_activity_id_fkey(*, votes(value, user_id)), activity_players(status, user_id, profiles:user_id(id, name, avatar_url))";
 
-/** Fetch all games — returns demo data in demo mode */
-export async function fetchAllGames(): Promise<Game[]> {
-  if (isDemoMode()) return applyAutoTransitions(DEMO_GAMES).games;
+/** Fetch all activities — returns demo data in demo mode */
+export async function fetchAllActivities(): Promise<Activity[]> {
+  if (isDemoMode()) return applyAutoTransitions(DEMO_ACTIVITIES).activities;
   if (!db) return [];
 
   const { data, error } = await db
-    .from("games")
-    .select(GAME_SELECT)
+    .from("activities")
+    .select(ACTIVITY_SELECT)
     .order("created_at", { ascending: false });
 
   if (error || !data) return [];
 
-  return data.map(mapDbGameToGame);
+  return data.map(mapDbActivityToActivity);
 }
 
-/** Fetch a single game by ID — returns demo game in demo mode */
-export async function fetchGameById(id: string): Promise<Game | undefined> {
+/** Fetch a single activity by ID — returns demo activity in demo mode */
+export async function fetchActivityById(id: string): Promise<Activity | undefined> {
   if (isDemoMode()) {
-    const game = DEMO_GAMES.find((g) => g.id === id);
-    return game ? applyAutoTransitions([game]).games[0] : undefined;
+    const activity = DEMO_ACTIVITIES.find((g) => g.id === id);
+    return activity ? applyAutoTransitions([activity]).activities[0] : undefined;
   }
   if (!db) return undefined;
 
   // Run server-side auto-transition before reading — SECURITY DEFINER so any
   // authenticated user can trigger confirmed→completed and proposal→cancelled.
-  await db.rpc("auto_transition_game", { p_game_id: id });
+  await db.rpc("auto_transition_activity", { p_activity_id: id });
 
   const { data, error } = await db
-    .from("games")
-    .select(GAME_SELECT)
+    .from("activities")
+    .select(ACTIVITY_SELECT)
     .eq("id", id)
     .single();
 
   if (error || !data) return undefined;
 
-  return mapDbGameToGame(data);
+  return mapDbActivityToActivity(data);
 }
 
 /**
- * Call the server-side auto_transition_game RPC for a game.
+ * Call the server-side auto_transition_activity RPC for an activity.
  * Works for any authenticated user (SECURITY DEFINER bypasses RLS).
  */
-export async function autoTransitionGame(gameId: string): Promise<void> {
+export async function autoTransitionActivity(activityId: string): Promise<void> {
   if (isDemoMode() || !db) return;
-  await db.rpc("auto_transition_game", { p_game_id: gameId });
+  await db.rpc("auto_transition_activity", { p_activity_id: activityId });
 }
 
 // Check if a string looks like a valid UUID
@@ -664,11 +673,11 @@ function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
-/** Save a new game to the database */
-export async function saveGame(input: {
+/** Save a new activity to the database */
+export async function saveActivity(input: {
   title: string;
-  activity: string;
-  gameType: "casual" | "competitive";
+  type: string;
+  intensity: "casual" | "competitive";
   costType: "free" | "per_player" | "fixed";
   maxPlayers: number | null;
   totalCost: number;
@@ -682,7 +691,7 @@ export async function saveGame(input: {
   votingPeriodHours?: number;
 }): Promise<{ id: string; error: string | null }> {
   if (!input.title.trim()) {
-    return { id: "", error: "Give the game a title." };
+    return { id: "", error: "Give the activity a title." };
   }
 
   const usableOptions = input.timeOptions.filter((o) => o.date && o.startTime);
@@ -702,12 +711,12 @@ export async function saveGame(input: {
   }
 
   // Demo mode has no backend to persist to, so it mirrors every other demo
-  // mutation (joinGame, leaveGame, castVote, …) by validating like the real
+  // mutation (joinActivity, leaveActivity, castVote, …) by validating like the real
   // path and then reporting success, rather than either hard-failing (as this
-  // used to unconditionally do, breaking Create Game in demo mode entirely)
+  // used to unconditionally do, breaking Create Activity in demo mode entirely)
   // or faking success with no validation. See docs/BACKLOG.md item #30.
   if (isDemoMode()) {
-    return { id: `demo-game-${Date.now()}`, error: null };
+    return { id: `demo-activity-${Date.now()}`, error: null };
   }
 
   // Validate createdBy is a real UUID (auth user id)
@@ -715,7 +724,7 @@ export async function saveGame(input: {
     return { id: "", error: "No authenticated user. Please log in." };
   }
 
-  const activityEmojis: Record<string, string> = {
+  const typeEmojis: Record<string, string> = {
     Soccer: "\u26BD",
     Basketball: "\uD83C\uDFC0",
     Volleyball: "\uD83C\uDFD0",
@@ -739,20 +748,20 @@ export async function saveGame(input: {
   // Voting closes N hours BEFORE the earliest proposed start time, which is what
   // the UI promises ("How long before the first proposed time should voting
   // close?"). The previous now()+N calculation ignored the proposed times
-  // entirely, so the default 24h period put the deadline *after* the game.
+  // entirely, so the default 24h period put the deadline *after* the activity.
   const votingDeadline = computeVotingDeadline(input.timeOptions, input.votingPeriodHours);
 
   // Single transactional RPC (migration 016, applied 2026-07-27). The previous
-  // three-insert sequence could commit a game and then fail on its options or
+  // three-insert sequence could commit an activity and then fail on its options or
   // invites, orphaning a row the caller could not clean up because it discarded
   // the generated id. `created_by` is taken from auth.uid() inside the function,
   // so input.createdBy is validated above but not sent.
-  const rpc = await db!.rpc("create_game_with_options", {
+  const rpc = await db!.rpc("create_activity_with_options", {
     p_title: input.title,
-    p_activity: input.activity,
-    p_activity_emoji: activityEmojis[input.activity] || "",
-    p_activity_color: "#2D7A3A",
-    p_game_type: input.gameType === "casual" ? "Casual" : "Competitive",
+    p_type: input.type,
+    p_type_emoji: typeEmojis[input.type] || "",
+    p_type_color: "#2D7A3A",
+    p_intensity: input.intensity === "casual" ? "Casual" : "Competitive",
     p_max_players: input.maxPlayers ?? undefined,
     p_group_id: groupId ?? undefined,
     p_voting_deadline: votingDeadline.toISOString(),
@@ -776,10 +785,10 @@ export async function saveGame(input: {
 }
 
 // Matches the server's `to_char(date, 'Dy, Mon FMDD')` format used by the
-// create_game_with_options RPC, so display_date reads the same everywhere
+// create_activity_with_options RPC, so display_date reads the same everywhere
 // regardless of which code path wrote it. See docs/BACKLOG.md item #50 — this
 // used to be the raw ISO date string here and a differently-formatted string
-// in games.service.ts's now-deleted legacy createGame().
+// in activities.service.ts's now-deleted legacy createActivity().
 function formatDisplayDate(dateStr: string): string {
   if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -788,15 +797,15 @@ function formatDisplayDate(dateStr: string): string {
   });
 }
 
-export async function addGameOption(
-  gameId: string,
+export async function addActivityOption(
+  activityId: string,
   option: { date: string; start_time: string; end_time: string; location?: string },
   status: "pending" | "approved" = "approved",
   proposedBy?: string,
 ): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await db!.from("game_options").insert({
-    game_id: gameId,
+  const { error } = await db!.from("activity_options").insert({
+    activity_id: activityId,
     date: option.date,
     display_date: formatDisplayDate(option.date),
     start_time: option.start_time,
@@ -808,18 +817,18 @@ export async function addGameOption(
   return !error;
 }
 
-export async function approveGameOption(optionId: string): Promise<boolean> {
+export async function approveActivityOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
   const { error } = await db!
-    .from("game_options")
+    .from("activity_options")
     .update({ status: "approved" })
     .eq("id", optionId);
   return !error;
 }
 
-export async function updateGameOption(optionId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
+export async function updateActivityOption(optionId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await db!.from("game_options").update({
+  const { error } = await db!.from("activity_options").update({
     date: option.date,
     display_date: formatDisplayDate(option.date),
     start_time: option.start_time,
@@ -829,77 +838,77 @@ export async function updateGameOption(optionId: string, option: { date: string,
   return !error;
 }
 
-export async function deleteGameOption(optionId: string): Promise<boolean> {
+export async function deleteActivityOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await db!.from("game_options").delete().eq("id", optionId);
+  const { error } = await db!.from("activity_options").delete().eq("id", optionId);
   return !error;
 }
 
-export async function updateGameVotingDeadline(gameId: string, deadline: string): Promise<boolean> {
+export async function updateActivityVotingDeadline(activityId: string, deadline: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await db!.from("games").update({ voting_deadline: deadline }).eq("id", gameId);
+  const { error } = await db!.from("activities").update({ voting_deadline: deadline }).eq("id", activityId);
   return !error;
 }
 
-export async function updateGameVisibility(gameId: string, visibility: "Public" | "Group Only" | "Private"): Promise<boolean> {
+export async function updateActivityVisibility(activityId: string, visibility: "Public" | "Group Only" | "Private"): Promise<boolean> {
   if (isDemoMode()) {
-    const idx = DEMO_GAMES.findIndex((g) => g.id === gameId);
-    if (idx !== -1) DEMO_GAMES[idx].visibility = visibility;
+    const idx = DEMO_ACTIVITIES.findIndex((g) => g.id === activityId);
+    if (idx !== -1) DEMO_ACTIVITIES[idx].visibility = visibility;
     return true;
   }
-  const { error } = await db!.from("games").update({ visibility }).eq("id", gameId);
+  const { error } = await db!.from("activities").update({ visibility }).eq("id", activityId);
   return !error;
 }
 
-export async function deleteGame(gameId: string): Promise<boolean> {
+export async function deleteActivity(activityId: string): Promise<boolean> {
   if (isDemoMode()) {
-    const idx = DEMO_GAMES.findIndex((g) => g.id === gameId);
-    if (idx !== -1) DEMO_GAMES.splice(idx, 1);
+    const idx = DEMO_ACTIVITIES.findIndex((g) => g.id === activityId);
+    if (idx !== -1) DEMO_ACTIVITIES.splice(idx, 1);
     return true;
   }
-  const { data, error } = await db!.from("games").delete().eq("id", gameId).select("id");
+  const { data, error } = await db!.from("activities").delete().eq("id", activityId).select("id");
   return !error && (data?.length ?? 0) > 0;
 }
 
-export async function cancelGame(gameId: string, reason?: string): Promise<boolean> {
+export async function cancelActivity(activityId: string, reason?: string): Promise<boolean> {
   if (isDemoMode()) return false;
   const { data, error } = await db!
-    .from("games")
+    .from("activities")
     .update({ status: "cancelled", cancellation_reason: reason ?? null })
-    .eq("id", gameId)
+    .eq("id", activityId)
     .select("id");
   return !error && (data?.length ?? 0) > 0;
 }
 
-export async function confirmGame(gameId: string, optionId: string): Promise<boolean> {
+export async function confirmActivity(activityId: string, optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
   const { data, error } = await db!
-    .from("games")
+    .from("activities")
     .update({ status: "confirmed", confirmed_option_id: optionId })
-    .eq("id", gameId)
+    .eq("id", activityId)
     .select("id");
   return !error && (data?.length ?? 0) > 0;
 }
 
-export async function unconfirmGame(gameId: string): Promise<boolean> {
+export async function unconfirmActivity(activityId: string): Promise<boolean> {
   if (isDemoMode()) return false;
   // Reverting to `proposal` with an already-past deadline would let the next
-  // auto-transition immediately re-decide the game, so push the deadline out.
+  // auto-transition immediately re-decide the activity, so push the deadline out.
   const extended = new Date(Date.now() + 24 * 3600_000).toISOString();
   const { data, error } = await db!
-    .from("games")
+    .from("activities")
     .update({ status: "proposal", confirmed_option_id: null, voting_deadline: extended })
-    .eq("id", gameId)
+    .eq("id", activityId)
     .select("id");
   return !error && (data?.length ?? 0) > 0;
 }
 
-export async function completeGame(gameId: string, attendeeUserIds: string[] = []): Promise<boolean> {
+export async function completeActivity(activityId: string, attendeeUserIds: string[] = []): Promise<boolean> {
   if (isDemoMode()) return false;
   const { data, error } = await db!
-    .from("games")
+    .from("activities")
     .update({ status: "completed" })
-    .eq("id", gameId)
+    .eq("id", activityId)
     .select("id");
   if (error || (data?.length ?? 0) === 0) return false;
 
@@ -919,7 +928,7 @@ export async function clearVotesForOption(optionId: string): Promise<boolean> {
   const { error } = await db.from("votes").delete().eq("option_id", optionId);
   if (!error) {
     await db
-      .from("game_options")
+      .from("activity_options")
       .update({ in_votes: 0, maybe_votes: 0, out_votes: 0 })
       .eq("id", optionId);
   }
@@ -928,7 +937,7 @@ export async function clearVotesForOption(optionId: string): Promise<boolean> {
 
 // ─── Vote helpers ─────────────────────────────────────────────────────────────
 
-/** Re-count votes for an option and sync the aggregate columns on game_options. */
+/** Re-count votes for an option and sync the aggregate columns on activity_options. */
 async function syncVoteCounts(optionId: string): Promise<void> {
   if (!db) return;
   const { data: rows } = await db
@@ -942,11 +951,11 @@ async function syncVoteCounts(optionId: string): Promise<void> {
     else if (r.value === "maybe") counts.maybe_votes++;
     else if (r.value === "out") counts.out_votes++;
   }
-  await db.from("game_options").update(counts).eq("id", optionId);
+  await db.from("activity_options").update(counts).eq("id", optionId);
 }
 
 /**
- * Upsert a vote for the current user on a game option.
+ * Upsert a vote for the current user on an activity option.
  * Returns true on success, false in demo mode or on error.
  */
 export async function castVote(
@@ -968,7 +977,7 @@ export async function castVote(
 }
 
 /**
- * Remove the current user's vote from a game option (un-vote).
+ * Remove the current user's vote from an activity option (un-vote).
  * Returns true on success, false in demo mode or on error.
  */
 export async function deleteVote(optionId: string, userId: string): Promise<boolean> {
@@ -987,14 +996,14 @@ export async function deleteVote(optionId: string, userId: string): Promise<bool
 }
 
 /**
- * Host action to remove a player from the confirmed game roster.
- * This deletes the player's presence in game_players.
+ * Host action to remove a player from the confirmed activity roster.
+ * This deletes the player's presence in activity_players.
  */
-export async function removePlayerFromGame(gameId: string, playerId: string): Promise<boolean> {
+export async function removePlayerFromActivity(activityId: string, playerId: string): Promise<boolean> {
   if (isDemoMode()) {
-    const game = DEMO_GAMES.find((g) => g.id === gameId);
-    if (game) {
-      game.roster = game.roster.filter((p) => p.id !== playerId);
+    const activity = DEMO_ACTIVITIES.find((g) => g.id === activityId);
+    if (activity) {
+      activity.roster = activity.roster.filter((p) => p.id !== playerId);
     }
     return true;
   }
@@ -1005,9 +1014,9 @@ export async function removePlayerFromGame(gameId: string, playerId: string): Pr
   // `!error` made "Player removed" a lie. Until a host-can-remove policy exists
   // this correctly returns false so the caller can surface a real failure.
   const { data, error } = await db
-    .from("game_players")
+    .from("activity_players")
     .delete()
-    .eq("game_id", gameId)
+    .eq("activity_id", activityId)
     .eq("user_id", playerId)
     .select("id");
 
@@ -1015,21 +1024,21 @@ export async function removePlayerFromGame(gameId: string, playerId: string): Pr
 }
 
 /**
- * Load the current user's votes for all options of a game.
+ * Load the current user's votes for all options of an activity.
  * Returns a map of optionId → vote value, or {} in demo mode.
  */
 export async function getUserVotes(
-  gameId: string,
+  activityId: string,
   userId: string
 ): Promise<Record<string, "in" | "maybe" | "out">> {
   if (isDemoMode()) return {};
   if (!db) return {};
 
-  // Get all option IDs for this game
+  // Get all option IDs for this activity
   const { data: opts } = await db
-    .from("game_options")
+    .from("activity_options")
     .select("id")
-    .eq("game_id", gameId);
+    .eq("activity_id", activityId);
   if (!opts || opts.length === 0) return {};
 
   const optionIds = opts.map((o: { id: string }) => o.id);

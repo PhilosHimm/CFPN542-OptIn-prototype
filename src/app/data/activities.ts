@@ -1,6 +1,6 @@
 import { APP_NAME } from "../constants/app";
 
-export type GameStatus = "proposal" | "confirmed" | "completed" | "cancelled";
+export type ActivityStatus = "proposal" | "confirmed" | "completed" | "cancelled";
 export type VoteValue = "in" | "maybe" | "out" | null;
 
 export interface TimeOption {
@@ -16,14 +16,14 @@ export interface TimeOption {
   voterInitials: string[];
 }
 
-export interface Game {
+export interface Activity {
   id: string;
   title: string;
-  activity: string;
-  activityEmoji: string;
-  activityColor: string;
-  status: GameStatus;
-  gameType: "Casual" | "Competitive";
+  type: string;
+  typeEmoji: string;
+  typeColor: string;
+  status: ActivityStatus;
+  intensity: "Casual" | "Competitive";
   maxPlayers: number | null;
   currentPlayers: number;
   createdBy: string;
@@ -42,11 +42,11 @@ export interface Game {
 export interface Group {
   id: string;
   name: string;
-  activity: string;
-  activityEmoji: string;
+  type: string;
+  typeEmoji: string;
   color: string;
   memberCount: number;
-  nextGame?: string;
+  nextActivity?: string;
   initials: string;
 }
 
@@ -55,7 +55,7 @@ export interface Player {
   name: string;
   initials: string;
   color: string;
-  gamesPlayed: number;
+  activitiesPlayed: number;
   weeksPlayed: number;
   attendanceRate: number;
 }
@@ -74,36 +74,36 @@ export interface Message {
 
 // ─── Players ────────────────────────────────────────────────────────────────
 export const players: Player[] = [
-  { id: "p1", name: "Alex Rivera",   initials: "AR", color: "#22C55E", gamesPlayed: 34, weeksPlayed: 22, attendanceRate: 88 },
-  { id: "p2", name: "Jordan Kim",    initials: "JK", color: "#3B82F6", gamesPlayed: 28, weeksPlayed: 19, attendanceRate: 79 },
-  { id: "p3", name: "Taylor Smith",  initials: "TS", color: "#8B5CF6", gamesPlayed: 41, weeksPlayed: 30, attendanceRate: 94 },
-  { id: "p4", name: "Morgan Lee",    initials: "ML", color: "#F97316", gamesPlayed: 17, weeksPlayed: 14, attendanceRate: 72 },
-  { id: "p5", name: "Casey Torres",  initials: "CT", color: "#EF4444", gamesPlayed: 22, weeksPlayed: 16, attendanceRate: 85 },
-  { id: "p6", name: "Riley Park",    initials: "RP", color: "#06B6D4", gamesPlayed: 38, weeksPlayed: 27, attendanceRate: 91 },
-  { id: "p7", name: "Drew Chen",     initials: "DC", color: "#6366F1", gamesPlayed: 12, weeksPlayed: 9,  attendanceRate: 67 },
-  { id: "p8", name: "Sam Wilson",    initials: "SW", color: "#EAB308", gamesPlayed: 51, weeksPlayed: 38, attendanceRate: 96 },
+  { id: "p1", name: "Alex Rivera",   initials: "AR", color: "#22C55E", activitiesPlayed: 34, weeksPlayed: 22, attendanceRate: 88 },
+  { id: "p2", name: "Jordan Kim",    initials: "JK", color: "#3B82F6", activitiesPlayed: 28, weeksPlayed: 19, attendanceRate: 79 },
+  { id: "p3", name: "Taylor Smith",  initials: "TS", color: "#8B5CF6", activitiesPlayed: 41, weeksPlayed: 30, attendanceRate: 94 },
+  { id: "p4", name: "Morgan Lee",    initials: "ML", color: "#F97316", activitiesPlayed: 17, weeksPlayed: 14, attendanceRate: 72 },
+  { id: "p5", name: "Casey Torres",  initials: "CT", color: "#EF4444", activitiesPlayed: 22, weeksPlayed: 16, attendanceRate: 85 },
+  { id: "p6", name: "Riley Park",    initials: "RP", color: "#06B6D4", activitiesPlayed: 38, weeksPlayed: 27, attendanceRate: 91 },
+  { id: "p7", name: "Drew Chen",     initials: "DC", color: "#6366F1", activitiesPlayed: 12, weeksPlayed: 9,  attendanceRate: 67 },
+  { id: "p8", name: "Sam Wilson",    initials: "SW", color: "#EAB308", activitiesPlayed: 51, weeksPlayed: 38, attendanceRate: 96 },
 ];
 
 // ─── Groups ──────────────────────────────────────────────────────────────────
 export const groups: Group[] = [
-  { id: "g1", name: "Tuesday Hoops",    activity: "Basketball", activityEmoji: "🏀", color: "#F97316", memberCount: 8,  nextGame: "Tue, Mar 25", initials: "TH" },
-  { id: "g2", name: "Weekend Warriors", activity: "Soccer",     activityEmoji: "⚽", color: "#22C55E", memberCount: 12, nextGame: "Sat, Mar 29", initials: "WW" },
-  { id: "g3", name: "Net Gang",         activity: "Volleyball", activityEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextGame: "Fri, Mar 28", initials: "NG" },
-  { id: "g4", name: "Smash Club",       activity: "Tennis",     activityEmoji: "🎾", color: "#EAB308", memberCount: 9,  nextGame: "Thu, Mar 27", initials: "SC" },
+  { id: "g1", name: "Tuesday Hoops",    type: "Basketball", typeEmoji: "🏀", color: "#F97316", memberCount: 8,  nextActivity: "Tue, Mar 25", initials: "TH" },
+  { id: "g2", name: "Weekend Warriors", type: "Soccer",     typeEmoji: "⚽", color: "#22C55E", memberCount: 12, nextActivity: "Sat, Mar 29", initials: "WW" },
+  { id: "g3", name: "Net Gang",         type: "Volleyball", typeEmoji: "🏐", color: "#3B82F6", memberCount: 6,  nextActivity: "Fri, Mar 28", initials: "NG" },
+  { id: "g4", name: "Smash Club",       type: "Tennis",     typeEmoji: "🎾", color: "#EAB308", memberCount: 9,  nextActivity: "Thu, Mar 27", initials: "SC" },
 ];
 
-// ─── Games ───────────────────────────────────────────────────────────────────
-export const games: Game[] = [
+// ─── Activities ───────────────────────────────────────────────────────────────────
+export const activities: Activity[] = [
 
   // ── PROPOSALS (voting open) ────────────────────────────────────────────────
   {
-    id: "game1",
+    id: "activity1",
     title: "Tuesday Night Basketball",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "proposal",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 10,
     currentPlayers: 7,
     createdBy: "Sam Wilson",
@@ -154,13 +154,13 @@ export const games: Game[] = [
     perPersonCost: 5.71,
   },
   {
-    id: "game3",
+    id: "activity3",
     title: "Friday Volleyball Meetup",
-    activity: "Volleyball",
-    activityEmoji: "🏐",
-    activityColor: "#3B82F6",
+    type: "Volleyball",
+    typeEmoji: "🏐",
+    typeColor: "#3B82F6",
     status: "proposal",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 8,
     currentPlayers: 5,
     createdBy: "Taylor Smith",
@@ -199,13 +199,13 @@ export const games: Game[] = [
     perPersonCost: 4.0,
   },
   {
-    id: "game5",
+    id: "activity5",
     title: "Thursday Pickleball Doubles",
-    activity: "Pickleball",
-    activityEmoji: "🏓",
-    activityColor: "#8B5CF6",
+    type: "Pickleball",
+    typeEmoji: "🏓",
+    typeColor: "#8B5CF6",
     status: "proposal",
-    gameType: "Competitive",
+    intensity: "Competitive",
     maxPlayers: 8,
     currentPlayers: 4,
     createdBy: "Alex Rivera",
@@ -244,13 +244,13 @@ export const games: Game[] = [
     perPersonCost: 8.0,
   },
   {
-    id: "game6",
+    id: "activity6",
     title: "Saturday Morning Tennis",
-    activity: "Tennis",
-    activityEmoji: "🎾",
-    activityColor: "#EAB308",
+    type: "Tennis",
+    typeEmoji: "🎾",
+    typeColor: "#EAB308",
     status: "proposal",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 4,
     currentPlayers: 2,
     createdBy: "Riley Park",
@@ -291,13 +291,13 @@ export const games: Game[] = [
 
   // ── CONFIRMED (locked in, upcoming) ──────────────────────────────────────
   {
-    id: "game2",
+    id: "activity2",
     title: "Weekend Soccer Match",
-    activity: "Soccer",
-    activityEmoji: "⚽",
-    activityColor: "#22C55E",
+    type: "Soccer",
+    typeEmoji: "⚽",
+    typeColor: "#22C55E",
     status: "confirmed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 14,
     currentPlayers: 11,
     createdBy: "Riley Park",
@@ -325,13 +325,13 @@ export const games: Game[] = [
     confirmedOptionId: "o2a",
   },
   {
-    id: "game7",
+    id: "activity7",
     title: "Wednesday Hoops Night",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "confirmed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 12,
     currentPlayers: 10,
     createdBy: "Jordan Kim",
@@ -359,13 +359,13 @@ export const games: Game[] = [
     confirmedOptionId: "o7a",
   },
   {
-    id: "game8",
+    id: "activity8",
     title: "Competitive Volleyball League Night",
-    activity: "Volleyball",
-    activityEmoji: "🏐",
-    activityColor: "#3B82F6",
+    type: "Volleyball",
+    typeEmoji: "🏐",
+    typeColor: "#3B82F6",
     status: "confirmed",
-    gameType: "Competitive",
+    intensity: "Competitive",
     maxPlayers: 12,
     currentPlayers: 12,
     createdBy: "Casey Torres",
@@ -393,15 +393,15 @@ export const games: Game[] = [
     confirmedOptionId: "o8a",
   },
 
-  // ── COMPLETED (past games) ────────────────────────────────────────────────
+  // ── COMPLETED (past activities) ────────────────────────────────────────────────
   {
-    id: "game4",
+    id: "activity4",
     title: "Morning Pickup Basketball",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "completed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 10,
     currentPlayers: 9,
     createdBy: "Jordan Kim",
@@ -429,13 +429,13 @@ export const games: Game[] = [
     confirmedOptionId: "o4a",
   },
   {
-    id: "game9",
+    id: "activity9",
     title: "Saturday Soccer Scrimmage",
-    activity: "Soccer",
-    activityEmoji: "⚽",
-    activityColor: "#22C55E",
+    type: "Soccer",
+    typeEmoji: "⚽",
+    typeColor: "#22C55E",
     status: "completed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 14,
     currentPlayers: 12,
     createdBy: "Alex Rivera",
@@ -443,7 +443,7 @@ export const games: Game[] = [
     countdownH: 0,
     countdownM: 0,
     countdownS: 0,
-    description: "Great game — both teams left it all on the pitch!",
+    description: "Great activity — both teams left it all on the pitch!",
     options: [
       {
         id: "o9a",
@@ -463,13 +463,13 @@ export const games: Game[] = [
     confirmedOptionId: "o9a",
   },
   {
-    id: "game10",
+    id: "activity10",
     title: "Net Gang Volleyball",
-    activity: "Volleyball",
-    activityEmoji: "🏐",
-    activityColor: "#3B82F6",
+    type: "Volleyball",
+    typeEmoji: "🏐",
+    typeColor: "#3B82F6",
     status: "completed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 8,
     currentPlayers: 8,
     createdBy: "Taylor Smith",
@@ -497,13 +497,13 @@ export const games: Game[] = [
     confirmedOptionId: "o10a",
   },
   {
-    id: "game11",
+    id: "activity11",
     title: "Competitive Hoops — Tuesday Hoops",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "completed",
-    gameType: "Competitive",
+    intensity: "Competitive",
     maxPlayers: 10,
     currentPlayers: 10,
     createdBy: "Sam Wilson",
@@ -531,13 +531,13 @@ export const games: Game[] = [
     confirmedOptionId: "o11a",
   },
   {
-    id: "game12",
+    id: "activity12",
     title: "Sunday Soccer Fun Run",
-    activity: "Soccer",
-    activityEmoji: "⚽",
-    activityColor: "#22C55E",
+    type: "Soccer",
+    typeEmoji: "⚽",
+    typeColor: "#22C55E",
     status: "completed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 16,
     currentPlayers: 14,
     createdBy: "Casey Torres",
@@ -545,7 +545,7 @@ export const games: Game[] = [
     countdownH: 0,
     countdownM: 0,
     countdownS: 0,
-    description: "Huge turnout! Rotational squads format — everyone got solid game time.",
+    description: "Huge turnout! Rotational squads format — everyone got solid activity time.",
     options: [
       {
         id: "o12a",
@@ -565,13 +565,13 @@ export const games: Game[] = [
     confirmedOptionId: "o12a",
   },
   {
-    id: "game13",
+    id: "activity13",
     title: "Tuesday Hoops — Weekly Run",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "completed",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 10,
     currentPlayers: 8,
     createdBy: "Marcus Johnson",
@@ -598,13 +598,13 @@ export const games: Game[] = [
     confirmedOptionId: "o13a",
   },
   {
-    id: "game14",
+    id: "activity14",
     title: "Smash Club — Tennis Doubles",
-    activity: "Tennis",
-    activityEmoji: "🎾",
-    activityColor: "#EAB308",
+    type: "Tennis",
+    typeEmoji: "🎾",
+    typeColor: "#EAB308",
     status: "completed",
-    gameType: "Competitive",
+    intensity: "Competitive",
     maxPlayers: 4,
     currentPlayers: 4,
     createdBy: "Riley Park",
@@ -634,13 +634,13 @@ export const games: Game[] = [
 
   // ── CANCELLED ─────────────────────────────────────────────────────────────
   {
-    id: "game15",
+    id: "activity15",
     title: "Rainy Day Soccer — Cancelled",
-    activity: "Soccer",
-    activityEmoji: "⚽",
-    activityColor: "#22C55E",
+    type: "Soccer",
+    typeEmoji: "⚽",
+    typeColor: "#22C55E",
     status: "cancelled",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 14,
     currentPlayers: 6,
     createdBy: "Morgan Lee",
@@ -668,13 +668,13 @@ export const games: Game[] = [
     confirmedOptionId: undefined,
   },
   {
-    id: "game16",
+    id: "activity16",
     title: "Late Night Basketball — Low Turnout",
-    activity: "Basketball",
-    activityEmoji: "🏀",
-    activityColor: "#F97316",
+    type: "Basketball",
+    typeEmoji: "🏀",
+    typeColor: "#F97316",
     status: "cancelled",
-    gameType: "Casual",
+    intensity: "Casual",
     maxPlayers: 10,
     currentPlayers: 3,
     createdBy: "Drew Chen",
@@ -708,12 +708,12 @@ export const directMessages: Message[] = [
   { id: "dm1", type: "direct", name: "Alex Rivera",   initials: "AR", color: "#22C55E", lastMessage: "See you on the court! 🏀", timestamp: "2m ago",  unread: 1 },
   { id: "dm2", type: "direct", name: "Jordan Kim",    initials: "JK", color: "#3B82F6", lastMessage: "Can't make Tuesday, maybe next week?",  timestamp: "1h ago",  unread: 0 },
   { id: "dm3", type: "direct", name: "Taylor Smith",  initials: "TS", color: "#8B5CF6", lastMessage: "Are we still on for Saturday?", timestamp: "3h ago",  unread: 2 },
-  { id: "dm4", type: "direct", name: "Sam Wilson",    initials: "SW", color: "#EAB308", lastMessage: "Great game last night 🔥", timestamp: "Yesterday", unread: 0 },
+  { id: "dm4", type: "direct", name: "Sam Wilson",    initials: "SW", color: "#EAB308", lastMessage: "Great activity last night 🔥", timestamp: "Yesterday", unread: 0 },
   { id: "dm5", type: "direct", name: "Riley Park",    initials: "RP", color: "#06B6D4", lastMessage: "I'll vote on the options shortly", timestamp: "Yesterday", unread: 0 },
 ];
 
 export const groupMessages: Message[] = [
-  { id: "gm1", type: "group", name: "Tuesday Hoops",    initials: "TH", color: "#F97316", lastMessage: "🏀 New game proposal: Tuesday Night Basketball", timestamp: "5m ago",   unread: 3, isSystemMessage: true },
+  { id: "gm1", type: "group", name: "Tuesday Hoops",    initials: "TH", color: "#F97316", lastMessage: "🏀 New activity proposal: Tuesday Night Basketball", timestamp: "5m ago",   unread: 3, isSystemMessage: true },
   { id: "gm2", type: "group", name: "Weekend Warriors", initials: "WW", color: "#22C55E", lastMessage: "✅ Weekend Soccer Match confirmed for Sat 10am!", timestamp: "30m ago",  unread: 1, isSystemMessage: true },
   { id: "gm3", type: "group", name: "Net Gang",         initials: "NG", color: "#3B82F6", lastMessage: "Who's voting for the Friday option? Let's lock it in", timestamp: "2h ago",   unread: 0 },
 ];
@@ -775,9 +775,9 @@ export const demoConversations: DemoConversation[] = [
     lastMessageTime: "1h ago",
     unread: 0,
     messages: [
-      { id: "m1", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Hey Jordan! Tuesday game is confirmed — 7pm Riverside. You in?", timestamp: "Mon 3:00 PM", isMe: true },
+      { id: "m1", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Hey Jordan! Tuesday activity is confirmed — 7pm Riverside. You in?", timestamp: "Mon 3:00 PM", isMe: true },
       { id: "m2", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#3B82F6", content: "Ugh I really want to but I have a work thing that might run late 😔", timestamp: "Mon 3:15 PM", isMe: false },
-      { id: "m3", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "No worries, game starts at 7 so if you can make it by 7:30 we're good", timestamp: "Mon 3:16 PM", isMe: true },
+      { id: "m3", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "No worries, activity starts at 7 so if you can make it by 7:30 we're good", timestamp: "Mon 3:16 PM", isMe: true },
       { id: "m4", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#3B82F6", content: "I'll try but no promises. My boss keeps scheduling these end-of-day syncs 🙄", timestamp: "Mon 3:20 PM", isMe: false },
       { id: "m5", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Lol that's rough. Either way let us know!", timestamp: "Mon 3:21 PM", isMe: true },
       { id: "m6", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#3B82F6", content: "Can't make Tuesday, maybe next week?", timestamp: "1h ago", isMe: false },
@@ -809,7 +809,7 @@ export const demoConversations: DemoConversation[] = [
     name: "Sam Wilson",
     initials: "SW",
     color: "#EAB308",
-    lastMessage: "Great game last night 🔥",
+    lastMessage: "Great activity last night 🔥",
     lastMessageTime: "Yesterday",
     unread: 0,
     messages: [
@@ -818,8 +818,8 @@ export const demoConversations: DemoConversation[] = [
       { id: "m3", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "No way, you read that screen perfectly. That was straight skill", timestamp: "Yesterday 9:48 PM", isMe: false },
       { id: "m4", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "We need to run that pick-and-roll more. It was working every single time", timestamp: "Yesterday 9:50 PM", isMe: true },
       { id: "m5", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "100%. Also Alex's defense in the second half was elite. Locked them down", timestamp: "Yesterday 9:51 PM", isMe: false },
-      { id: "m6", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "He was locked in fr. Good game tonight, we needed that W 💪", timestamp: "Yesterday 9:53 PM", isMe: true },
-      { id: "m7", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Great game last night 🔥", timestamp: "Yesterday", isMe: false },
+      { id: "m6", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "He was locked in fr. Good activity tonight, we needed that W 💪", timestamp: "Yesterday 9:53 PM", isMe: true },
+      { id: "m7", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Great activity last night 🔥", timestamp: "Yesterday", isMe: false },
     ],
   },
   {
@@ -832,7 +832,7 @@ export const demoConversations: DemoConversation[] = [
     lastMessageTime: "Yesterday",
     unread: 0,
     messages: [
-      { id: "m1", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Hey Riley! Did you see the new game proposal for Friday volleyball?", timestamp: "Yesterday 2:00 PM", isMe: true },
+      { id: "m1", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Hey Riley! Did you see the new activity proposal for Friday volleyball?", timestamp: "Yesterday 2:00 PM", isMe: true },
       { id: "m2", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "Yeah just saw it! Net Gang is organizing again?", timestamp: "Yesterday 2:10 PM", isMe: false },
       { id: "m3", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Yeah, Taylor set it up. There are two time options — 6pm or 8pm", timestamp: "Yesterday 2:11 PM", isMe: true },
       { id: "m4", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "8pm is better for me but I know some people have early mornings", timestamp: "Yesterday 2:13 PM", isMe: false },
@@ -846,11 +846,11 @@ export const demoConversations: DemoConversation[] = [
     name: "Tuesday Hoops",
     initials: "TH",
     color: "#F97316",
-    lastMessage: "🏀 New game proposal: Tuesday Night Basketball",
+    lastMessage: "🏀 New activity proposal: Tuesday Night Basketball",
     lastMessageTime: "5m ago",
     unread: 3,
     messages: [
-      { id: "m1", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "Mon 5:00 PM", isMe: false, isSystem: true },
+      { id: "m1", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New activity proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "Mon 5:00 PM", isMe: false, isSystem: true },
       { id: "m2", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "Let's gooo! Voted In on Option 1 🙌", timestamp: "Mon 5:02 PM", isMe: false },
       { id: "m3", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "In for Option 1 too. Thursday doesn't work for me", timestamp: "Mon 5:05 PM", isMe: false },
       { id: "m4", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Tuesday works perfect 👍", timestamp: "Mon 5:07 PM", isMe: true },
@@ -861,7 +861,7 @@ export const demoConversations: DemoConversation[] = [
       { id: "m9", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "We'll save you a spot on team 2 Jordan 😂", timestamp: "Mon 5:31 PM", isMe: false },
       { id: "m10", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "✅ Tuesday Night Basketball is confirmed! 8 players in. See you Tuesday at 7pm, Riverside Courts.", timestamp: "Mon 6:00 PM", isMe: false, isSystem: true },
       { id: "m11", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "LESSGOOOO 🏀🔥", timestamp: "Mon 6:01 PM", isMe: false },
-      { id: "m12", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New game proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "5m ago", isMe: false, isSystem: true },
+      { id: "m12", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#F97316", content: "🏀 New activity proposal: Tuesday Night Basketball — Riverside Courts, 7:00 PM. Vote now!", timestamp: "5m ago", isMe: false, isSystem: true },
     ],
   },
   {
@@ -877,7 +877,7 @@ export const demoConversations: DemoConversation[] = [
       { id: "m1", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: "Weekend crew! Who's down for soccer Saturday morning?", timestamp: "Fri 8:00 AM", isMe: false },
       { id: "m2", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "I'm down! What time were you thinking?", timestamp: "Fri 8:10 AM", isMe: true },
       { id: "m3", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: `Either 10am or noon. I'll put up a proposal on ${APP_NAME}`, timestamp: "Fri 8:12 AM", isMe: false },
-      { id: "m4", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#22C55E", content: "⚽ New game proposal: Weekend Soccer Match — Lakeside Park, Saturday. Two options: 10am or Noon. Vote now!", timestamp: "Fri 9:00 AM", isMe: false, isSystem: true },
+      { id: "m4", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#22C55E", content: "⚽ New activity proposal: Weekend Soccer Match — Lakeside Park, Saturday. Two options: 10am or Noon. Vote now!", timestamp: "Fri 9:00 AM", isMe: false, isSystem: true },
       { id: "m5", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "10am for sure. Let's get it done before the heat kicks in", timestamp: "Fri 9:05 AM", isMe: false },
       { id: "m6", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Noon is better for me tbh, I'm not a morning person 😴", timestamp: "Fri 9:15 AM", isMe: false },
       { id: "m7", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Voted 10am, we always end up dragging when we start late", timestamp: "Fri 9:20 AM", isMe: true },
@@ -900,7 +900,7 @@ export const demoConversations: DemoConversation[] = [
       { id: "m2", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Fr, I miss it. What are we thinking?", timestamp: "Mon 11:05 AM", isMe: true },
       { id: "m3", senderId: "p3", senderName: "Taylor Smith", senderInitials: "TS", senderColor: "#8B5CF6", content: "Friday evening? I can get the indoor courts at the rec center", timestamp: "Mon 11:10 AM", isMe: false },
       { id: "m4", senderId: "p5", senderName: "Riley Park", senderInitials: "RP", senderColor: "#06B6D4", content: "Indoor is way better, those courts are nice. Let's do it", timestamp: "Mon 11:12 AM", isMe: false },
-      { id: "m5", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#3B82F6", content: "🏐 New game proposal: Friday Volleyball — Rec Center Indoor Courts. Two options: 6pm or 8pm. Vote now!", timestamp: "Mon 12:00 PM", isMe: false, isSystem: true },
+      { id: "m5", senderId: "system", senderName: APP_NAME, senderInitials: "O", senderColor: "#3B82F6", content: "🏐 New activity proposal: Friday Volleyball — Rec Center Indoor Courts. Two options: 6pm or 8pm. Vote now!", timestamp: "Mon 12:00 PM", isMe: false, isSystem: true },
       { id: "m6", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#22C55E", content: "6pm is better for me, I fade after 9pm 😂", timestamp: "Mon 12:05 PM", isMe: false },
       { id: "m7", senderId: "me", senderName: "Marcus", senderInitials: "MJ", senderColor: "#007AFF", content: "Voted 6pm. 8pm is too late for a weeknight", timestamp: "Mon 12:08 PM", isMe: true },
       { id: "m8", senderId: "p4", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#EAB308", content: "Still deciding... 8pm works better with my commute", timestamp: "Mon 1:00 PM", isMe: false },
@@ -910,31 +910,31 @@ export const demoConversations: DemoConversation[] = [
 ];
 
 // ─── Calendar event markers ───────────────────────────────────────────────────
-export const calendarMarkers: Record<string, { status: GameStatus; gameId: string }[]> = {
+export const calendarMarkers: Record<string, { status: ActivityStatus; activityId: string }[]> = {
   // Proposals
-  "2026-03-25": [{ status: "proposal",  gameId: "game1" }],
-  "2026-03-26": [{ status: "proposal",  gameId: "game1" }],
-  "2026-03-27": [{ status: "proposal",  gameId: "game5" }],
-  "2026-03-28": [{ status: "proposal",  gameId: "game3" }, { status: "proposal", gameId: "game5" }],
-  "2026-03-29": [{ status: "proposal",  gameId: "game3" }, { status: "proposal", gameId: "game6" }],
+  "2026-03-25": [{ status: "proposal",  activityId: "activity1" }],
+  "2026-03-26": [{ status: "proposal",  activityId: "activity1" }],
+  "2026-03-27": [{ status: "proposal",  activityId: "activity5" }],
+  "2026-03-28": [{ status: "proposal",  activityId: "activity3" }, { status: "proposal", activityId: "activity5" }],
+  "2026-03-29": [{ status: "proposal",  activityId: "activity3" }, { status: "proposal", activityId: "activity6" }],
   // Confirmed
-  "2026-03-26-confirmed": [{ status: "confirmed", gameId: "game7" }],
-  "2026-03-27-confirmed": [{ status: "confirmed", gameId: "game8" }],
-  "2026-03-29-confirmed": [{ status: "confirmed", gameId: "game2" }],
+  "2026-03-26-confirmed": [{ status: "confirmed", activityId: "activity7" }],
+  "2026-03-27-confirmed": [{ status: "confirmed", activityId: "activity8" }],
+  "2026-03-29-confirmed": [{ status: "confirmed", activityId: "activity2" }],
   // Completed
-  "2026-03-16": [{ status: "completed", gameId: "game4" }],
-  "2026-03-15": [{ status: "completed", gameId: "game9" }],
-  "2026-03-14": [{ status: "completed", gameId: "game10" }],
-  "2026-03-11": [{ status: "completed", gameId: "game11" }],
-  "2026-03-09": [{ status: "completed", gameId: "game12" }],
-  "2026-03-04": [{ status: "completed", gameId: "game13" }],
-  "2026-03-01": [{ status: "completed", gameId: "game14" }],
+  "2026-03-16": [{ status: "completed", activityId: "activity4" }],
+  "2026-03-15": [{ status: "completed", activityId: "activity9" }],
+  "2026-03-14": [{ status: "completed", activityId: "activity10" }],
+  "2026-03-11": [{ status: "completed", activityId: "activity11" }],
+  "2026-03-09": [{ status: "completed", activityId: "activity12" }],
+  "2026-03-04": [{ status: "completed", activityId: "activity13" }],
+  "2026-03-01": [{ status: "completed", activityId: "activity14" }],
   // Cancelled
-  "2026-03-22": [{ status: "cancelled", gameId: "game15" }],
-  "2026-03-20": [{ status: "cancelled", gameId: "game16" }],
+  "2026-03-22": [{ status: "cancelled", activityId: "activity15" }],
+  "2026-03-20": [{ status: "cancelled", activityId: "activity16" }],
 };
 
-export const activities = [
+export const activityTypes = [
   { name: "Basketball", emoji: "🏀", color: "#F97316" },
   { name: "Soccer",     emoji: "⚽", color: "#22C55E" },
   { name: "Volleyball", emoji: "🏐", color: "#3B82F6" },

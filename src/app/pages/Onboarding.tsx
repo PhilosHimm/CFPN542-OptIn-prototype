@@ -168,7 +168,7 @@ export function Onboarding() {
                 About you
               </h1>
               <p className="text-body-md text-on-surface-variant">
-                What's your pickup game like?
+                What's your pickup activity like?
               </p>
             </div>
 
@@ -293,7 +293,7 @@ export function Onboarding() {
                 You're all set!
               </h1>
               <p className="text-body-md text-on-surface-variant">
-                Ready to find your next pickup game
+                Ready to find your next pickup activity
               </p>
             </div>
 

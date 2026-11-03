@@ -1,7 +1,7 @@
 import { MapPin, Clock, Users, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router";
 
-interface GameCardProps {
+interface ActivityCardProps {
   id: string;
   title: string;
   date: string;
@@ -12,7 +12,7 @@ interface GameCardProps {
   variant: "vote" | "confirmed" | "completed" | "cancelled";
 }
 
-export function GameCard({
+export function ActivityCard({
   id,
   title,
   date,
@@ -21,7 +21,7 @@ export function GameCard({
   players,
   isFull,
   variant,
-}: GameCardProps) {
+}: ActivityCardProps) {
   const navigate = useNavigate();
 
   const statusConfig = {
@@ -49,7 +49,7 @@ export function GameCard({
 
   return (
     <button
-      onClick={() => navigate(`/game/${id}`)}
+      onClick={() => navigate(`/activity/${id}`)}
       className="w-full text-left bg-surface-container-low rounded-md3-medium p-4 shadow-md3-1 md3-state-surface transition-colors"
     >
       {/* Status chip */}

@@ -74,10 +74,10 @@ export const Elevation = {
   level3: "0px 4px 8px rgba(0,97,164,0.2), 0px 1px 3px rgba(0,97,164,0.15)",
 } as const;
 
-// ── Game status helpers ──────────────────────────────────────────────────────
-export type GameStatus = "proposal" | "confirmed" | "completed" | "cancelled";
+// ── Activity status helpers ──────────────────────────────────────────────────────
+export type ActivityStatus = "proposal" | "confirmed" | "completed" | "cancelled";
 
-export const statusConfig: Record<GameStatus, { bg: string; text: string; label: string; dotColor: string }> = {
+export const statusConfig: Record<ActivityStatus, { bg: string; text: string; label: string; dotColor: string }> = {
   proposal:  { bg: M3.tertiaryContainer,  text: M3.tertiary,   label: "Voting Open", dotColor: M3.tertiary  },
   confirmed: { bg: M3.secondaryContainer, text: M3.secondary,  label: "Confirmed",   dotColor: M3.secondary },
   completed: { bg: M3.surfaceVariant,     text: M3.onSurfaceVariant, label: "Completed", dotColor: M3.onSurfaceVariant },

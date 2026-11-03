@@ -266,6 +266,15 @@ Markers: **[live]** verified against the running DB · **[code]** verified in so
 
 ## Pivot: sports → general group events
 
+> **Superseded 2026-11-03.** The pivot was decided (any in-person group plan,
+> sports first, see PRODUCT.md "Scope"), and the tables *were* renamed despite
+> the warning below: `games` / `game_options` / `game_players` are now
+> `activities` / `activity_options` / `activity_players`, the kind column is
+> `type` (no `event_type`), and `game_type` became `intensity` (still
+> Casual/Competitive). Every function, trigger and policy was recreated in the
+> same transaction, see `neon/migrations/2026-11-03_activity_noun.sql`. Decision 3
+> ("player") is still open. The rest of this section is kept as written.
+
 The DB is barely sports-coupled: **no enums anywhere**, and no skill-level,
 position, team-count, court, field or venue columns. It reduces to 5 columns and
 3 CHECK constraints. `games.sport` is already free text with no CHECK.

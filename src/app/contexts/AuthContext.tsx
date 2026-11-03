@@ -12,7 +12,7 @@ interface UserProfile {
   color: string;
   bio: string;
   avatar_url: string | null;
-  games_played: number;
+  activities_played: number;
   weeks_played: number;
   attendance_rate: number;
 }
@@ -44,7 +44,7 @@ const DEMO_PROFILE: UserProfile = {
   color: "#007AFF",
   bio: "Pickup basketball fanatic \u{1F3C0} \u00B7 Tuesday Hoops organizer",
   avatar_url: null,
-  games_played: 47,
+  activities_played: 47,
   weeks_played: 31,
   attendance_rate: 89,
 };
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             color: "#2D7A3A",
             username: null,
             bio: "",
-            games_played: 0,
+            activities_played: 0,
             weeks_played: 0,
             attendance_rate: 0,
           })

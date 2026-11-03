@@ -11,7 +11,7 @@ import { FriendsListDialog } from "./FriendsListDialog";
 
 const settingsItems = [
   { id: "groups", icon: Users, label: "Friends list" },
-  { id: "preferences", icon: Gamepad2, label: "Game preferences" },
+  { id: "preferences", icon: Gamepad2, label: "Activity preferences" },
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "account", icon: Settings, label: "Account settings" },
 ];
@@ -32,19 +32,19 @@ export function ProfileScreen() {
   const [usernameError, setUsernameError] = useState("");
 
   // Notification preferences
-  const [notifGameReminders, setNotifGameReminders] = useState(true);
+  const [notifActivityReminders, setNotifActivityReminders] = useState(true);
   const [notifNewProposals, setNotifNewProposals] = useState(true);
   const [notifVotingClosing, setNotifVotingClosing] = useState(false);
   const [notifFriendRequests, setNotifFriendRequests] = useState(true);
 
-  // Game preferences
-  const allActivities = ["Soccer", "Basketball", "Volleyball", "Tennis", "Flag Football", "Softball"];
-  const [preferredActivities, setPreferredActivities] = useState<string[]>(["Soccer"]);
+  // Activity preferences
+  const allTypes = ["Soccer", "Basketball", "Volleyball", "Tennis", "Flag Football", "Softball"];
+  const [preferredTypes, setPreferredTypes] = useState<string[]>(["Soccer"]);
   const [skillLevel, setSkillLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
 
-  const toggleActivity = (activity: string) => {
-    setPreferredActivities((prev) =>
-      prev.includes(activity) ? prev.filter((s) => s !== activity) : [...prev, activity]
+  const toggleType = (type: string) => {
+    setPreferredTypes((prev) =>
+      prev.includes(type) ? prev.filter((s) => s !== type) : [...prev, type]
     );
   };
 
@@ -118,9 +118,9 @@ export function ProfileScreen() {
       <div className="flex items-center justify-center gap-8 px-4 mb-6">
         <div className="flex flex-col items-center">
           <span className="text-headline-md font-medium text-primary">
-            {profile?.games_played ?? 47}
+            {profile?.activities_played ?? 47}
           </span>
-          <span className="text-label-lg text-on-surface-variant">Games played</span>
+          <span className="text-label-lg text-on-surface-variant">Activities played</span>
         </div>
         <div className="w-px h-[40px] bg-on-surface/8" />
         <div className="flex flex-col items-center">
@@ -294,8 +294,8 @@ export function ProfileScreen() {
           </DialogHeader>
           <div className="flex flex-col gap-0 divide-y divide-outline-variant/30">
             {[
-              { label: "Game reminders", sub: "24 hours before game time", value: notifGameReminders, set: setNotifGameReminders },
-              { label: "New game proposals", sub: "When someone creates a game you're in", value: notifNewProposals, set: setNotifNewProposals },
+              { label: "Activity reminders", sub: "24 hours before activity time", value: notifActivityReminders, set: setNotifActivityReminders },
+              { label: "New activity proposals", sub: "When someone creates an activity you're in", value: notifNewProposals, set: setNotifNewProposals },
               { label: "Voting closing soon", sub: "2 hours before voting closes", value: notifVotingClosing, set: setNotifVotingClosing },
               { label: "Friend requests", sub: "When someone wants to connect", value: notifFriendRequests, set: setNotifFriendRequests },
             ].map(({ label, sub, value, set }) => (
@@ -323,22 +323,22 @@ export function ProfileScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Game Preferences Dialog */}
+      {/* Activity Preferences Dialog */}
       <Dialog open={activeDialog === "preferences"} onOpenChange={(open) => !open && setActiveDialog(null)}>
         <DialogContent className="max-w-[400px] w-[90vw] rounded-3xl p-6">
           <DialogHeader className="mb-4 text-left">
-            <DialogTitle className="text-title-lg text-on-surface">Game Preferences</DialogTitle>
+            <DialogTitle className="text-title-lg text-on-surface">Activity Preferences</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-6">
             <div>
               <p className="text-label-md font-medium text-on-surface-variant mb-3">Preferred Activities</p>
               <div className="flex flex-wrap gap-2">
-                {allActivities.map((activity) => {
-                  const active = preferredActivities.includes(activity);
+                {allTypes.map((type) => {
+                  const active = preferredTypes.includes(type);
                   return (
                     <button
-                      key={activity}
-                      onClick={() => toggleActivity(activity)}
+                      key={type}
+                      onClick={() => toggleType(type)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-label-lg font-medium border transition-colors ${
                         active
                           ? "bg-secondary-container text-on-secondary-container border-transparent"
@@ -346,7 +346,7 @@ export function ProfileScreen() {
                       }`}
                     >
                       {active && <Check className="w-3.5 h-3.5" />}
-                      {activity}
+                      {type}
                     </button>
                   );
                 })}

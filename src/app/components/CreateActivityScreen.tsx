@@ -22,15 +22,15 @@ import { useNavigate, useSearchParams } from "react-router";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { UserAvatar } from "./UserAvatar";
 import { motion, AnimatePresence } from "motion/react";
-import { saveGame } from "./gameData";
+import { saveActivity } from "./activityData";
 import { useAuth } from "../contexts/AuthContext";
-import { getGroups } from "../services/games.service";
+import { getGroups } from "../services/activities.service";
 import { getFriendIds } from "../services/friendships.service";
 import { getPlayers } from "../services/profiles.service";
 
 // ─── Constants ─────────────────────────────────────────────
 const TOTAL_STEPS = 5;
-const activities = [
+const activityTypes = [
   "Soccer",
   "Basketball",
   "Volleyball",
@@ -63,7 +63,7 @@ type InvitePlayer = {
   avatar?: string;
   initials?: string;
   color?: string;
-  activity?: string;
+  type?: string;
 };
 
 interface TimeOption {
@@ -209,7 +209,7 @@ function NextButton({
 }
 
 // ─── Main Component ────────────────────────────────────────
-export function CreateGameScreen() {
+export function CreateActivityScreen() {
   const navigate = useNavigate();
   const { profile, user, isDemo } = useAuth();
   const [searchParams] = useSearchParams();
@@ -221,12 +221,12 @@ export function CreateGameScreen() {
   const [showSuccess, setShowSuccess] = useState(mock && searchParams.get("step") === "success");
 
   // Step 1 state
-  const [selectedActivity, setSelectedActivity] = useState(mock ? "Soccer" : "");
-  const [customActivityName, setCustomActivityName] = useState("");
-  const [activityDropdownOpen, setActivityDropdownOpen] = useState(false);
-  const [gameTitle, setGameTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
+  const [selectedType, setSelectedType] = useState(mock ? "Soccer" : "");
+  const [customTypeName, setCustomTypeName] = useState("");
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [activityTitle, setActivityTitle] = useState(mock ? "Sunday Soccer Showdown" : "");
   const [address, setAddress] = useState(mock ? "Riverside Park, Field 3, Chicago" : "");
-  const [gameType, setGameType] = useState<"casual" | "competitive" | "">(mock ? "casual" : "");
+  const [intensity, setIntensity] = useState<"casual" | "competitive" | "">(mock ? "casual" : "");
   const [maxPlayers, setMaxPlayers] = useState(mock ? "12" : "");
 
   // Step 2 state
@@ -266,7 +266,7 @@ export function CreateGameScreen() {
       const mapped = gs.map((g) => ({ id: g.id, name: g.name }));
       setRealGroups(mapped);
       // Deliberately NOT auto-selecting a group. This used to default to
-      // mapped[0] unconditionally, so a game marked Private still carried a
+      // mapped[0] unconditionally, so an activity marked Private still carried a
       // group_id — and since getGroups() had no membership filter, that was
       // whatever group sorted first in the whole database. The user picks a
       // group only when they choose "Group Only" visibility.
@@ -402,28 +402,28 @@ export function CreateGameScreen() {
   // would both see isCreating === false.
   const isCreatingRef = useRef(false);
 
-  const effectiveActivity = selectedActivity === "Other / Custom..."
-    ? customActivityName.trim()
-    : selectedActivity;
+  const effectiveType = selectedType === "Other / Custom..."
+    ? customTypeName.trim()
+    : selectedType;
 
-  const handleCreateGame = useCallback(async () => {
-    // Without this guard each tap minted a fresh game: the button was always
-    // enabled and there was no in-flight flag, so N taps produced N games.
+  const handleCreateActivity = useCallback(async () => {
+    // Without this guard each tap minted a fresh activity: the button was always
+    // enabled and there was no in-flight flag, so N taps produced N activities.
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
     setIsCreating(true);
     setCreateError(null);
     try {
-    const result = await saveGame({
-      title: gameTitle,
-      activity: effectiveActivity,
-      gameType: gameType as "casual" | "competitive",
+    const result = await saveActivity({
+      title: activityTitle,
+      type: effectiveType,
+      intensity: intensity as "casual" | "competitive",
       costType,
       maxPlayers: maxPlayers ? parseInt(maxPlayers) : null,
       totalCost: costType === "fixed" ? parseFloat(totalCost) || 0 : 0,
       perPersonCost: costType === "per_player" ? parseFloat(perPlayerCost) || 0 : (costType === "fixed" ? parseFloat(perPersonCost) : 0),
       location: address,
-      // Only a "Group Only" game belongs to a group.
+      // Only a "Group Only" activity belongs to a group.
       groupId: visibility === "group" ? assignedGroup : "",
       visibility: visibility === "public" ? "Public" : visibility === "group" ? "Group Only" : "Private",
       createdBy: profile?.id || user?.id || "",
@@ -450,17 +450,17 @@ export function CreateGameScreen() {
       navigate("/");
     }, 2000);
     } catch (e: any) {
-      setCreateError(e?.message ?? "Something went wrong creating the game.");
+      setCreateError(e?.message ?? "Something went wrong creating the activity.");
       isCreatingRef.current = false;
       setIsCreating(false);
     }
     // costType/perPlayerCost/perPersonCost were missing here while the body reads
     // all three, so the memo closed over stale cost state and saved 0 or NaN.
-  }, [navigate, gameTitle, effectiveActivity, gameType, maxPlayers, costType, totalCost, perPlayerCost, perPersonCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
+  }, [navigate, activityTitle, effectiveType, intensity, maxPlayers, costType, totalCost, perPlayerCost, perPersonCost, address, assignedGroup, visibility, profile, user, timeOptions, selectedPlayers, votingPeriodType, customVotingHours]);
 
   // ─── Step validation ──────────────────────────────────
   const isStep1Valid =
-    effectiveActivity !== "" && gameTitle.trim() !== "" && gameType !== "";
+    effectiveType !== "" && activityTitle.trim() !== "" && intensity !== "";
   const isStep2Valid = timeOptions.every(
     (o) => o.date !== "" && o.startTime !== "" && o.endTime !== ""
   );
@@ -499,7 +499,7 @@ export function CreateGameScreen() {
           transition={{ delay: 0.2, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
           className="text-headline-sm font-medium text-on-surface mb-2"
         >
-          Game Created!
+          Activity Created!
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -507,7 +507,7 @@ export function CreateGameScreen() {
           transition={{ delay: 0.35, duration: 0.4, ease: [0.05, 0.7, 0.1, 1.0] }}
           className="text-body-md text-on-surface-variant text-center"
         >
-          Your game proposal has been sent to{" "}
+          Your activity proposal has been sent to{" "}
           {selectedPlayers.length > 0
             ? `${selectedPlayers.length} player${
                 selectedPlayers.length > 1 ? "s" : ""
@@ -532,7 +532,7 @@ export function CreateGameScreen() {
             <ArrowLeft className="w-5 h-5 text-on-surface" />
           </button>
           <h1 className="text-title-lg font-medium text-on-surface leading-tight">
-            Create Game
+            Create Activity
           </h1>
           <span className="ml-auto text-label-md text-on-surface-variant">
             {currentStep}/{TOTAL_STEPS}
@@ -556,18 +556,18 @@ export function CreateGameScreen() {
           >
             {currentStep === 1 && (
               <StepDetails
-                selectedActivity={selectedActivity}
-                setSelectedActivity={setSelectedActivity}
-                customActivityName={customActivityName}
-                setCustomActivityName={setCustomActivityName}
-                activityDropdownOpen={activityDropdownOpen}
-                setActivityDropdownOpen={setActivityDropdownOpen}
-                gameTitle={gameTitle}
-                setGameTitle={setGameTitle}
+                selectedType={selectedType}
+                setSelectedType={setSelectedType}
+                customTypeName={customTypeName}
+                setCustomTypeName={setCustomTypeName}
+                typeDropdownOpen={typeDropdownOpen}
+                setTypeDropdownOpen={setTypeDropdownOpen}
+                activityTitle={activityTitle}
+                setActivityTitle={setActivityTitle}
                 address={address}
                 setAddress={setAddress}
-                gameType={gameType}
-                setGameType={setGameType}
+                intensity={intensity}
+                setIntensity={setIntensity}
                 maxPlayers={maxPlayers}
                 setMaxPlayers={setMaxPlayers}
                 onNext={goNext}
@@ -614,10 +614,10 @@ export function CreateGameScreen() {
             )}
             {currentStep === 5 && (
               <StepReview
-                selectedActivity={effectiveActivity}
-                gameTitle={gameTitle}
+                selectedType={effectiveType}
+                activityTitle={activityTitle}
                 address={address}
-                gameType={gameType}
+                intensity={intensity}
                 maxPlayers={maxPlayers}
                 timeOptions={timeOptions}
                 costType={costType}
@@ -635,7 +635,7 @@ export function CreateGameScreen() {
                 setVotingPeriodType={setVotingPeriodType}
                 customVotingHours={customVotingHours}
                 setCustomVotingHours={setCustomVotingHours}
-                onSubmit={handleCreateGame}
+                onSubmit={handleCreateActivity}
                 error={createError}
                 isCreating={isCreating}
               />
@@ -647,38 +647,38 @@ export function CreateGameScreen() {
   );
 }
 
-// ─── STEP 1: Game Details ──────────────────────────────────
+// ─── STEP 1: Activity Details ──────────────────────────────────
 function StepDetails({
-  selectedActivity,
-  setSelectedActivity,
-  customActivityName,
-  setCustomActivityName,
-  activityDropdownOpen,
-  setActivityDropdownOpen,
-  gameTitle,
-  setGameTitle,
+  selectedType,
+  setSelectedType,
+  customTypeName,
+  setCustomTypeName,
+  typeDropdownOpen,
+  setTypeDropdownOpen,
+  activityTitle,
+  setActivityTitle,
   address,
   setAddress,
-  gameType,
-  setGameType,
+  intensity,
+  setIntensity,
   maxPlayers,
   setMaxPlayers,
   onNext,
   isValid,
   mock,
 }: {
-  selectedActivity: string;
-  setSelectedActivity: (v: string) => void;
-  customActivityName: string;
-  setCustomActivityName: (v: string) => void;
-  activityDropdownOpen: boolean;
-  setActivityDropdownOpen: (v: boolean) => void;
-  gameTitle: string;
-  setGameTitle: (v: string) => void;
+  selectedType: string;
+  setSelectedType: (v: string) => void;
+  customTypeName: string;
+  setCustomTypeName: (v: string) => void;
+  typeDropdownOpen: boolean;
+  setTypeDropdownOpen: (v: boolean) => void;
+  activityTitle: string;
+  setActivityTitle: (v: string) => void;
   address: string;
   setAddress: (v: string) => void;
-  gameType: "casual" | "competitive" | "";
-  setGameType: (v: "casual" | "competitive") => void;
+  intensity: "casual" | "competitive" | "";
+  setIntensity: (v: "casual" | "competitive") => void;
   maxPlayers: string;
   setMaxPlayers: (v: string) => void;
   onNext: () => void;
@@ -691,68 +691,68 @@ function StepDetails({
         Let's get started. What are we doing?
       </p>
 
-      {/* Activity Dropdown */}
+      {/* Type Dropdown */}
       <div className="mb-4 relative">
         <label className="block text-label-md font-medium text-on-surface-variant mb-1.5 leading-none">
-          Activity
+          Type
         </label>
         <button
-          onClick={() => setActivityDropdownOpen(!activityDropdownOpen)}
+          onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
           className="w-full h-[56px] px-4 rounded-md3-extra-small border border-outline bg-transparent flex items-center justify-between text-left hover:border-on-surface transition-colors"
         >
           <span
             className={`text-body-lg ${
-              selectedActivity ? "text-on-surface" : "text-on-surface-variant"
+              selectedType ? "text-on-surface" : "text-on-surface-variant"
             }`}
           >
-            {selectedActivity || "Select Activity"}
+            {selectedType || "Select Type"}
           </span>
           <ChevronDown
             className={`w-5 h-5 text-on-surface-variant transition-transform ${
-              activityDropdownOpen ? "rotate-180" : ""
+              typeDropdownOpen ? "rotate-180" : ""
             }`}
           />
         </button>
-        {activityDropdownOpen && (
+        {typeDropdownOpen && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-md3-extra-small shadow-md3-3 border border-outline-variant z-20 overflow-hidden max-h-60 overflow-y-auto">
-            {activities.map((activity) => (
+            {activityTypes.map((type) => (
               <button
-                key={activity}
+                key={type}
                 onClick={() => {
-                  setSelectedActivity(activity);
-                  setActivityDropdownOpen(false);
+                  setSelectedType(type);
+                  setTypeDropdownOpen(false);
                 }}
                 className={`w-full px-4 py-3 text-left text-body-md hover:bg-on-surface/8 transition-colors ${
-                  selectedActivity === activity
+                  selectedType === type
                     ? "bg-secondary-container text-on-secondary-container font-medium"
                     : "text-on-surface"
                 }`}
               >
-                {activity}
+                {type}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Custom activity input */}
-      {selectedActivity === "Other / Custom..." && (
+      {/* Custom type input */}
+      {selectedType === "Other / Custom..." && (
         <div className="mb-4">
           <OutlinedTextField
-            label="Activity Name"
+            label="Custom Type"
             placeholder="e.g. Kickball, Board games, Dinner..."
-            value={customActivityName}
-            onChange={setCustomActivityName}
+            value={customTypeName}
+            onChange={setCustomTypeName}
           />
         </div>
       )}
 
-      {/* Game Title */}
+      {/* Activity Title */}
       <OutlinedTextField
-        label="Game Title"
+        label="Activity Title"
         placeholder="e.g. Sunday Soccer Showdown"
-        value={gameTitle}
-        onChange={setGameTitle}
+        value={activityTitle}
+        onChange={setActivityTitle}
       />
 
       {/* Address Field */}
@@ -773,10 +773,10 @@ function StepDetails({
         />
       </div>
 
-      {/* Game Type */}
+      {/* Intensity */}
       <div className="mb-5">
         <h3 className="text-title-sm font-medium text-on-surface mb-3 leading-none">
-          Game Type
+          Intensity
         </h3>
         <div className="flex gap-3">
           {(
@@ -797,9 +797,9 @@ function StepDetails({
           ).map((item) => (
             <button
               key={item.key}
-              onClick={() => setGameType(item.key)}
+              onClick={() => setIntensity(item.key)}
               className={`flex-1 py-3 px-4 rounded-md3-medium border text-center transition-all min-h-[48px] ${
-                gameType === item.key
+                intensity === item.key
                   ? "border-primary bg-secondary-container"
                   : "border-outline bg-surface"
               }`}
@@ -808,7 +808,7 @@ function StepDetails({
                 <span className="text-title-lg leading-none">{item.emoji}</span>
                 <span
                   className={`text-label-lg font-medium leading-none ${
-                    gameType === item.key ? "text-on-secondary-container" : "text-on-surface"
+                    intensity === item.key ? "text-on-secondary-container" : "text-on-surface"
                   }`}
                 >
                   {item.label}
@@ -992,12 +992,12 @@ function StepTimeLocation({
               </div>
               {mock ? (
                 <div className="w-full h-[48px] pl-10 pr-3 rounded-md3-extra-small border border-outline bg-transparent text-body-md text-on-surface-variant/50 flex items-center">
-                  {option.address || "Same as game location"}
+                  {option.address || "Same as activity location"}
                 </div>
               ) : (
                 <input
                   type="text"
-                  placeholder="Same as game location"
+                  placeholder="Same as activity location"
                   value={option.address}
                   onChange={(e) =>
                     onUpdate(option.id, "address", e.target.value)
@@ -1170,7 +1170,7 @@ function StepInvite({
   return (
     <>
       <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
-        Share the game or invite specific players.
+        Share the activity or invite specific players.
       </p>
 
       {/* Share methods */}
@@ -1271,7 +1271,7 @@ function StepInvite({
           <div className="flex flex-col items-center gap-2 py-8 text-on-surface-variant">
             <Users className="w-8 h-8 opacity-40" />
             <p className="text-body-md">No friends yet</p>
-            <p className="text-label-md text-center">Add friends first, then invite them to games.</p>
+            <p className="text-label-md text-center">Add friends first, then invite them to activities.</p>
           </div>
         ) : (
           filteredPlayers.map((player) => {
@@ -1289,9 +1289,9 @@ function StepInvite({
                   <p className="text-body-md font-medium text-on-surface leading-tight">
                     {player.name}
                   </p>
-                  {player.activity && (
+                  {player.type && (
                     <p className="text-label-md text-on-surface-variant leading-tight">
-                      {player.activity}
+                      {player.type}
                     </p>
                   )}
                 </div>
@@ -1342,10 +1342,10 @@ function StepInvite({
 
 // ─── STEP 5: Review & Post ─────────────────────────────────
 function StepReview({
-  selectedActivity,
-  gameTitle,
+  selectedType,
+  activityTitle,
   address,
-  gameType,
+  intensity,
   maxPlayers,
   timeOptions,
   costType,
@@ -1367,10 +1367,10 @@ function StepReview({
   error,
   isCreating,
 }: {
-  selectedActivity: string;
-  gameTitle: string;
+  selectedType: string;
+  activityTitle: string;
   address: string;
-  gameType: string;
+  intensity: string;
   maxPlayers: string;
   timeOptions: TimeOption[];
   costType: string;
@@ -1414,21 +1414,21 @@ function StepReview({
   return (
     <>
       <p className="text-body-md text-on-surface-variant mb-5 leading-normal">
-        Review your game details before posting.
+        Review your activity details before posting.
       </p>
 
-      {/* Game Details Section */}
+      {/* Activity Details Section */}
       <div className="bg-surface-container-lowest rounded-md3-large p-4 mb-3 shadow-md3-1">
         <h3 className="text-body-md font-medium text-primary mb-3 leading-none">
-          Game Details
+          Activity Details
         </h3>
         <div className="flex flex-col gap-2">
-          <ReviewRow label="Activity" value={selectedActivity || "—"} />
-          <ReviewRow label="Title" value={gameTitle || "—"} />
+          <ReviewRow label="Type" value={selectedType || "—"} />
+          <ReviewRow label="Title" value={activityTitle || "—"} />
           <ReviewRow label="Location" value={address || "—"} />
           <ReviewRow
             label="Type"
-            value={gameType ? gameType.charAt(0).toUpperCase() + gameType.slice(1) : "—"}
+            value={intensity ? intensity.charAt(0).toUpperCase() + intensity.slice(1) : "—"}
           />
           <ReviewRow label="Max Players" value={maxPlayers || "—"} />
         </div>
@@ -1561,7 +1561,7 @@ function StepReview({
                 className="w-24 h-[48px] px-3 rounded-md3-extra-small border border-outline bg-transparent text-body-lg text-on-surface focus:border-primary focus:outline-none"
               />
               <span className="text-body-md text-on-surface-variant">
-                hours before first game
+                hours before first activity
               </span>
             </div>
           )}
@@ -1579,9 +1579,9 @@ function StepReview({
         <div className="flex flex-col sm:flex-row gap-2">
           {(
             [
-              { key: "public" as const, label: "Public Game", icon: Eye },
+              { key: "public" as const, label: "Public Activity", icon: Eye },
               { key: "group" as const, label: "Group Only", icon: Users },
-              { key: "private" as const, label: "Private Game", icon: Lock },
+              { key: "private" as const, label: "Private Activity", icon: Lock },
             ] as const
           ).map((item) => {
             const Icon = item.icon;
@@ -1653,14 +1653,14 @@ function StepReview({
         </div>
       )}
 
-      {/* Create Game CTA */}
+      {/* Create Activity CTA */}
       <button
         onClick={onSubmit}
         disabled={isCreating}
         aria-busy={isCreating}
         className="w-full h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1 md3-state-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isCreating ? "Creating…" : "Create Game"}
+        {isCreating ? "Creating…" : "Create Activity"}
       </button>
     </>
   );

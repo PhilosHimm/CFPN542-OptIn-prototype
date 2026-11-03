@@ -9,9 +9,9 @@ import { ChatsScreen } from "./components/ChatsScreen";
 // on first load, especially on mobile connections.
 const HomeScreen = lazy(() => import("./components/HomeScreen").then((m) => ({ default: m.HomeScreen })));
 const CalendarScreen = lazy(() => import("./components/CalendarScreen").then((m) => ({ default: m.CalendarScreen })));
-const CreateGameScreen = lazy(() => import("./components/CreateGameScreen").then((m) => ({ default: m.CreateGameScreen })));
+const CreateActivityScreen = lazy(() => import("./components/CreateActivityScreen").then((m) => ({ default: m.CreateActivityScreen })));
 const ProfileScreen = lazy(() => import("./components/ProfileScreen").then((m) => ({ default: m.ProfileScreen })));
-const GameViewScreen = lazy(() => import("./components/GameViewScreen").then((m) => ({ default: m.GameViewScreen })));
+const ActivityViewScreen = lazy(() => import("./components/ActivityViewScreen").then((m) => ({ default: m.ActivityViewScreen })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("./pages/Signup").then((m) => ({ default: m.Signup })));
 const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
@@ -49,10 +49,10 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: HomeScreen },
           { path: "calendar", Component: CalendarScreen },
-          { path: "create", Component: CreateGameScreen },
+          { path: "create", Component: CreateActivityScreen },
           { path: "chats", Component: ChatsScreen },
           { path: "profile", Component: ProfileScreen },
-          { path: "game/:id", Component: GameViewScreen },
+          { path: "activity/:id", Component: ActivityViewScreen },
         ],
       },
     ],

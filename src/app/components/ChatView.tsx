@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import type { DemoConversation, ChatMessage } from "../data/games";
+import type { DemoConversation, ChatMessage } from "../data/activities";
 import { APP_NAME } from "../constants/app";
 
 interface ChatViewProps {

@@ -2,10 +2,10 @@
 // Supabase MCP `generate_typescript_types` tool on 2026-07-28 (after
 // migration 019, then again after migration 022). Do not hand-edit —
 // regenerate instead, the same way, so this never drifts from the real
-// schema again (docs/BACKLOG.md item #31) — EXCEPT `game_options.Insert.
+// schema again (docs/BACKLOG.md item #31) — EXCEPT `activity_options.Insert.
 // starts_at`, deliberately widened to optional below. The generator only
 // detects column-level DEFAULT, not the BEFORE INSERT trigger
-// (fn_sync_game_option_times, migration 022) that actually populates it —
+// (fn_sync_activity_option_times, migration 022) that actually populates it —
 // regenerating verbatim would mark it required and break every insert that
 // correctly omits it.
 export type Json =
@@ -179,13 +179,13 @@ export type Database = {
           },
         ]
       }
-      game_options: {
+      activity_options: {
         Row: {
           created_at: string | null
           date: string
           display_date: string
           end_time: string | null
-          game_id: string
+          activity_id: string
           id: string
           in_votes: number | null
           location: string
@@ -202,7 +202,7 @@ export type Database = {
           date: string
           display_date: string
           end_time?: string | null
-          game_id: string
+          activity_id: string
           id?: string
           in_votes?: number | null
           location: string
@@ -219,7 +219,7 @@ export type Database = {
           date?: string
           display_date?: string
           end_time?: string | null
-          game_id?: string
+          activity_id?: string
           id?: string
           in_votes?: number | null
           location?: string
@@ -233,14 +233,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "game_options_game_id_fkey"
-            columns: ["game_id"]
+            foreignKeyName: "activity_options_activity_id_fkey"
+            columns: ["activity_id"]
             isOneToOne: false
-            referencedRelation: "games"
+            referencedRelation: "activities"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "game_options_proposed_by_fkey"
+            foreignKeyName: "activity_options_proposed_by_fkey"
             columns: ["proposed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -248,23 +248,23 @@ export type Database = {
           },
         ]
       }
-      game_players: {
+      activity_players: {
         Row: {
-          game_id: string | null
+          activity_id: string | null
           id: string
           joined_at: string | null
           status: string | null
           user_id: string | null
         }
         Insert: {
-          game_id?: string | null
+          activity_id?: string | null
           id?: string
           joined_at?: string | null
           status?: string | null
           user_id?: string | null
         }
         Update: {
-          game_id?: string | null
+          activity_id?: string | null
           id?: string
           joined_at?: string | null
           status?: string | null
@@ -272,14 +272,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "game_players_game_id_fkey"
-            columns: ["game_id"]
+            foreignKeyName: "activity_players_activity_id_fkey"
+            columns: ["activity_id"]
             isOneToOne: false
-            referencedRelation: "games"
+            referencedRelation: "activities"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "game_players_user_id_fkey"
+            foreignKeyName: "activity_players_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -287,7 +287,7 @@ export type Database = {
           },
         ]
       }
-      games: {
+      activities: {
         Row: {
           cancellation_reason: string | null
           confirmed_option_id: string | null
@@ -296,15 +296,15 @@ export type Database = {
           created_by: string
           current_players: number
           description: string | null
-          game_type: string | null
+          intensity: string | null
           group_id: string | null
           id: string
           max_players: number | null
           min_players: number | null
           per_person_cost: number
-          activity: string
-          activity_color: string
-          activity_emoji: string
+          type: string
+          type_color: string
+          type_emoji: string
           status: string
           title: string
           total_cost: number
@@ -320,15 +320,15 @@ export type Database = {
           created_by: string
           current_players?: number
           description?: string | null
-          game_type?: string | null
+          intensity?: string | null
           group_id?: string | null
           id?: string
           max_players?: number | null
           min_players?: number | null
           per_person_cost?: number
-          activity: string
-          activity_color: string
-          activity_emoji: string
+          type: string
+          type_color: string
+          type_emoji: string
           status?: string
           title: string
           total_cost?: number
@@ -344,15 +344,15 @@ export type Database = {
           created_by?: string
           current_players?: number
           description?: string | null
-          game_type?: string | null
+          intensity?: string | null
           group_id?: string | null
           id?: string
           max_players?: number | null
           min_players?: number | null
           per_person_cost?: number
-          activity?: string
-          activity_color?: string
-          activity_emoji?: string
+          type?: string
+          type_color?: string
+          type_emoji?: string
           status?: string
           title?: string
           total_cost?: number
@@ -362,21 +362,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "games_confirmed_option_id_fkey"
+            foreignKeyName: "activities_confirmed_option_id_fkey"
             columns: ["confirmed_option_id"]
             isOneToOne: false
-            referencedRelation: "game_options"
+            referencedRelation: "activity_options"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "games_created_by_fkey"
+            foreignKeyName: "activities_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "games_group_id_fkey"
+            foreignKeyName: "activities_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
@@ -432,9 +432,9 @@ export type Database = {
           initials: string
           member_count: number
           name: string
-          next_game: string | null
-          activity: string | null
-          activity_emoji: string
+          next_activity: string | null
+          type: string | null
+          type_emoji: string
         }
         Insert: {
           color: string
@@ -444,9 +444,9 @@ export type Database = {
           initials: string
           member_count?: number
           name: string
-          next_game?: string | null
-          activity?: string | null
-          activity_emoji?: string
+          next_activity?: string | null
+          type?: string | null
+          type_emoji?: string
         }
         Update: {
           color?: string
@@ -456,9 +456,9 @@ export type Database = {
           initials?: string
           member_count?: number
           name?: string
-          next_game?: string | null
-          activity?: string | null
-          activity_emoji?: string
+          next_activity?: string | null
+          type?: string | null
+          type_emoji?: string
         }
         Relationships: [
           {
@@ -520,7 +520,7 @@ export type Database = {
           color: string
           created_at: string | null
           email: string
-          games_played: number
+          activities_played: number
           id: string
           initials: string
           name: string
@@ -535,7 +535,7 @@ export type Database = {
           color: string
           created_at?: string | null
           email: string
-          games_played?: number
+          activities_played?: number
           id: string
           initials: string
           name: string
@@ -550,7 +550,7 @@ export type Database = {
           color?: string
           created_at?: string | null
           email?: string
-          games_played?: number
+          activities_played?: number
           id?: string
           initials?: string
           name?: string
@@ -593,7 +593,7 @@ export type Database = {
             foreignKeyName: "votes_option_id_fkey"
             columns: ["option_id"]
             isOneToOne: false
-            referencedRelation: "game_options"
+            referencedRelation: "activity_options"
             referencedColumns: ["id"]
           },
           {
@@ -611,22 +611,22 @@ export type Database = {
     }
     Functions: {
       app_timezone: { Args: never; Returns: string }
-      auto_transition_all_games: { Args: never; Returns: number }
-      auto_transition_game: { Args: { p_game_id: string }; Returns: undefined }
-      create_game_with_options: {
+      auto_transition_all_activities: { Args: never; Returns: number }
+      auto_transition_activity: { Args: { p_activity_id: string }; Returns: undefined }
+      create_activity_with_options: {
         Args: {
           p_cost_type?: string
           p_description?: string
-          p_game_type?: string
+          p_intensity?: string
           p_group_id?: string
           p_invited_ids?: string[]
           p_max_players?: number
           p_min_players?: number
           p_options?: Json
           p_per_person_cost?: number
-          p_activity: string
-          p_activity_color?: string
-          p_activity_emoji?: string
+          p_type: string
+          p_type_color?: string
+          p_type_emoji?: string
           p_title: string
           p_total_cost?: number
           p_visibility?: string
@@ -635,9 +635,9 @@ export type Database = {
         Returns: string
       }
       user_in_conversation: { Args: { conv_id: string }; Returns: boolean }
-      user_in_game: { Args: { p_game_id: string }; Returns: boolean }
+      user_in_activity: { Args: { p_activity_id: string }; Returns: boolean }
       user_in_group: { Args: { p_group_id: string }; Returns: boolean }
-      user_is_game_host: { Args: { p_game_id: string }; Returns: boolean }
+      user_is_activity_host: { Args: { p_activity_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

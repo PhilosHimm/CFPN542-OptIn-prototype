@@ -3,7 +3,7 @@ import {
   directMessages as mockDirectMessages,
   groupMessages as mockGroupMessages,
   type Message,
-} from "../data/games";
+} from "../data/activities";
 
 export interface ChatMessage {
   id: string;
@@ -100,7 +100,7 @@ async function fetchConversations(type: "direct" | "group", currentUserId?: stri
 export async function getChatMessages(conversationId: string, currentUserId: string): Promise<ChatMessage[]> {
   if (isDemoMode()) {
     return [
-      { id: "1", senderId: "p8", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#A06C00", content: "New game proposal posted! \u{1F3C0}", timestamp: "5m ago", isMe: false, isSystem: true },
+      { id: "1", senderId: "p8", senderName: "Sam Wilson", senderInitials: "SW", senderColor: "#A06C00", content: "New activity proposal posted! \u{1F3C0}", timestamp: "5m ago", isMe: false, isSystem: true },
       { id: "2", senderId: currentUserId, senderName: "You", senderInitials: "M", senderColor: "#007AFF", content: "Just voted In on Option 1 \u2014 Riverside Courts on Thursday works great!", timestamp: "4m ago", isMe: true, isSystem: false },
       { id: "3", senderId: "p1", senderName: "Alex Rivera", senderInitials: "AR", senderColor: "#34C759", content: "Same! Thursday 7pm is perfect \u{1F64C}", timestamp: "3m ago", isMe: false, isSystem: false },
       { id: "4", senderId: "p2", senderName: "Jordan Kim", senderInitials: "JK", senderColor: "#007AFF", content: "I'm a maybe on Thursday, might have to work late \u{1F605}", timestamp: "2m ago", isMe: false, isSystem: false },

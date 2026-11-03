@@ -121,7 +121,7 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.full}"
     padding: "10px 24px"
-  game-card:
+  activity-card:
     backgroundColor: "{colors.surface-container-low}"
     textColor: "{colors.on-surface}"
     rounded: "{rounded.medium}"
@@ -201,7 +201,7 @@ The rejections are just as load-bearing. This product was once styled as iOS Liq
 **Key Characteristics:**
 
 - Tonal-first depth: surface containers do the layering, shadows only lift what floats
-- The palette is a state machine — every accent is a game state, never decoration
+- The palette is a state machine — every accent is an activity state, never decoration
 - Pill and rounded-rectangle geometry throughout; no hard corners anywhere
 - Counts are visible at rest, never behind a tap
 - 430px phone viewport is the only layout; there is no desktop composition
@@ -215,17 +215,17 @@ A single-hue system — a whole family of greens from turf to olive to sage — 
 
 ### Primary
 
-- **Turf Green** (`#2D7A3A` light / `#ADF3B0` dark): the committed brand green, named for a playing surface. It appears on exactly three kinds of thing: the button that commits you to a game, the state that means *decided*, and your own voice in chat. It is the scarcest colour on any screen and that scarcity is the point.
+- **Turf Green** (`#2D7A3A` light / `#ADF3B0` dark): the committed brand green, named for a playing surface. It appears on exactly three kinds of thing: the button that commits you to an activity, the state that means *decided*, and your own voice in chat. It is the scarcest colour on any screen and that scarcity is the point.
 - **Turf Container** (`#ADF3B0` light / `#125124` dark): the resting state of the `I'm In` vote button, the confirmed-date chip in the week strip, and the app's loading mark. A tonal invitation to commit, before commitment.
 
 ### Secondary
 
 - **Field Olive** (`#52634F` light / `#B9CCB4` dark): the *maybe*. Desaturated to near-neutral on purpose — it must read as adjacent to green without competing with it, because "maybe" is a real answer that is not a yes.
-- **Olive Container** (`#D5E8CF` light / `#3B4B38` dark): the resting `Maybe` vote button, the `Confirmed` status chip, and the active pill behind the bottom-nav icon. Note the double duty: confirmed games and hesitant votes share a container tone, which is the one place the state-machine reading of the palette is imprecise.
+- **Olive Container** (`#D5E8CF` light / `#3B4B38` dark): the resting `Maybe` vote button, the `Confirmed` status chip, and the active pill behind the bottom-nav icon. Note the double duty: confirmed activities and hesitant votes share a container tone, which is the one place the state-machine reading of the palette is imprecise.
 
 ### Tertiary
 
-- **Deliberation Teal** (`#38656A` light / `#A0CFD4` dark): the only hue that leaves the green family, reserved for *voting is still open*. Its distance from the primary is functional — an open proposal must never be mistaken at a glance for a confirmed game.
+- **Deliberation Teal** (`#38656A` light / `#A0CFD4` dark): the only hue that leaves the green family, reserved for *voting is still open*. Its distance from the primary is functional — an open proposal must never be mistaken at a glance for a confirmed activity.
 - **Teal Container** (`#BCEBF0` light / `#1E4D52` dark): the `Voting Phase` status chip and proposal days in the week strip.
 
 ### Neutral
@@ -242,11 +242,11 @@ A single-hue system — a whole family of greens from turf to olive to sage — 
 
 ### Named Rules
 
-**The State Machine Rule.** Every accent colour in this system means a game state: green is *decided*, teal is *deciding*, olive is *maybe*, red is *refused*. Using an accent for emphasis, decoration, or variety puts a lie on the screen. If a thing is not a game state, it is a neutral.
+**The State Machine Rule.** Every accent colour in this system means an activity state: green is *decided*, teal is *deciding*, olive is *maybe*, red is *refused*. Using an accent for emphasis, decoration, or variety puts a lie on the screen. If a thing is not an activity state, it is a neutral.
 
 **The One Commit Rule.** At most one filled-primary control is visible per card and per screen region. If two things on a card are both filled green, neither reads as the commitment.
 
-**The Tonal Separation Rule.** A card must differ from what it sits on by at least one step of the surface-container ramp. In the dark ramp `--surface`, `--background`, and `--surface-container-low` are all `#1A1C19`, so `GameCard`'s `bg-surface-container-low` has *zero* tonal separation from the page and survives on `shadow-md3-1` alone. That is a defect to fix, not a pattern to copy — reach for `surface-container` or higher when a card must read as a card in the shipped theme.
+**The Tonal Separation Rule.** A card must differ from what it sits on by at least one step of the surface-container ramp. In the dark ramp `--surface`, `--background`, and `--surface-container-low` are all `#1A1C19`, so `ActivityCard`'s `bg-surface-container-low` has *zero* tonal separation from the page and survives on `shadow-md3-1` alone. That is a defect to fix, not a pattern to copy — reach for `surface-container` or higher when a card must read as a card in the shipped theme.
 
 ## Typography
 
@@ -261,7 +261,7 @@ A single-hue system — a whole family of greens from turf to olive to sage — 
 - **Display Large** (400, 57px/64px, `-0.25px`): declared in the scale, not currently used. Available for a genuine hero moment.
 - **Headline Large** (400, 32px/40px): auth and onboarding screens only.
 - **Title Large** (500, 22px/28px): the app-bar greeting, panel titles, and the date numeral in the week strip. The largest thing on a normal screen.
-- **Title Medium** (500, 16px/24px, `0.15px`): section headers (`Upcoming Games`, `Schedule`) and game-card titles. The most consequential role in the system — it is how a scanning user finds their game.
+- **Title Medium** (500, 16px/24px, `0.15px`): section headers (`Upcoming Activities`, `Schedule`) and activity-card titles. The most consequential role in the system — it is how a scanning user finds their activity.
 - **Body Large** (400, 16px/24px, `0.5px`): text-field input and label text, empty-state headlines. The 16px floor also prevents iOS zoom-on-focus.
 - **Body Medium** (400, 14px/20px, `0.25px`): every metadata row — date, time, location, chat message text.
 - **Label Large** (500, 14px/20px, `0.1px`): all button text, `View all` links, player counts.
@@ -286,7 +286,7 @@ A single-hue system — a whole family of greens from turf to olive to sage — 
 
 **Horizontal scroll is a deliberate device, used twice.** The week strip on Home and the sport selector in Create are `overflow-x-auto` with `scrollbar-hide` and a `-mx-4 px-4` negative-margin bleed so items run to the physical screen edge. This signals "there is more, sideways" without spending vertical space. It is not a general-purpose escape hatch for overflowing content.
 
-**Bottom sheets over navigation.** Secondary surfaces — notifications, voter lists, visibility pickers — slide up as sheets anchored to the bottom of the shell (`rounded-t-3xl`, `fixed bottom-0`, scrim at `bg-black/50`) rather than pushing a new route. The user stays anchored to the game they were looking at.
+**Bottom sheets over navigation.** Secondary surfaces — notifications, voter lists, visibility pickers — slide up as sheets anchored to the bottom of the shell (`rounded-t-3xl`, `fixed bottom-0`, scrim at `bg-black/50`) rather than pushing a new route. The user stays anchored to the activity they were looking at.
 
 ### Named Rules
 
@@ -296,13 +296,13 @@ A single-hue system — a whole family of greens from turf to olive to sage — 
 
 **Tonal first, shadow second.** Depth in this system is primarily a change in surface tone: the five-step `surface-container` ramp separates page from card from nav from bubble without a single pixel of shadow. Shadows are then applied sparingly, and only to say *this floats above the page* rather than *this is a distinct region*.
 
-The vocabulary is M3's five-level elevation set, of which the system meaningfully uses two. `shadow-md3-1` is by far the dominant token (29 uses) — it lifts game cards and filled buttons. `shadow-md3-5` (10 uses) is reserved for genuinely floating chrome. Levels 2, 3 and 4 are declared and nearly unused, which is fine: an elevation scale with two well-chosen steps beats one with five interchangeable ones.
+The vocabulary is M3's five-level elevation set, of which the system meaningfully uses two. `shadow-md3-1` is by far the dominant token (29 uses) — it lifts activity cards and filled buttons. `shadow-md3-5` (10 uses) is reserved for genuinely floating chrome. Levels 2, 3 and 4 are declared and nearly unused, which is fine: an elevation scale with two well-chosen steps beats one with five interchangeable ones.
 
 Depth is **static, not interactive.** Nothing in this system raises on hover. State change is communicated by the M3 state-layer overlays (`md3-state-surface`, `md3-state-primary`) — a translucent `::after` at 8% opacity on hover and 12% on press, tinted `on-surface` for tonal elements and `on-primary` for filled ones, transitioning over 0.15s. That is the correct M3 behaviour and it is implemented properly; do not add `hover:shadow-lg` on top of it.
 
 ### Shadow Vocabulary
 
-- **Level 1** (`0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)`): resting elevation for game cards and filled buttons. The default when something needs to lift at all.
+- **Level 1** (`0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)`): resting elevation for activity cards and filled buttons. The default when something needs to lift at all.
 - **Level 5** (`0px 4px 4px 0px rgba(0,0,0,0.3), 0px 8px 12px 6px rgba(0,0,0,0.15)`): floating chrome — sticky action bars and elements that overlay scrolling content.
 - **Switch thumb** (`0px 1px 2px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)`): the one component-local shadow, matching Level 1, applied to the M3 switch handle.
 
@@ -318,7 +318,7 @@ Depth is **static, not interactive.** Nothing in this system raises on hover. St
 
 - **Full (`9999px`)** is the most-used radius in the entire app. Every button, every chip, every avatar, every status badge, the nav active-indicator pill, the step-progress bars. If a thing is an action or a label, it is a pill.
 - **Large (16px)** is the container radius for anything a user reads and decides on: vote option cards, week-strip day tiles, list rows in chat.
-- **Medium (12px)** is the standard card radius — game cards and vote buttons.
+- **Medium (12px)** is the standard card radius — activity cards and vote buttons.
 - **Extra-small (4px)** belongs to text fields alone. The near-square field is what distinguishes *type here* from *tap here* in a screen that is otherwise all pills.
 - **Extra-large (28px)** is for full-bleed auth surfaces and hero panels.
 - **None (0px)** is not used anywhere in app UI.
@@ -340,7 +340,7 @@ The resulting form language is a screen of soft rectangles punctuated by hard-ed
 ### Buttons
 
 - **Shape:** fully rounded pill (`9999px`), universally.
-- **Filled (primary):** Turf Green fill with `on-primary` text, Label Large at 500, 40px tall, `px-6` horizontal padding, `shadow-md3-1`. Carries `md3-state-primary` for its state layer. This is the commit action — `Vote Now`, `Create Game`, `Accept`, `Confirm`.
+- **Filled (primary):** Turf Green fill with `on-primary` text, Label Large at 500, 40px tall, `px-6` horizontal padding, `shadow-md3-1`. Carries `md3-state-primary` for its state layer. This is the commit action — `Vote Now`, `Create Activity`, `Accept`, `Confirm`.
 - **Disabled:** `bg-surface-variant` with `on-surface-variant` text at `opacity-38` (M3's disabled opacity) and `cursor-not-allowed`. The shadow is dropped — a disabled control must not float.
 - **Tonal (secondary):** `secondary-container` fill with `on-secondary-container` text, no shadow. `View Details`, `Decline`, and every alternative action.
 - **Text:** primary-coloured Label Large with a trailing `ChevronRight`, wrapped to `min-h-[48px]`. Used for `View all` / `See all` section links.
@@ -350,11 +350,11 @@ The resulting form language is a screen of soft rectangles punctuated by hard-ed
 ### Chips
 
 - **Style:** fully rounded, `px-3 py-1`, Label Medium at 500, container-tone background with matching `on-*-container` text. No border.
-- **Status semantics:** `Voting Phase` → tertiary container (teal); `Confirmed` → secondary container (olive); `Completed` → surface-variant; `Cancelled` → error container. These four mappings are the visual contract of the game lifecycle and must not be reassigned.
+- **Status semantics:** `Voting Phase` → tertiary container (teal); `Confirmed` → secondary container (olive); `Completed` → surface-variant; `Cancelled` → error container. These four mappings are the visual contract of the activity lifecycle and must not be reassigned.
 
 ### Cards / Containers
 
-- **Game card** ([GameCard.tsx](src/app/components/GameCard.tsx)): the workhorse. 12px radius, `surface-container-low`, `p-4`, `shadow-md3-1`, `md3-state-surface`, and the whole card is a single `<button>` — no nested interactive elements, so the entire surface is the target. Internal order is fixed and worth preserving: status chip + open/full marker, then title at Title Medium, then a three-row metadata stack (calendar / clock / pin, each a 16px `on-surface-variant` icon beside Body Medium text), then a bottom row pairing the player count against one action pill.
+- **Activity card** ([ActivityCard.tsx](src/app/components/ActivityCard.tsx)): the workhorse. 12px radius, `surface-container-low`, `p-4`, `shadow-md3-1`, `md3-state-surface`, and the whole card is a single `<button>` — no nested interactive elements, so the entire surface is the target. Internal order is fixed and worth preserving: status chip + open/full marker, then title at Title Medium, then a three-row metadata stack (calendar / clock / pin, each a 16px `on-surface-variant` icon beside Body Medium text), then a bottom row pairing the player count against one action pill.
 - **Vote option card** — see Signature Component below.
 - **Bottom sheet:** `rounded-t-3xl` on `bg-surface`, `p-6`, `shadow-2xl`, over a `bg-black/50` scrim, with `role="dialog"`, `aria-modal`, Escape-to-close and autofocus.
 
@@ -369,7 +369,7 @@ The resulting form language is a screen of soft rectangles punctuated by hard-ed
 
 - **Bottom nav** ([BottomNav.tsx](src/app/components/BottomNav.tsx)): fixed, 80px tall, `bg-surface-container` with a `border-t border-outline-variant`, safe-area padded. Five destinations (Home, Calendar, Create, Chats, Profile) — note this conflicts with the 4-item constraint recorded in [PRODUCT.md](PRODUCT.md) and the written guidelines.
 - **Active state** does three things at once: a 64×32 `secondary-container` pill appears behind the icon, the icon shifts to `on-secondary-container` and thickens from 1.8 to 2.2 stroke weight, and the label goes `on-surface` at 500. Inactive is `on-surface-variant` throughout. Active items carry `aria-current="page"`.
-- **Step progress** ([CreateGameScreen.tsx](src/app/components/CreateGameScreen.tsx)): five equal 4px pill segments with labels beneath, filling `primary` as steps complete over `duration-300`. Not a percentage bar — a named-stage indicator.
+- **Step progress** ([CreateActivityScreen.tsx](src/app/components/CreateActivityScreen.tsx)): five equal 4px pill segments with labels beneath, filling `primary` as steps complete over `duration-300`. Not a percentage bar — a named-stage indicator.
 
 ### Signature Component: the Vote Option Card
 
@@ -379,7 +379,7 @@ The one component that is genuinely OptIn's own, and the screen everything else 
 - **Winner** — `border-primary` with a `bg-primary/5` wash, a Trophy in a 20px filled-primary circle, and the header text reading `Option 2 — Winner`.
 - **Lost** — `border-outline-variant` on `surface-container-low` at `opacity-60`. Dimmed, still readable, not removed. The group can see what it turned down.
 
-Inside: an `Option N` header at Label Large in primary, with the live `N In` tally right-aligned; the same three-row date / time / location stack the game card uses; a stack of avatars of everyone who voted in; and the three-way vote control.
+Inside: an `Option N` header at Label Large in primary, with the live `N In` tally right-aligned; the same three-row date / time / location stack the activity card uses; a stack of avatars of everyone who voted in; and the three-way vote control.
 
 **The vote buttons are the product.** Three equal-width buttons, 12px radius, 2px border, 48px minimum height, each stacking icon over label over count. Unselected, each sits in its own container tone with a matching solid border — `I'm In` in primary container, `Maybe` in secondary container, `Can't` in error container. Selected, it inverts to the solid role colour with `border-transparent`. The user's choice is legible from across a room, the two alternatives stay fully legible as targets, and every button shows its own running count so the group's state is visible while you decide.
 
@@ -398,21 +398,21 @@ Initials — up to two characters, uppercase, `text-white` at 500 — on a solid
 ### Do:
 
 - **Do** use the MD3 token utilities for everything: `bg-surface-container-low`, `text-on-surface-variant`, `rounded-md3-large`, `shadow-md3-1`, `text-title-md`. [theme.css](src/styles/theme.css) is the only source of truth for colour, type, shape and elevation.
-- **Do** treat accent colour as game state — green *decided*, teal *deciding*, olive *maybe*, red *refused* — and reach for a neutral whenever the thing being coloured is not a game state.
+- **Do** treat accent colour as activity state — green *decided*, teal *deciding*, olive *maybe*, red *refused* — and reach for a neutral whenever the thing being coloured is not an activity state.
 - **Do** reach for a surface-container step before reaching for a shadow, and verify the result against the dark ramp, since that is the ramp that ships.
 - **Do** give every interactive element a 48×48px minimum target, wrapping visually smaller controls in `min-w-[48px] min-h-[48px]` rather than growing them.
 - **Do** keep interactive text at Body Large (16px) so iOS does not zoom the viewport on focus.
 - **Do** use `md3-state-surface` / `md3-state-primary` for interaction feedback, and `transition-colors` for state changes.
 - **Do** centre fixed elements with `left-1/2 -translate-x-1/2` inside the 430px shell.
-- **Do** put secondary surfaces in a bottom sheet over the current screen rather than routing away from the game the user is looking at.
+- **Do** put secondary surfaces in a bottom sheet over the current screen rather than routing away from the activity the user is looking at.
 - **Do** keep the counts visible at rest — tallies, `7/10 players`, spots left, cost each. They are the content.
 - **Do** clean up drift when you touch a file. The known sites are listed below; each is a small, safe, local fix.
 
 ### Don't:
 
-- **Don't** introduce raw Tailwind palette colours. Current violations to migrate: the offline / session-expired / demo banners in [Layout.tsx:48-80](src/app/components/Layout.tsx#L48-L80) (`bg-gray-900`, `bg-rose-50`, `bg-amber-50`), the tie-break panel in [GameViewScreen.tsx:1297-1361](src/app/components/GameViewScreen.tsx#L1297-L1361) (twelve `amber-*` utilities), and the demo-mode row in [ProfileScreen.tsx:243-259](src/app/components/ProfileScreen.tsx#L243-L259). Every one of these has an exact token equivalent — `inverse-surface`, `error-container`, `tertiary-container`.
+- **Don't** introduce raw Tailwind palette colours. Current violations to migrate: the offline / session-expired / demo banners in [Layout.tsx:48-80](src/app/components/Layout.tsx#L48-L80) (`bg-gray-900`, `bg-rose-50`, `bg-amber-50`), the tie-break panel in [ActivityViewScreen.tsx:1297-1361](src/app/components/ActivityViewScreen.tsx#L1297-L1361) (twelve `amber-*` utilities), and the demo-mode row in [ProfileScreen.tsx:243-259](src/app/components/ProfileScreen.tsx#L243-L259). Every one of these has an exact token equivalent — `inverse-surface`, `error-container`, `tertiary-container`.
 - **Don't** ship iOS system blue. `#007AFF` survives as the default profile colour in [AuthContext.tsx:44](src/app/contexts/AuthContext.tsx#L44), four times in [ChatsScreen.tsx](src/app/components/ChatsScreen.tsx), and as `theme_color` in both [index.html](index.html) and [public/manifest.json](public/manifest.json) — where it sets the browser and install-prompt chrome to a competitor's brand colour. It is a leftover from the replaced identity, not a token.
-- **Don't** mix raw Tailwind radii into token-styled screens. `rounded-xl` / `rounded-3xl` appear roughly forty times in [GameViewScreen.tsx](src/app/components/GameViewScreen.tsx) and [ProfileScreen.tsx](src/app/components/ProfileScreen.tsx) alongside `rounded-md3-*`, producing 12px and 16px radii that look right by luck and drift on any scale change. Use `rounded-md3-medium` and `rounded-md3-large`.
+- **Don't** mix raw Tailwind radii into token-styled screens. `rounded-xl` / `rounded-3xl` appear roughly forty times in [ActivityViewScreen.tsx](src/app/components/ActivityViewScreen.tsx) and [ProfileScreen.tsx](src/app/components/ProfileScreen.tsx) alongside `rounded-md3-*`, producing 12px and 16px radii that look right by luck and drift on any scale change. Use `rounded-md3-medium` and `rounded-md3-large`.
 - **Don't** use glassmorphism, `backdrop-filter`, or translucent white cards. That identity was replaced; the surviving `backdrop-blur-sm` in [StatusBar.tsx](src/app/components/StatusBar.tsx) is debt.
 - **Don't** import design tokens from [constants/md3.ts](src/app/constants/md3.ts). It exports a **blue-primary** M3 palette that contradicts `theme.css` on every colour role. It is stale and will silently produce off-brand UI.
 - **Don't** raise elements on hover or add `hover:shadow-*`. State layers handle interaction; elevation is static.

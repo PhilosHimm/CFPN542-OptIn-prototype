@@ -12,7 +12,7 @@ web
 
 Their job is not "schedule a game." Their job is **stop asking.** They know roughly who wants to play and roughly when everyone is free. What they lack is a way to turn that into a committed time without personally chasing eight people across a group chat and then re-chasing the three who never answered.
 
-**Secondary: the invited player.** Everyone else in the group. Their entire interaction budget is a few seconds: see the proposed times, tap the one that works, get told what won. They will not open a scheduling app to "manage their availability." They will respond to a specific question about a specific game and nothing more.
+**Secondary: the invited player.** Everyone else in the group. Their entire interaction budget is a few seconds: see the proposed times, tap the one that works, get told what won. They will not open a scheduling app to "manage their availability." They will respond to a specific question about a specific activity and nothing more.
 
 The audience is **friend groups making any in-person plan together**, in groups small enough that everyone roughly knows everyone. Work meetings and committee scheduling are out of scope (see [Scope](#scope-any-in-person-group-plan-sports-first)). Recreational adult pickup sports (basketball, soccer, volleyball, tennis, pickleball and similar) is the **launch wedge**: the first and best-supported use case, and the one the current UI, data model and demo data are built around. Age 18–45 was the stated target of the originating coursework brief.
 
@@ -31,55 +31,55 @@ OptIn is a scheduling tool for **any in-person plan a friend group has to agree 
 
 **What the pivot implies, in order of cost:**
 
-1. **Copy and vocabulary.** "Game", "sport", "players" and "roster" are wrong for a dinner. Agree on a neutral noun (plan, event or meetup are candidates, still **undecided**), and keep sport words only where a sport is chosen.
-2. **Activity as data, not sport as schema.** `games.sport`, `sport_emoji`, `sport_color`, `game_type` (`Casual` / `Competitive`) and `groups.sport` (`not null`) are all sport-shaped, as are `SPORT_HERO_IMAGES` and the two `gameType` unions in [gameData.ts](src/app/components/gameData.ts) and [data/games.ts](src/app/data/games.ts). Generalizing to an activity type with sports as one category is a schema change in [neon/schema.sql](neon/schema.sql) and the `create_game_with_options` RPC, not just a UI change. *Database side done 2026-11-03:* the columns and RPC parameters are now `activity*` and `groups.activity` is nullable ([migration](neon/migrations/2026-11-03_activity_vocabulary.sql), applied to production 2026-11-03). The TS types and UI copy followed the same day ("Activity" in create-game, "Preferred Activities", "Group plans, simplified." on login). Non-sport hero imagery is still missing: unknown activities fall back to the Soccer photo.
+1. **Copy and vocabulary.** "Game", "sport", "players" and "roster" are wrong for a dinner. *Decided 2026-11-03:* a plan is an **activity**, and its kind (Basketball, Board games, …) is its **type**. Casual vs Competitive is **intensity**. This is now the vocabulary everywhere: UI copy, TS identifiers, the `/activity/:id` route, and the database (`activities` / `activity_options` / `activity_players`). "Players" and "roster" have **not** been replaced yet.
+2. **Activity as data, not sport as schema.** `games.sport`, `sport_emoji`, `sport_color`, `game_type` (`Casual` / `Competitive`) and `groups.sport` (`not null`) are all sport-shaped, as are `SPORT_HERO_IMAGES` and the two `gameType` unions in [gameData.ts](src/app/components/gameData.ts) and [data/games.ts](src/app/data/games.ts). Generalizing to an activity type with sports as one category is a schema change in [neon/schema.sql](neon/schema.sql) and the `create_game_with_options` RPC, not just a UI change. *Database side done 2026-11-03:* the columns and RPC parameters are now `activity*` and `groups.activity` is nullable ([migration](neon/migrations/2026-11-03_activity_vocabulary.sql), applied to production 2026-11-03). The TS types and UI copy followed the same day ("Activity" in create-game, "Preferred Activities", "Group plans, simplified." on login). Types with no photo get a plain gray placeholder (`DEFAULT_HERO_IMAGE`). Real non-sport imagery is still missing.
 3. **Groups become central.** A friend group spans many activities, so `groups.sport` being required is the clearest place the current model contradicts the new scope. Groups should be the durable unit, with activities proposed inside them.
 4. **Fields that only make sense for some activities** (max players, cost split, competitive or casual, location as a venue) become optional per activity type rather than always shown.
 
 ## Product Purpose
 
-OptIn turns a group's scattered availability into one committed game time, without anyone having to nag.
+OptIn turns a group's scattered availability into one committed activity time, without anyone having to nag.
 
-A host proposes a game with **several candidate time slots** rather than one. Everyone votes `In` / `Maybe` / `Can't` on each slot independently. At a voting deadline the game resolves itself: the option with a clear win is confirmed, a tie is handed back to the host to break, and a game that nobody committed to or that failed to reach its minimum player count is cancelled outright.
+A host proposes an activity with **several candidate time slots** rather than one. Everyone votes `In` / `Maybe` / `Can't` on each slot independently. At a voting deadline the activity resolves itself: the option with a clear win is confirmed, a tie is handed back to the host to break, and an activity that nobody committed to or that failed to reach its minimum player count is cancelled outright.
 
-Success is that a game reaches `confirmed` with enough real players, and that the host never had to send a follow-up message to make it happen. The failure the product exists to prevent is the group chat that generates forty messages and no game.
+Success is that an activity reaches `confirmed` with enough real players, and that the host never had to send a follow-up message to make it happen. The failure the product exists to prevent is the group chat that generates forty messages and no activity.
 
 ## Positioning
 
 **The decision is enforced by the database, not by a person.**
 
-Most group scheduling tools collect availability and then hand the result back to a human to interpret and announce. That human is the bottleneck, and they are the same person already tired of coordinating. OptIn removes them from the loop: the game lifecycle `proposal → confirmed | cancelled → completed` runs as `SECURITY DEFINER` Postgres functions (`auto_transition_game`, `auto_transition_all_games`), which close voting past the deadline, confirm a unique winner among approved options, cancel when nobody voted in or `min_players` is unmet, and mark past confirmed games completed.
+Most group scheduling tools collect availability and then hand the result back to a human to interpret and announce. That human is the bottleneck, and they are the same person already tired of coordinating. OptIn removes them from the loop: the activity lifecycle `proposal → confirmed | cancelled → completed` runs as `SECURITY DEFINER` Postgres functions (`auto_transition_activity`, `auto_transition_all_activities`), which close voting past the deadline, confirm a unique winner among approved options, cancel when nobody voted in or `min_players` is unmet, and mark past confirmed activities completed.
 
 Two consequences a neighbouring product could not copy without adopting the same mechanism:
 
-- **Cancellation is a first-class, automatic outcome.** A game that failed to reach quorum dies on its own and tells everyone. Nobody has to be the person who calls it off.
+- **Cancellation is a first-class, automatic outcome.** An activity that failed to reach quorum dies on its own and tells everyone. Nobody has to be the person who calls it off.
 - **A tie is a defined state, not an ambiguity.** It is recorded and routed to the host as an explicit decision, rather than leaving the group to argue.
 
-The voting unit is also deliberately per-option rather than per-game. A player is not asked "are you coming?" — they are asked which of these specific slots they can make, which is the only question that actually resolves a schedule.
+The voting unit is also deliberately per-option rather than per-activity. A player is not asked "are you coming?" — they are asked which of these specific slots they can make, which is the only question that actually resolves a schedule.
 
 ## Operating Context
 
 - **Phone, in the gaps.** Standing courtside, on transit, half-watching something else. The viewport is constrained to a phone width by design (`max-w-[430px]`, widening to `sm:max-w-lg`); there is no desktop layout and no tablet layout.
-- **Adjacent to a group chat, not replacing it.** OptIn carries the decision; the banter stays wherever it already lives. In-app chat exists per game and per conversation, but it is a support surface, not the reason anyone opens the app.
+- **Adjacent to a group chat, not replacing it.** OptIn carries the decision; the banter stays wherever it already lives. In-app chat exists per activity and per conversation, but it is a support surface, not the reason anyone opens the app.
 - **Deadline-shaped.** Every proposal carries a `voting_deadline`. The pressure that makes voting happen is time, so anything that communicates remaining time is functionally load-bearing.
-- **Money is part of the ask.** Games can carry a total cost and a per-person split. Committing to a game can mean committing to pay, which raises the stakes of the `I'm In` tap.
-- **Invites are not memberships.** A `game_players` row with `status = 'invited'` is deliberately excluded from the main games list and surfaces in the notifications panel instead. Being invited to a game is not the same as having a game.
+- **Money is part of the ask.** Activities can carry a total cost and a per-person split. Committing to an activity can mean committing to pay, which raises the stakes of the `I'm In` tap.
+- **Invites are not memberships.** An `activity_players` row with `status = 'invited'` is deliberately excluded from the main activities list and surfaces in the notifications panel instead. Being invited to an activity is not the same as having an activity.
 
 ## Capabilities and Constraints
 
 **Confirmed functionality** (still sports-shaped; see [Scope](#scope-any-in-person-group-plan-sports-first))
 
-- Create a game with multiple time/location options, a sport, a max player count, an optional cost with per-person split, and a visibility setting (`Public` / `Group Only` / `Private`).
+- Create an activity with multiple time/location options, a type, a max player count, an optional cost with per-person split, and a visibility setting (`Public` / `Group Only` / `Private`).
 - Vote `In` / `Maybe` / `Can't` per time option; the creator is auto-voted in on their earliest option.
 - Automatic lifecycle resolution at the deadline, including auto-cancel and host-resolved ties.
-- Rosters, invites with accept/decline, friends and friend requests, per-game and direct chat, profiles with avatar and identity colour.
+- Rosters, invites with accept/decline, friends and friend requests, per-activity and direct chat, profiles with avatar and identity colour.
 - A week-strip schedule view, a calendar view, and a notifications panel for pending invites.
 
 **Technical constraints that bind design**
 
 - React 18 + Vite + Tailwind v4 (CSS-first, no `tailwind.config.js`) + Neon (Neon Auth + Data API). Deployed on Vercel.
 - **Demo mode is cross-cutting.** With `VITE_APP_ENV=demo` or an absent `VITE_NEON_URL` the client is `null`, auth is skipped, and every data function returns hardcoded mock data. Any new data path must handle this or demo mode silently breaks. This is also how the app is presented and evaluated, so demo mode must always look like the real product.
-- **`pg_cron` is not installed.** Nothing sweeps game state on a schedule; transitions only run when a user opens the app and the client fires `auto_transition_all_games` fire-and-forget. A game can therefore be visibly stale for as long as nobody looks at it. Any UI that implies real-time authority over deadlines is overpromising.
+- **`pg_cron` is not installed.** Nothing sweeps activity state on a schedule; transitions only run when a user opens the app and the client fires `auto_transition_all_activities` fire-and-forget. An activity can therefore be visibly stale for as long as nobody looks at it. Any UI that implies real-time authority over deadlines is overpromising.
 - Status logic lives in migrations, not in TypeScript. Visibility is enforced by RLS.
 - Realtime subscriptions back invites, votes, roster changes, and chat, so multi-user state can change under the user mid-screen.
 - `npm run typecheck` is the only automated gate. There is no test suite and no linter.
@@ -88,8 +88,8 @@ The voting unit is also deliberately per-option rather than per-game. A player i
 
 - **Bottom navigation item count.** [guidelines/Guidelines.md](guidelines/Guidelines.md) and [CLAUDE.md](CLAUDE.md) both specify exactly 4 items; [BottomNav.tsx](src/app/components/BottomNav.tsx) ships 5 (Home, Calendar, Create, Chats, Profile). The implementation and the written constraint disagree and neither has been retired.
 - Whether OptIn ever serves groups large enough that "everyone knows everyone" stops holding. Nothing in the product currently assumes strangers.
-- **The neutral noun for a plan.** "Game" is sports vocabulary. The replacement (plan / event / meetup / something else) is not chosen. Until it is, keep "game" in the UI rather than mixing terms.
-- **The activity taxonomy.** Which activity types exist, whether they are a fixed list or free text, and which fields each one shows.
+- **The word for a participant.** "Activity" replaced "game" on 2026-11-03, but "player", "players" and "roster" are still sports vocabulary, used throughout the UI and in columns such as `max_players` and `activity_players`. Not yet chosen.
+- **The type taxonomy.** Which activity types exist, whether they are a fixed list or free text, and which fields each one shows.
 - **Sports-specific brand commitments** (Turf Green as a "playing-surface" primary, per-sport hero photography). Both are **under review** after the 2026-11-03 scope decision. Nothing has been changed or retired.
 - Notification delivery outside the app (push, email, SMS) does not exist and has not been decided against.
 
@@ -107,8 +107,8 @@ The voting unit is also deliberately per-option rather than per-game. A player i
 **Real:**
 
 - A working, deployed application backed by a Neon project (Neon Auth + Data API) with a complete schema in [neon/schema.sql](neon/schema.sql). Moved from Supabase on 2026-11-03; existing Supabase accounts and data were not carried over.
-- A substantial demo dataset in [gameData.ts](src/app/components/gameData.ts) (`DEMO_GAMES`) and [data/games.ts](src/app/data/games.ts) covering every lifecycle state — proposals, confirmed, completed, cancelled — across basketball, soccer, volleyball, tennis and pickleball. This is the honest thing to demonstrate with.
-- Sport hero photography sourced from Unsplash, keyed by sport in `SPORT_HERO_IMAGES`. *Under review (2026-11-03):* there is no imagery for non-sport activities, and whether per-activity photography stays part of the identity is undecided.
+- A substantial demo dataset in [activityData.ts](src/app/components/activityData.ts) (`DEMO_ACTIVITIES`) and [data/activities.ts](src/app/data/activities.ts) covering every lifecycle state — proposals, confirmed, completed, cancelled — across basketball, soccer, volleyball, tennis and pickleball. This is the honest thing to demonstrate with.
+- Sport hero photography sourced from Unsplash, keyed by sport in `TYPE_HERO_IMAGES`. *Under review (2026-11-03):* there is no imagery for non-sport activities, and whether per-activity photography stays part of the identity is undecided.
 - App icons at [public/icon-192.svg](public/icon-192.svg) and [public/icon-512.svg](public/icon-512.svg), plus a PWA manifest.
 - Attribution records in [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
 
@@ -116,7 +116,7 @@ The voting unit is also deliberately per-option rather than per-game. A player i
 
 - No real users, no usage metrics, no retention or engagement data.
 - No testimonials, reviews, case studies, or press.
-- No pricing, no paying customers, no revenue model. Cost-splitting inside a game is not monetisation.
+- No pricing, no paying customers, no revenue model. Cost-splitting inside an activity is not monetisation.
 - No partnerships, facility integrations, or league affiliations.
 - No security audit, uptime record, or availability commitment.
 
@@ -128,7 +128,7 @@ Player names, avatars, and groups in the demo data are invented and must never b
 2. **A voter's whole interaction is a few seconds.** The invited player is the majority of all sessions. If casting a vote is not immediate and immediately legible, nothing else in the product matters.
 3. **State resolves itself, visibly.** Confirmed, cancelled, tied — the app is responsible for reaching an outcome and for making that outcome unmissable. Ambiguity is the failure mode being designed against.
 4. **Count things.** Votes, players, spots left, time remaining, cost each. This product's substance is quantities a group can act on; showing them plainly is the design work, not decoration around it.
-5. **Committing must feel like commitment.** `I'm In` may cost money and may be what tips a game past quorum. It should never feel as casual as a like.
+5. **Committing must feel like commitment.** `I'm In` may cost money and may be what tips an activity past quorum. It should never feel as casual as a like.
 
 ## Accessibility & Inclusion
 
