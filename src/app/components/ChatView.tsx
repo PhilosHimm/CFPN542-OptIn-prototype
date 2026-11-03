@@ -49,6 +49,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
       // Opening the chat clears its unread badge; so does anything that
       // arrives while it's open.
       markConversationRead(conversation.id, profile.id);
+      const newest = initialMsgs.length ? initialMsgs[initialMsgs.length - 1].createdAt : undefined;
       sub = subscribeToMessages(conversation.id, profile.id, (newMsg) => {
         if (!newMsg.isMe) markConversationRead(conversation.id, profile.id);
         setMessages((prev) => {
@@ -56,14 +57,17 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
           const filtered = prev.filter(m => !(m.id.startsWith("temp-") && m.content === newMsg.content));
           return [...filtered, newMsg];
         });
-      });
+      }, newest);
     });
 
     return () => {
       cancelled = true;
       if (sub) sub.unsubscribe();
     };
-  }, [conversation.id, isDemo, isRequest, profile]);
+    // Keyed on the id, not the profile object: a profile refresh shouldn't
+    // tear down and restart the poller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.id, isDemo, isRequest, profile?.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

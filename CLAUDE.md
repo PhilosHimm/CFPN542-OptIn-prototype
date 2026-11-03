@@ -39,7 +39,14 @@ if (!db) return [];   // db is the Neon client or `null` — always narrow it
 
 **[Layout.tsx](src/app/components/Layout.tsx)** is the app shell and the auth gate in one: it redirects unauthenticated non-demo users to `/login`, redirects real users without a `profile.username` to `/onboarding`, renders the offline / session-expired / demo banners, constrains the viewport to `max-w-[430px]`, and mounts `BottomNav`.
 
-**Auth** — [AuthContext.tsx](src/app/contexts/AuthContext.tsx) owns session, profile, demo-mode toggling, and a 60s interval that refreshes the Neon Auth session and sets `sessionExpired` on failure. It also lazily creates a `profiles` row for any user (email or Google) whose profile fetch returns `PGRST116`. Consume via `useAuth()`.
+**Auth** — [AuthContext.tsx](src/app/contexts/AuthContext.tsx) owns session, profile, demo-mode toggling, and a 60s interval that refreshes the Neon Auth session and sets `sessionExpired` on failure. One account can sign in with email + password, Google, or both. [lib/authMethods.ts](src/lib/authMethods.ts) wraps the raw Better Auth client (`db.auth.getBetterAuthInstance()`, hand-typed because the adapter's type omits the `emailOtp` plugin) for the things the Supabase-style adapter can't do:
+- Google sign-in with an in-app `errorCallbackURL`. Without one, a refused sign-in lands on Neon Auth's own error page, outside the app.
+- `linkSocial` / `unlinkAccount` / `listAccounts`
+- OTP email verification
+- OTP "add a password", which also works for Google-only accounts
+- `changePassword`
+
+[SignInMethodsDialog](src/app/components/SignInMethodsDialog.tsx) (Profile → Sign-in methods) is the UI for these. Better Auth refuses to merge a Google sign-in into an existing password account whose email is **unverified** (`account_not_linked`, so nobody can pre-register someone else's email). Neon Auth has `verify_email_on_sign_up: false`, so that's every password account by default. The fix is to sign in with the password and Connect Google, or verify the email; after that either method works. Login shows `?error=<code>` via `describeAuthError`. It also lazily creates a `profiles` row for any user (email or Google) whose profile fetch returns `PGRST116`. Consume via `useAuth()`.
 
 ### Two parallel data layers — know which one you're in
 
@@ -96,7 +103,9 @@ DMs and groups are friends-only, enforced server-side. There are no INSERT polic
 
 `trg_on_message_insert` bumps `conversations.updated_at` and every other member's `unread_count`. Clients can't insert `is_system` messages.
 
-There is no realtime. Invites, votes, roster changes and chat **poll** through `poll()` in [db.ts](src/lib/db.ts) (5s default, skipped while the tab is hidden, fires once on becoming visible). `poll()` returns a stop function — always call it in the effect cleanup.
+There is no realtime. Invites, votes, roster changes and chat **poll** through `poll()` in [db.ts](src/lib/db.ts) (5s default, skipped while the tab is hidden, fires once on becoming visible). By default the first tick waits a full interval; pass `{ immediate: true }` when the poll is also the initial load. `poll()` returns a stop function — always call it in the effect cleanup. Two more rules for polling:
+- **Use server timestamps as cursors, never the device clock.** `subscribeToMessages` resumes from the newest loaded message's `createdAt`, so a phone whose clock runs ahead still sees new messages.
+- **The Chats tab badge** polls `getUnreadTotal` app-wide (every 15s, and on every navigation).
 
 ### Styling
 

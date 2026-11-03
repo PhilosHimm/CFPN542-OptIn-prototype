@@ -129,7 +129,7 @@ export function ChatsScreen() {
   // from other people show up without a reload (there is no realtime).
   useEffect(() => {
     if (isDemo || !profile?.id) return;
-    return poll(loadChats, 10_000);
+    return poll(loadChats, 10_000, { immediate: true });
   }, [isDemo, profile?.id]);
 
   // Create chat sheet state
