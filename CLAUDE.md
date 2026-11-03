@@ -24,7 +24,7 @@ There is no test suite and no linter configured. `npm run typecheck` is the only
 
 ## Demo mode is a cross-cutting concern
 
-Every data function begins with an `isDemoMode()` check and returns hardcoded mock data instead of hitting the database. `AuthProvider` short-circuits to a `DEMO_PROFILE` and skips all auth. Mock data lives in [DEMO_ACTIVITIES](src/app/components/activityData.ts) and [data/activities.ts](src/app/data/activities.ts).
+Every data function begins with an `isDemoMode()` check and returns hardcoded mock data instead of hitting the database. `AuthProvider` short-circuits to a `DEMO_PROFILE` and skips all auth. Mock data lives in [DEMO_ACTIVITIES](src/app/components/activityData.ts) and [data/activities.ts](src/app/data/activities.ts). `DEMO_ACTIVITIES` is written as if today were `DEMO_AUTHORED_TODAY` (2026-03-24); `demoDate()` / `demoDisplayDate()` shift every date by the same number of days so the demo always reads relative to the real today, and `deadline(h)` is hours from the real now. Don't hardcode demo dates or freeze a demo clock: countdowns and the calendar read the real clock. Demo option times use 24-hour `"19:00"` like the database.
 
 Any new data-fetching function must follow this pattern, or demo mode silently breaks:
 
