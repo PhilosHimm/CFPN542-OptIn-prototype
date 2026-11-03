@@ -73,6 +73,6 @@ VITE_NEON_URL=https://<endpoint>.neon.tech/<database>
 
 The first layouts came from Figma Make, generated from a detailed spec written in Notion. Most of the code since then was written with Claude Code, with me making the design, product and architecture decisions. [CLAUDE.md](CLAUDE.md) is the working brief the AI tooling used, and it doubles as the most detailed architecture notes in the repo. Third-party assets are credited in [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
 
-Original design file: [Figma](https://www.figma.com/design/EvhkFX6lCj3wX6GTKyZrAl/CFPN542-Project-Part-2--App-wireflwo?node-id=0-1)
+Original design file: [Figma](https://www.figma.com/design/EvhkFX6lCj3wX6GTKyZrAl/CFPN542-Project?node-id=89-317)
 
 Built by Philos Himm.
