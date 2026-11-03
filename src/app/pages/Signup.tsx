@@ -119,7 +119,7 @@ export function Signup() {
 
           {isDemo && (
             <div className="bg-tertiary-container rounded-md3-medium p-4 text-body-md text-on-tertiary-container">
-              Demo mode: No Supabase configured. Sign up is simulated.
+              Demo mode: No database configured. Sign up is simulated.
             </div>
           )}
 

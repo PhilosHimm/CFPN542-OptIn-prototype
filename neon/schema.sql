@@ -1,57 +1,39 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
--- OptIn — consolidated baseline schema
+-- OptIn — Neon schema
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
--- Generated 2026-07-27 from the live schema of Supabase project
--- `iokxjsvlpqlekptexjxy` ("CFPN542 OptIn prototype"), reconstructed from the
--- system catalogs (pg_get_constraintdef / pg_indexes.indexdef /
--- pg_get_functiondef / pg_get_triggerdef / pg_policies).
+-- The full schema for the Neon project backing the app (Neon Auth + Data API).
+-- Ported on 2026-11-03 from supabase/000_baseline_schema.sql (in git history),
+-- which was itself reconstructed from the live Supabase project's catalogs.
 --
--- This single file is for standing up a NEW project by hand (dashboard SQL
--- editor or the Supabase MCP), and is deliberately kept OUTSIDE `migrations/`.
+-- Differences from the Supabase version:
+--   * auth.uid() -> public.current_uid(), a uuid wrapper over Neon's
+--     auth.user_id(). Requires the Data API to be enabled first (it creates the
+--     `auth` schema and the `authenticated` / `anonymous` roles).
+--   * No FK from profiles.id to the auth users table, and no trigger creating a
+--     profile on sign-up: Neon Auth's users live in the managed `neon_auth`
+--     schema. AuthContext.fetchProfile creates the profile row on first sign-in.
+--   * No realtime publication — the app polls instead (src/lib/db.ts `poll`).
+--   * Supabase's `anon` role is Neon's `anonymous`.
+--   * Explicit table grants (section 11); Supabase granted these implicitly.
 --
--- WHY IT LIVES HERE AND NOT IN `migrations/`
--- `supabase/migrations/` is scanned by a Supabase GitHub integration linked to
--- this repo (the "Supabase Preview" check on pull requests), which compares its
--- contents against `supabase_migrations.schema_migrations` on the linked
--- project. That folder must contain exactly one file per applied remote
--- version, named `<version>_<name>.sql`. This file doesn't correspond to any
--- single applied version — it's a synthesized snapshot — so keeping it in
--- `migrations/` produced "Remote migration versions not found in local
--- migrations directory" the first time this branch reached `main`, because the
--- folder had been replaced by this file and an `archive/` subdirectory instead
--- of the 13 real per-version files. See `../archive/README.md`.
---
--- The 7 migrations that were never applied to production at all live in
--- `../archive/` for history — do not replay them:
---   * 001 aborted partway (a policy referenced conversation_members ten lines
---     before that table was created), which is why the realtime publication at
---     the end of 001 was never applied.
---   * 009 and 013 were never applied to production at all.
---   * 009 would re-add an `end_time > start_time` CHECK that is wrong on text
---     columns — it rejects legitimate overnight slots and, applied NOT VALID,
---     froze a live row because NOT VALID still re-checks rows on UPDATE.
---   * Several policies were hand-edited in the dashboard, so the file series
---     never described the database.
--- The 13 migrations that WERE applied live in `migrations/`, one file per
--- remote version, so the GitHub integration's ledger comparison passes.
---
--- ORDERING: all tables are created before any constraint, because `games` and
--- `game_options` reference each other (games.confirmed_option_id ->
--- game_options.id, game_options.game_id -> games.id). Functions precede policies
--- and triggers, which depend on them.
---
--- ── ONE DELIBERATE DIFFERENCE FROM PRODUCTION ─────────────────────────────────
--- Section 9 adds the public tables to the `supabase_realtime` publication.
--- PRODUCTION DOES NOT HAVE THIS — no public table is in any publication there,
--- so every postgres_changes subscription in the app (invites, votes, roster,
--- chat) silently never fires. This baseline is correct; production needs the
--- same statements applied. See docs/BACKLOG.md item 58.
+-- Apply to an empty database in one go (Neon SQL editor, psql, or the Neon MCP).
+-- It is idempotent for tables/indexes/functions/triggers, but `create policy` is
+-- not — re-running needs the policies dropped first.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- ─── 1. Extensions ────────────────────────────────────────────────────────────
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
+
+-- Neon Auth puts the user id in the JWT `sub` claim, which the Data API exposes
+-- as auth.user_id() (text). Every id column here is uuid, so policies and RPCs
+-- go through this wrapper instead of Supabase's auth.uid(). Returns null for
+-- anonymous requests and direct (non-Data-API) connections.
+create or replace function public.current_uid()
+returns uuid language sql stable set search_path = '' as $$
+  select nullif(auth.user_id(), '')::uuid
+$$;
 
 -- ─── 2. Tables ────────────────────────────────────────────────────────────────
 create table if not exists public.profiles (
@@ -243,9 +225,6 @@ alter table public.friendships add constraint friendships_users_different
   CHECK (user_a_id <> user_b_id);
 
 -- ─── 4. Foreign keys ──────────────────────────────────────────────────────────
-alter table public.profiles add constraint profiles_id_fkey
-  FOREIGN KEY (id) REFERENCES auth.users(id);
-
 alter table public.groups add constraint groups_created_by_fkey
   FOREIGN KEY (created_by) REFERENCES profiles(id);
 alter table public.group_members add constraint group_members_group_id_fkey
@@ -256,7 +235,7 @@ alter table public.group_members add constraint group_members_user_id_fkey
 -- ON DELETE CASCADE on created_by: deleting a user deletes the games they
 -- created, cascading to those games' options, votes and roster rows. The
 -- alternative is SET NULL, which preserves the game but leaves it with nobody
--- who can administer it (every write policy is created_by = auth.uid()).
+-- who can administer it (every write policy is created_by = public.current_uid()).
 alter table public.games add constraint games_created_by_fkey
   FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE CASCADE;
 alter table public.games add constraint games_group_id_fkey
@@ -321,40 +300,24 @@ create unique index if not exists idx_friendships_unique_pair
 -- re-entering X's own policy (the 42P17 recursion that migration 011 hit).
 create or replace function public.user_in_game(p_game_id uuid)
 returns boolean language sql security definer set search_path = public stable as $$
-  select exists (select 1 from game_players where game_id = p_game_id and user_id = auth.uid());
+  select exists (select 1 from game_players where game_id = p_game_id and user_id = public.current_uid());
 $$;
 
 create or replace function public.user_is_game_host(p_game_id uuid)
 returns boolean language sql security definer set search_path = public stable as $$
-  select exists (select 1 from games where id = p_game_id and created_by = auth.uid());
+  select exists (select 1 from games where id = p_game_id and created_by = public.current_uid());
 $$;
 
 create or replace function public.user_in_group(p_group_id uuid)
 returns boolean language sql security definer set search_path = public stable as $$
   select p_group_id is not null and exists (
-    select 1 from group_members where group_id = p_group_id and user_id = auth.uid());
+    select 1 from group_members where group_id = p_group_id and user_id = public.current_uid());
 $$;
 
 create or replace function public.user_in_conversation(conv_id uuid)
 returns boolean language sql security definer set search_path = public stable as $$
   select exists (select 1 from conversation_members
-                 where conversation_id = conv_id and user_id = auth.uid());
-$$;
-
--- Auto-create a profile row for every new auth user.
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = '' as $$
-declare
-  user_name text;
-  user_initials text;
-begin
-  user_name := coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1));
-  user_initials := upper(left(user_name, 2));
-  insert into public.profiles (id, email, name, initials, color)
-  values (new.id, new.email, user_name, user_initials, '#22C55E')
-  on conflict (id) do nothing;
-  return new;
-end;
+                 where conversation_id = conv_id and user_id = public.current_uid());
 $$;
 
 -- The creator is always on their own roster.
@@ -545,7 +508,7 @@ begin
 end$$;
 
 -- ── Transactional game creation ──────────────────────────────────────────────
--- created_by comes from auth.uid(), never a parameter, so a caller cannot
+-- created_by comes from public.current_uid(), never a parameter, so a caller cannot
 -- attribute a game to someone else.
 create or replace function public.create_game_with_options(
   p_title            text,
@@ -566,7 +529,7 @@ create or replace function public.create_game_with_options(
 )
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
-  v_uid      uuid := auth.uid();
+  v_uid      uuid := public.current_uid();
   v_game_id  uuid;
   v_opt      jsonb;
   v_earliest timestamptz;
@@ -639,11 +602,6 @@ begin
 end$$;
 
 -- ─── 7. Triggers ──────────────────────────────────────────────────────────────
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
 drop trigger if exists trg_creator_joins_game on public.games;
 create trigger trg_creator_joins_game
   after insert on public.games
@@ -697,44 +655,44 @@ alter table public.friendships          enable row level security;
 create policy "Users can read all profiles" on public.profiles
   for select to authenticated using (true);
 create policy "Users can insert own profile" on public.profiles
-  for insert to authenticated with check (auth.uid() = id);
+  for insert to authenticated with check (public.current_uid() = id);
 create policy "Users can update own profile" on public.profiles
-  for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+  for update to authenticated using (public.current_uid() = id) with check (public.current_uid() = id);
 
 -- groups
 create policy "Anyone can read groups" on public.groups
   for select to authenticated using (true);
 create policy "Authenticated users can create groups" on public.groups
-  for insert to authenticated with check (auth.uid() = created_by);
+  for insert to authenticated with check (public.current_uid() = created_by);
 create policy "Group admins can update groups" on public.groups
   for update to authenticated
   using (id in (select group_id from group_members
-                where user_id = auth.uid() and role = 'admin'))
+                where user_id = public.current_uid() and role = 'admin'))
   with check (id in (select group_id from group_members
-                     where user_id = auth.uid() and role = 'admin'));
+                     where user_id = public.current_uid() and role = 'admin'));
 
 -- group_members
 create policy "Anyone can read group members" on public.group_members
   for select to authenticated using (true);
 create policy "Users can join groups" on public.group_members
-  for insert to authenticated with check (user_id = auth.uid());
+  for insert to authenticated with check (user_id = public.current_uid());
 create policy "Users can leave groups" on public.group_members
-  for delete to authenticated using (user_id = auth.uid());
+  for delete to authenticated using (user_id = public.current_uid());
 
 -- games
 create policy "Games visible by role or visibility" on public.games
   for select to authenticated using (
-    created_by = auth.uid()
+    created_by = public.current_uid()
     or public.user_in_game(id)
     or visibility = 'Public'
     or (visibility = 'Group Only' and public.user_in_group(group_id))
   );
 create policy "Create games as self" on public.games
-  for insert to authenticated with check (created_by = auth.uid());
+  for insert to authenticated with check (created_by = public.current_uid());
 create policy "Game creator can update games" on public.games
-  for update to authenticated using (created_by = auth.uid()) with check (created_by = auth.uid());
+  for update to authenticated using (created_by = public.current_uid()) with check (created_by = public.current_uid());
 create policy "Game creator can delete" on public.games
-  for delete to authenticated using (auth.uid() = created_by);
+  for delete to authenticated using (public.current_uid() = created_by);
 
 -- game_options
 create policy "Read options of visible games" on public.game_options
@@ -746,7 +704,7 @@ create policy "Read options of visible games" on public.game_options
 create policy "Host adds approved options, others propose pending" on public.game_options
   for insert to authenticated with check (
     public.user_is_game_host(game_id)
-    or (status = 'pending' and proposed_by = auth.uid())
+    or (status = 'pending' and proposed_by = public.current_uid())
   );
 create policy "Game creator can update options" on public.game_options
   for update to authenticated
@@ -762,7 +720,7 @@ create policy "Read votes of visible games" on public.votes
   );
 create policy "Participants vote while voting is open" on public.votes
   for insert to authenticated with check (
-    user_id = auth.uid()
+    user_id = public.current_uid()
     and exists (
       select 1 from game_options go join games g on g.id = go.game_id
       where go.id = votes.option_id
@@ -772,34 +730,34 @@ create policy "Participants vote while voting is open" on public.votes
   );
 create policy "Change own vote while voting is open" on public.votes
   for update to authenticated
-  using (user_id = auth.uid())
+  using (user_id = public.current_uid())
   with check (
-    user_id = auth.uid()
+    user_id = public.current_uid()
     and exists (
       select 1 from game_options go join games g on g.id = go.game_id
       where go.id = votes.option_id and g.status = 'proposal' and g.voting_deadline > now()
     )
   );
 create policy "Users can delete own votes" on public.votes
-  for delete to authenticated using (auth.uid() = user_id);
+  for delete to authenticated using (public.current_uid() = user_id);
 
 -- game_players
 create policy "Anyone can read game players" on public.game_players
   for select to authenticated using (true);
 create policy "Join self or be invited by host" on public.game_players
-  for insert to authenticated with check (user_id = auth.uid() or public.user_is_game_host(game_id));
+  for insert to authenticated with check (user_id = public.current_uid() or public.user_is_game_host(game_id));
 create policy "Users can update own game player status" on public.game_players
   for update to authenticated
-  using (user_id = auth.uid() or public.user_is_game_host(game_id))
-  with check (user_id = auth.uid() or public.user_is_game_host(game_id));
+  using (user_id = public.current_uid() or public.user_is_game_host(game_id))
+  with check (user_id = public.current_uid() or public.user_is_game_host(game_id));
 create policy "Leave own game or host removes player" on public.game_players
-  for delete to authenticated using (user_id = auth.uid() or public.user_is_game_host(game_id));
+  for delete to authenticated using (user_id = public.current_uid() or public.user_is_game_host(game_id));
 
 -- conversations
 create policy "Users can read own conversations" on public.conversations
   for select to authenticated using (public.user_in_conversation(id));
 create policy "Authenticated users can create conversations" on public.conversations
-  for insert to authenticated with check (auth.uid() is not null);
+  for insert to authenticated with check (public.current_uid() is not null);
 create policy "Conversation members can update conversations" on public.conversations
   for update to authenticated
   using (public.user_in_conversation(id)) with check (public.user_in_conversation(id));
@@ -813,82 +771,72 @@ create policy "Users can view conversation members if they are in the conversati
   on public.conversation_members
   for select to authenticated using (public.user_in_conversation(conversation_id));
 create policy "Authenticated users can add conversation members" on public.conversation_members
-  for insert to authenticated with check (auth.uid() is not null);
+  for insert to authenticated with check (public.current_uid() is not null);
 create policy "Users can update own conversation membership" on public.conversation_members
-  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+  for update to authenticated using (user_id = public.current_uid()) with check (user_id = public.current_uid());
 
 -- messages
 create policy "Users can read messages in own conversations" on public.messages
   for select to authenticated using (public.user_in_conversation(conversation_id));
 create policy "Users can send messages in own conversations" on public.messages
   for insert to authenticated
-  with check (sender_id = auth.uid() and public.user_in_conversation(conversation_id));
+  with check (sender_id = public.current_uid() and public.user_in_conversation(conversation_id));
 
 -- friend_requests
 create policy "Users can read own friend requests" on public.friend_requests
-  for select to authenticated using (auth.uid() = requester_id or auth.uid() = addressee_id);
+  for select to authenticated using (public.current_uid() = requester_id or public.current_uid() = addressee_id);
 create policy "Users can create outgoing friend requests" on public.friend_requests
-  for insert to authenticated with check (auth.uid() = requester_id);
+  for insert to authenticated with check (public.current_uid() = requester_id);
 create policy "Addressee can update own incoming requests" on public.friend_requests
   for update to authenticated
-  using (auth.uid() = addressee_id) with check (auth.uid() = addressee_id);
+  using (public.current_uid() = addressee_id) with check (public.current_uid() = addressee_id);
 
 -- friendships
 create policy "Users can read own friendships" on public.friendships
-  for select to authenticated using (auth.uid() = user_a_id or auth.uid() = user_b_id);
+  for select to authenticated using (public.current_uid() = user_a_id or public.current_uid() = user_b_id);
 create policy "Users can create friendships they are part of" on public.friendships
-  for insert to authenticated with check (auth.uid() = user_a_id or auth.uid() = user_b_id);
-
--- ─── 9. Realtime publication ──────────────────────────────────────────────────
--- REQUIRED for the app's postgres_changes subscriptions (invites, votes, roster,
--- chat). Production is MISSING this because 001 aborted before reaching it.
-do $$
-begin
-  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    create publication supabase_realtime;
-  end if;
-end$$;
-
-alter publication supabase_realtime add table public.games;
-alter publication supabase_realtime add table public.game_options;
-alter publication supabase_realtime add table public.game_players;
-alter publication supabase_realtime add table public.votes;
-alter publication supabase_realtime add table public.messages;
-alter publication supabase_realtime add table public.conversation_members;
-alter publication supabase_realtime add table public.friend_requests;
+  for insert to authenticated with check (public.current_uid() = user_a_id or public.current_uid() = user_b_id);
 
 -- ─── 10. Function EXECUTE grants ──────────────────────────────────────────────
--- Postgres grants EXECUTE to PUBLIC on every new function, and anon/authenticated
+-- Postgres grants EXECUTE to PUBLIC on every new function, and anonymous/authenticated
 -- inherit it. Revoking from the role alone does nothing — PUBLIC must be revoked
 -- first. Trigger functions need no role-level EXECUTE (it is checked when the
 -- trigger is created), so they are revoked outright.
-revoke all on function public.fn_sync_vote_counts()       from public, anon, authenticated;
-revoke all on function public.fn_enforce_game_capacity()  from public, anon, authenticated;
-revoke all on function public.fn_creator_joins_game()     from public, anon, authenticated;
-revoke all on function public.fn_sync_current_players()   from public, anon, authenticated;
-revoke all on function public.fn_forbid_column_change()   from public, anon, authenticated;
-revoke all on function public.handle_new_user()           from public, anon, authenticated;
+revoke all on function public.fn_sync_vote_counts()       from public, anonymous, authenticated;
+revoke all on function public.fn_enforce_game_capacity()  from public, anonymous, authenticated;
+revoke all on function public.fn_creator_joins_game()     from public, anonymous, authenticated;
+revoke all on function public.fn_sync_current_players()   from public, anonymous, authenticated;
+revoke all on function public.fn_forbid_column_change()   from public, anonymous, authenticated;
 
-revoke all on function public.user_in_game(uuid)         from public, anon, authenticated;
-revoke all on function public.user_is_game_host(uuid)    from public, anon, authenticated;
-revoke all on function public.user_in_group(uuid)        from public, anon, authenticated;
-revoke all on function public.user_in_conversation(uuid) from public, anon, authenticated;
+revoke all on function public.user_in_game(uuid)         from public, anonymous, authenticated;
+revoke all on function public.user_is_game_host(uuid)    from public, anonymous, authenticated;
+revoke all on function public.user_in_group(uuid)        from public, anonymous, authenticated;
+revoke all on function public.user_in_conversation(uuid) from public, anonymous, authenticated;
 grant execute on function public.user_in_game(uuid)         to authenticated;
 grant execute on function public.user_is_game_host(uuid)    to authenticated;
 grant execute on function public.user_in_group(uuid)        to authenticated;
 grant execute on function public.user_in_conversation(uuid) to authenticated;
 
-revoke all on function public.auto_transition_game(uuid)  from public, anon, authenticated;
-revoke all on function public.auto_transition_all_games() from public, anon, authenticated;
+revoke all on function public.auto_transition_game(uuid)  from public, anonymous, authenticated;
+revoke all on function public.auto_transition_all_games() from public, anonymous, authenticated;
 grant execute on function public.auto_transition_game(uuid)  to authenticated;
 grant execute on function public.auto_transition_all_games() to authenticated;
 
 revoke all on function public.create_game_with_options(
   text, text, text, text, text, integer, integer, uuid, timestamptz,
-  numeric, numeric, text, text, jsonb, uuid[]) from public, anon, authenticated;
+  numeric, numeric, text, text, jsonb, uuid[]) from public, anonymous, authenticated;
 grant execute on function public.create_game_with_options(
   text, text, text, text, text, integer, integer, uuid, timestamptz,
   numeric, numeric, text, text, jsonb, uuid[]) to authenticated;
+
+-- ─── 11. Table grants ─────────────────────────────────────────────────────────
+-- The Data API runs each request as `authenticated` (signed-in) or `anonymous`.
+-- Table privileges are the first gate; RLS (section 8) then filters rows.
+-- `anonymous` gets nothing: every screen requires sign-in.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function public.current_uid() to authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- STILL REQUIRED AFTER THIS FILE — not expressible in SQL alone
@@ -898,12 +846,11 @@ grant execute on function public.create_game_with_options(
 --      select cron.schedule('auto-transition-games', '*/15 * * * *',
 --                           $$select public.auto_transition_all_games()$$);
 --
--- 2. Enable leaked-password protection under Authentication -> Policies.
 --
 -- KNOWN-OPEN, carried over from production (see docs/BACKLOG.md):
 --   * `game_players`, `profiles`, `groups`, `group_members` SELECT are USING
 --     (true). Scoped TO authenticated here (production still has TO public, so
---     anon can read them there), but still unrestricted among signed-in users.
+--     anonymous can read them there), but still unrestricted among signed-in users.
 --   * game_options.date / start_time / end_time are text with no timezone.
 --     auto_transition compares `date::date < current_date`, which resolves in the
 --     session timezone (UTC), so games flip to completed at UTC midnight.

@@ -1,5 +1,5 @@
-// ─── Shared game data — Supabase-backed ───
-import { supabase, isDemoMode } from "@/lib/supabase";
+// ─── Shared game data — Neon-backed ───
+import { db, isDemoMode } from "@/lib/db";
 import { toast } from "sonner";
 
 export interface Player {
@@ -603,7 +603,7 @@ function mapDbGameToGame(g: any): Game {
   };
 }
 
-// Supabase select string — fetches individual vote rows and real player profiles
+// Data API select string — fetches individual vote rows and real player profiles
 // so mapDbGameToGame can build genuine voter ID arrays and a real roster.
 // game_options!game_options_game_id_fkey disambiguates the embed: games and
 // game_options have two FKs between them (game_options.game_id -> games.id,
@@ -615,9 +615,9 @@ const GAME_SELECT =
 /** Fetch all games — returns demo data in demo mode */
 export async function fetchAllGames(): Promise<Game[]> {
   if (isDemoMode()) return applyAutoTransitions(DEMO_GAMES).games;
-  if (!supabase) return [];
+  if (!db) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("games")
     .select(GAME_SELECT)
     .order("created_at", { ascending: false });
@@ -633,13 +633,13 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
     const game = DEMO_GAMES.find((g) => g.id === id);
     return game ? applyAutoTransitions([game]).games[0] : undefined;
   }
-  if (!supabase) return undefined;
+  if (!db) return undefined;
 
   // Run server-side auto-transition before reading — SECURITY DEFINER so any
   // authenticated user can trigger confirmed→completed and proposal→cancelled.
-  await supabase.rpc("auto_transition_game", { p_game_id: id });
+  await db.rpc("auto_transition_game", { p_game_id: id });
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("games")
     .select(GAME_SELECT)
     .eq("id", id)
@@ -655,8 +655,8 @@ export async function fetchGameById(id: string): Promise<Game | undefined> {
  * Works for any authenticated user (SECURITY DEFINER bypasses RLS).
  */
 export async function autoTransitionGame(gameId: string): Promise<void> {
-  if (isDemoMode() || !supabase) return;
-  await supabase.rpc("auto_transition_game", { p_game_id: gameId });
+  if (isDemoMode() || !db) return;
+  await db.rpc("auto_transition_game", { p_game_id: gameId });
 }
 
 // Check if a string looks like a valid UUID
@@ -664,7 +664,7 @@ function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
-/** Save a new game to Supabase */
+/** Save a new game to the database */
 export async function saveGame(input: {
   title: string;
   sport: string;
@@ -747,7 +747,7 @@ export async function saveGame(input: {
   // invites, orphaning a row the caller could not clean up because it discarded
   // the generated id. `created_by` is taken from auth.uid() inside the function,
   // so input.createdBy is validated above but not sent.
-  const rpc = await supabase!.rpc("create_game_with_options", {
+  const rpc = await db!.rpc("create_game_with_options", {
     p_title: input.title,
     p_sport: input.sport,
     p_sport_emoji: sportEmojis[input.sport] || "",
@@ -795,7 +795,7 @@ export async function addGameOption(
   proposedBy?: string,
 ): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("game_options").insert({
+  const { error } = await db!.from("game_options").insert({
     game_id: gameId,
     date: option.date,
     display_date: formatDisplayDate(option.date),
@@ -810,7 +810,7 @@ export async function addGameOption(
 
 export async function approveGameOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!
+  const { error } = await db!
     .from("game_options")
     .update({ status: "approved" })
     .eq("id", optionId);
@@ -819,7 +819,7 @@ export async function approveGameOption(optionId: string): Promise<boolean> {
 
 export async function updateGameOption(optionId: string, option: { date: string, start_time: string, end_time: string, location?: string }): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("game_options").update({
+  const { error } = await db!.from("game_options").update({
     date: option.date,
     display_date: formatDisplayDate(option.date),
     start_time: option.start_time,
@@ -831,13 +831,13 @@ export async function updateGameOption(optionId: string, option: { date: string,
 
 export async function deleteGameOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("game_options").delete().eq("id", optionId);
+  const { error } = await db!.from("game_options").delete().eq("id", optionId);
   return !error;
 }
 
 export async function updateGameVotingDeadline(gameId: string, deadline: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { error } = await supabase!.from("games").update({ voting_deadline: deadline }).eq("id", gameId);
+  const { error } = await db!.from("games").update({ voting_deadline: deadline }).eq("id", gameId);
   return !error;
 }
 
@@ -847,7 +847,7 @@ export async function updateGameVisibility(gameId: string, visibility: "Public" 
     if (idx !== -1) DEMO_GAMES[idx].visibility = visibility;
     return true;
   }
-  const { error } = await supabase!.from("games").update({ visibility }).eq("id", gameId);
+  const { error } = await db!.from("games").update({ visibility }).eq("id", gameId);
   return !error;
 }
 
@@ -857,13 +857,13 @@ export async function deleteGame(gameId: string): Promise<boolean> {
     if (idx !== -1) DEMO_GAMES.splice(idx, 1);
     return true;
   }
-  const { data, error } = await supabase!.from("games").delete().eq("id", gameId).select("id");
+  const { data, error } = await db!.from("games").delete().eq("id", gameId).select("id");
   return !error && (data?.length ?? 0) > 0;
 }
 
 export async function cancelGame(gameId: string, reason?: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { data, error } = await supabase!
+  const { data, error } = await db!
     .from("games")
     .update({ status: "cancelled", cancellation_reason: reason ?? null })
     .eq("id", gameId)
@@ -873,7 +873,7 @@ export async function cancelGame(gameId: string, reason?: string): Promise<boole
 
 export async function confirmGame(gameId: string, optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { data, error } = await supabase!
+  const { data, error } = await db!
     .from("games")
     .update({ status: "confirmed", confirmed_option_id: optionId })
     .eq("id", gameId)
@@ -886,7 +886,7 @@ export async function unconfirmGame(gameId: string): Promise<boolean> {
   // Reverting to `proposal` with an already-past deadline would let the next
   // auto-transition immediately re-decide the game, so push the deadline out.
   const extended = new Date(Date.now() + 24 * 3600_000).toISOString();
-  const { data, error } = await supabase!
+  const { data, error } = await db!
     .from("games")
     .update({ status: "proposal", confirmed_option_id: null, voting_deadline: extended })
     .eq("id", gameId)
@@ -896,7 +896,7 @@ export async function unconfirmGame(gameId: string): Promise<boolean> {
 
 export async function completeGame(gameId: string, attendeeUserIds: string[] = []): Promise<boolean> {
   if (isDemoMode()) return false;
-  const { data, error } = await supabase!
+  const { data, error } = await db!
     .from("games")
     .update({ status: "completed" })
     .eq("id", gameId)
@@ -915,10 +915,10 @@ export async function completeGame(gameId: string, attendeeUserIds: string[] = [
 
 export async function clearVotesForOption(optionId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  if (!supabase) return false;
-  const { error } = await supabase.from("votes").delete().eq("option_id", optionId);
+  if (!db) return false;
+  const { error } = await db.from("votes").delete().eq("option_id", optionId);
   if (!error) {
-    await supabase
+    await db
       .from("game_options")
       .update({ in_votes: 0, maybe_votes: 0, out_votes: 0 })
       .eq("id", optionId);
@@ -930,8 +930,8 @@ export async function clearVotesForOption(optionId: string): Promise<boolean> {
 
 /** Re-count votes for an option and sync the aggregate columns on game_options. */
 async function syncVoteCounts(optionId: string): Promise<void> {
-  if (!supabase) return;
-  const { data: rows } = await supabase
+  if (!db) return;
+  const { data: rows } = await db
     .from("votes")
     .select("value")
     .eq("option_id", optionId);
@@ -942,7 +942,7 @@ async function syncVoteCounts(optionId: string): Promise<void> {
     else if (r.value === "maybe") counts.maybe_votes++;
     else if (r.value === "out") counts.out_votes++;
   }
-  await supabase.from("game_options").update(counts).eq("id", optionId);
+  await db.from("game_options").update(counts).eq("id", optionId);
 }
 
 /**
@@ -955,9 +955,9 @@ export async function castVote(
   value: "in" | "maybe" | "out"
 ): Promise<boolean> {
   if (isDemoMode()) return false;
-  if (!supabase) return false;
+  if (!db) return false;
 
-  const { error } = await supabase.from("votes").upsert(
+  const { error } = await db.from("votes").upsert(
     { option_id: optionId, user_id: userId, value },
     { onConflict: "option_id,user_id" }
   );
@@ -973,9 +973,9 @@ export async function castVote(
  */
 export async function deleteVote(optionId: string, userId: string): Promise<boolean> {
   if (isDemoMode()) return false;
-  if (!supabase) return false;
+  if (!db) return false;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("votes")
     .delete()
     .eq("option_id", optionId)
@@ -998,13 +998,13 @@ export async function removePlayerFromGame(gameId: string, playerId: string): Pr
     }
     return true;
   }
-  if (!supabase) return false;
+  if (!db) return false;
 
   // The DELETE policy is `user_id = auth.uid()`, so a host removing someone
   // else matches zero rows and PostgREST reports no error. Checking only
   // `!error` made "Player removed" a lie. Until a host-can-remove policy exists
   // this correctly returns false so the caller can surface a real failure.
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("game_players")
     .delete()
     .eq("game_id", gameId)
@@ -1023,10 +1023,10 @@ export async function getUserVotes(
   userId: string
 ): Promise<Record<string, "in" | "maybe" | "out">> {
   if (isDemoMode()) return {};
-  if (!supabase) return {};
+  if (!db) return {};
 
   // Get all option IDs for this game
-  const { data: opts } = await supabase
+  const { data: opts } = await db
     .from("game_options")
     .select("id")
     .eq("game_id", gameId);
@@ -1034,7 +1034,7 @@ export async function getUserVotes(
 
   const optionIds = opts.map((o: { id: string }) => o.id);
 
-  const { data: voteRows } = await supabase
+  const { data: voteRows } = await db
     .from("votes")
     .select("option_id, value")
     .eq("user_id", userId)

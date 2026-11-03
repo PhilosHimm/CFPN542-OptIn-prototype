@@ -52,7 +52,7 @@ import {
   type VoteOption,
   type Player,
 } from "./gameData";
-import { isDemoMode } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/db";
 import { getPlayerStatusForGame, respondToInvite } from "../services/games.service";
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -916,7 +916,7 @@ export function GameViewScreen() {
         return { ...prev, [optionId]: vote };
       });
 
-      // Persist to Supabase (no-op in demo mode)
+      // Persist to the database (no-op in demo mode)
       if (!isDemoMode() && user) {
         const success = isToggleOff
           ? await deleteVote(optionId, user.id)

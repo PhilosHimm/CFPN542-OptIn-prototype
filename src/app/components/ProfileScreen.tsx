@@ -18,7 +18,7 @@ const settingsItems = [
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { profile, signOut, isDemo, supabaseConfigured, toggleDemoMode, updateProfile } = useAuth();
+  const { profile, signOut, isDemo, dbConfigured, toggleDemoMode, updateProfile } = useAuth();
   
   // Sheet/Dialog states
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
@@ -237,8 +237,8 @@ export function ProfileScreen() {
             <div className="mt-2 pt-4 border-t border-outline-variant/30">
               <div
                 className="flex items-center gap-4 py-2"
-                onClick={() => supabaseConfigured && toggleDemoMode(!isDemo)}
-                style={{ cursor: supabaseConfigured ? "pointer" : "not-allowed" }}
+                onClick={() => dbConfigured && toggleDemoMode(!isDemo)}
+                style={{ cursor: dbConfigured ? "pointer" : "not-allowed" }}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isDemo ? "bg-amber-100" : "bg-green-100"}`}>
                   <FlaskConical className="w-5 h-5" style={{ color: isDemo ? "#F59E0B" : "#22C55E" }} />
@@ -246,10 +246,10 @@ export function ProfileScreen() {
                 <div className="flex-1 min-w-0">
                   <p className="text-body-md font-medium text-on-surface">Demo Mode</p>
                   <p className="text-label-sm text-on-surface-variant">
-                    {isDemo ? "Using pre-built sample data" : "Using live Supabase data"}
+                    {isDemo ? "Using pre-built sample data" : "Using live data"}
                   </p>
-                  {!supabaseConfigured && (
-                    <p className="text-label-sm text-amber-500">No Supabase credentials</p>
+                  {!dbConfigured && (
+                    <p className="text-label-sm text-amber-500">No database configured</p>
                   )}
                 </div>
                 <div
@@ -257,7 +257,7 @@ export function ProfileScreen() {
                   aria-checked={isDemo}
                   className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 ${
                     isDemo ? "bg-amber-400" : "bg-green-500"
-                  } ${!supabaseConfigured ? "opacity-40" : ""}`}
+                  } ${!dbConfigured ? "opacity-40" : ""}`}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${

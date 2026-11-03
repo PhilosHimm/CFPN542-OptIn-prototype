@@ -1,4 +1,4 @@
-import { supabase, isDemoMode } from "@/lib/supabase";
+import { db, isDemoMode, poll } from "@/lib/db";
 import { toast } from "sonner";
 import {
   games as mockGames,
@@ -17,11 +17,11 @@ function showNetworkError(context: string) {
 
 export async function getGames(userId?: string): Promise<Game[]> {
   if (isDemoMode()) return mockGames;
-  if (!supabase) return [];
+  if (!db) return [];
 
   try {
     // Fire and forget auto-transition to keep game statuses up to date
-    supabase.rpc("auto_transition_all_games").then((res) => {
+    db.rpc("auto_transition_all_games").then((res) => {
       if (res.error) console.error("Failed to transition games:", res.error);
     });
 
@@ -33,9 +33,9 @@ export async function getGames(userId?: string): Promise<Game[]> {
     // Games with status = "invited" are intentionally excluded — they belong in
     // the notifications panel until the user accepts.
     const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
-      supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
-      supabase.from("games").select("id").eq("created_by", userId),
-      supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+      db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
+      db.from("games").select("id").eq("created_by", userId),
+      db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
     ]);
 
     const invitedIds = new Set((invitedRows || []).map((r: any) => r.game_id));
@@ -50,7 +50,7 @@ export async function getGames(userId?: string): Promise<Game[]> {
 
     if (visibleIds.length === 0) return [];
 
-    const { data: gamesData, error } = await supabase
+    const { data: gamesData, error } = await db
       .from("games")
       .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .in("id", visibleIds)
@@ -105,15 +105,15 @@ export async function getGameById(id: string): Promise<Game | null> {
   if (isDemoMode()) {
     return mockGames.find((g) => g.id === id) || null;
   }
-  if (!supabase) return null;
+  if (!db) return null;
 
   try {
     // Fire and forget auto-transition for this specific game
-    supabase.rpc("auto_transition_game", { p_game_id: id }).then((res) => {
+    db.rpc("auto_transition_game", { p_game_id: id }).then((res) => {
       if (res.error) console.error("Failed to transition game:", res.error);
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("games")
       .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .eq("id", id)
@@ -168,18 +168,18 @@ export async function getGameById(id: string): Promise<Game | null> {
 
 export async function getGroups(): Promise<Group[]> {
   if (isDemoMode()) return mockGroups;
-  if (!supabase) return [];
+  if (!db) return [];
 
   try {
     // Previously this selected every group in the database with no membership
     // filter, so CreateGameScreen's `assignedGroup = mapped[0]` picked whatever
     // group sorted first globally — a stranger's group — and attached the new
     // game to it.
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await db.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("groups")
       .select("*, group_members!inner(user_id)")
       .eq("group_members.user_id", uid)
@@ -208,19 +208,19 @@ export async function getGroups(): Promise<Group[]> {
 
 export async function getCalendarMarkers(userId?: string): Promise<Record<string, { status: GameStatus; gameId: string }[]>> {
   if (isDemoMode()) return mockCalendarMarkers;
-  if (!supabase) return {};
+  if (!db) return {};
 
   try {
-    let query = supabase
+    let query = db
       .from("game_options")
       .select("date, game_id, games!game_options_game_id_fkey!inner(id, status)")
       .order("date");
 
     if (userId) {
       const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
-        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
-        supabase.from("games").select("id").eq("created_by", userId),
-        supabase.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+        db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
+        db.from("games").select("id").eq("created_by", userId),
+        db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
       ]);
 
       const invitedGameIds = new Set((invitedRows || []).map((r: any) => r.game_id));
@@ -275,11 +275,11 @@ export async function castVote(
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
   if (!value) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
     // Upsert vote
-    const { error } = await supabase.from("votes").upsert(
+    const { error } = await db.from("votes").upsert(
       {
         option_id: optionId,
         user_id: userId,
@@ -303,14 +303,14 @@ export async function castVote(
 
 export async function joinGame(gameId: string, userId: string): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
     // fn_sync_current_players (trigger on game_players, migration 006) keeps
     // games.current_players correct server-side; writing it here too raced
     // against the trigger and, for non-hosts, silently no-op'd under RLS
     // (games UPDATE requires created_by = auth.uid()).
-    const { error } = await supabase.from("game_players").upsert(
+    const { error } = await db.from("game_players").upsert(
       { game_id: gameId, user_id: userId, status: "joined" },
       { onConflict: "game_id,user_id" }
     );
@@ -324,13 +324,13 @@ export async function joinGame(gameId: string, userId: string): Promise<{ error:
 
 export async function leaveGame(gameId: string, userId: string): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
     // fn_sync_current_players (trigger on game_players, migration 006) keeps
     // games.current_players correct server-side; see joinGame for why the
     // client used to also write it and no longer does.
-    const { error } = await supabase
+    const { error } = await db
       .from("game_players")
       .update({ status: "declined" })
       .eq("game_id", gameId)
@@ -349,7 +349,7 @@ export async function createGroup(input: {
   createdBy: string;
 }): Promise<{ id: string; error: string | null }> {
   if (isDemoMode()) return { id: `group-${Date.now()}`, error: null };
-  if (!supabase) return { id: "", error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { id: "", error: "Unable to connect to the database. Please try again later." };
 
   try {
     const sportData = sports.find((s) => s.name === input.sport);
@@ -362,7 +362,7 @@ export async function createGroup(input: {
 
     const groupId = crypto.randomUUID();
 
-    const { error } = await supabase.from("groups").insert({
+    const { error } = await db.from("groups").insert({
       id: groupId,
       name: input.name,
       sport: input.sport,
@@ -375,7 +375,7 @@ export async function createGroup(input: {
     if (error) return { id: "", error: error.message };
 
     // Add creator as admin member
-    await supabase.from("group_members").insert({
+    await db.from("group_members").insert({
       group_id: groupId,
       user_id: input.createdBy,
       role: "admin",
@@ -393,10 +393,10 @@ export async function joinGroup(
   userId: string
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    const { error } = await supabase.from("group_members").insert({
+    const { error } = await db.from("group_members").insert({
       group_id: groupId,
       user_id: userId,
       role: "member",
@@ -404,13 +404,13 @@ export async function joinGroup(
 
     if (!error) {
       // Update member count
-      const { count } = await supabase
+      const { count } = await db
         .from("group_members")
         .select("*", { count: "exact", head: true })
         .eq("group_id", groupId);
 
       if (count !== null) {
-        await supabase.from("groups").update({ member_count: count }).eq("id", groupId);
+        await db.from("groups").update({ member_count: count }).eq("id", groupId);
       }
     }
 
@@ -426,23 +426,23 @@ export async function leaveGroup(
   userId: string
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from("group_members")
       .delete()
       .eq("group_id", groupId)
       .eq("user_id", userId);
 
     if (!error) {
-      const { count } = await supabase
+      const { count } = await db
         .from("group_members")
         .select("*", { count: "exact", head: true })
         .eq("group_id", groupId);
 
       if (count !== null) {
-        await supabase.from("groups").update({ member_count: count }).eq("id", groupId);
+        await db.from("groups").update({ member_count: count }).eq("id", groupId);
       }
     }
 
@@ -458,11 +458,11 @@ export async function getUserVotes(
   userId: string
 ): Promise<Record<string, VoteValue>> {
   if (isDemoMode()) return {};
-  if (!supabase) return {};
+  if (!db) return {};
 
   try {
     // First get all option IDs belonging to this game
-    const { data: options, error: optionsError } = await supabase
+    const { data: options, error: optionsError } = await db
       .from("game_options")
       .select("id")
       .eq("game_id", gameId);
@@ -472,7 +472,7 @@ export async function getUserVotes(
     const optionIds = options.map((o: any) => o.id);
 
     // Then fetch votes by this user for those options
-    const { data: votes, error: votesError } = await supabase
+    const { data: votes, error: votesError } = await db
       .from("votes")
       .select("option_id, value")
       .eq("user_id", userId)
@@ -492,9 +492,9 @@ export async function getUserVotes(
 }
 
 export async function confirmGame(gameId: string, optionId: string): Promise<{ error: string | null }> {
-  if (isDemoMode() || !supabase) return { error: null };
+  if (isDemoMode() || !db) return { error: null };
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from("games")
       .update({
         status: "confirmed",
@@ -510,13 +510,13 @@ export async function confirmGame(gameId: string, optionId: string): Promise<{ e
 }
 
 export async function deleteGame(gameId: string): Promise<{ error: string | null }> {
-  if (isDemoMode() || !supabase) {
+  if (isDemoMode() || !db) {
     const idx = mockGames.findIndex((g) => g.id === gameId);
     if (idx !== -1) mockGames.splice(idx, 1);
     return { error: null };
   }
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from("games")
       .delete()
       .eq("id", gameId);
@@ -528,9 +528,9 @@ export async function deleteGame(gameId: string): Promise<{ error: string | null
 }
 
 export async function cancelGame(gameId: string, reason?: string): Promise<{ error: string | null }> {
-  if (isDemoMode() || !supabase) return { error: null };
+  if (isDemoMode() || !db) return { error: null };
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from("games")
       .update({
         status: "cancelled",
@@ -558,9 +558,9 @@ export interface GameInvite {
 
 export async function getInvites(userId: string): Promise<GameInvite[]> {
   if (isDemoMode()) return [];
-  if (!supabase) return [];
+  if (!db) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("game_players")
       .select(`
         id,
@@ -611,7 +611,7 @@ export async function respondToInvite(
   accept: boolean
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the database. Please try again later." };
+  if (!db) return { error: "Unable to connect to the database. Please try again later." };
   return accept ? joinGame(gameId, userId) : leaveGame(gameId, userId);
 }
 
@@ -620,25 +620,23 @@ export function subscribeToGamePlayers(
   onPlayerChange: () => void
 ): { unsubscribe: () => void } {
   if (isDemoMode()) return { unsubscribe: () => {} };
-  if (!supabase) return { unsubscribe: () => {} };
-  try {
-    const channel = supabase
-      .channel(`game_players:game-${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_players",
-          filter: `game_id=eq.${gameId}`,
-        },
-        () => { onPlayerChange(); }
-      )
-      .subscribe();
-    return { unsubscribe: () => { supabase?.removeChannel(channel); } };
-  } catch {
-    return { unsubscribe: () => {} };
-  }
+  if (!db) return { unsubscribe: () => {} };
+  // Polls the roster and fires only when it actually changed. The first tick
+  // records a baseline without firing, since the caller already has the data.
+  let last: string | null = null;
+  const stop = poll(async () => {
+    if (!db) return;
+    const { data, error } = await db
+      .from("game_players")
+      .select("*")
+      .eq("game_id", gameId)
+      .order("user_id");
+    if (error) return;
+    const fingerprint = JSON.stringify(data);
+    if (last !== null && fingerprint !== last) onPlayerChange();
+    last = fingerprint;
+  });
+  return { unsubscribe: stop };
 }
 
 export function subscribeToVotes(
@@ -646,33 +644,31 @@ export function subscribeToVotes(
   onVoteChange: () => void
 ): { unsubscribe: () => void } {
   if (isDemoMode()) return { unsubscribe: () => {} };
-  if (!supabase) return { unsubscribe: () => {} };
+  if (!db) return { unsubscribe: () => {} };
   if (optionIds.length === 0) return { unsubscribe: () => {} };
-  try {
-    // Scoped server-side via Realtime's `in.()` filter instead of subscribing
-    // to every vote in the database and discarding the ones that don't
-    // match client-side.
-    const channel = supabase
-      .channel(`votes:options-${optionIds.join("-")}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "votes", filter: `option_id=in.(${optionIds.join(",")})` },
-        () => { onVoteChange(); }
-      )
-      .subscribe();
-    return { unsubscribe: () => { supabase?.removeChannel(channel); } };
-  } catch {
-    return { unsubscribe: () => {} };
-  }
+  let last: string | null = null;
+  const stop = poll(async () => {
+    if (!db) return;
+    const { data, error } = await db
+      .from("votes")
+      .select("*")
+      .in("option_id", optionIds)
+      .order("id");
+    if (error) return;
+    const fingerprint = JSON.stringify(data);
+    if (last !== null && fingerprint !== last) onVoteChange();
+    last = fingerprint;
+  });
+  return { unsubscribe: stop };
 }
 
 export async function getPlayerStatusForGame(
   gameId: string,
   userId: string
 ): Promise<"invited" | "joined" | "declined" | null> {
-  if (isDemoMode() || !supabase) return null;
+  if (isDemoMode() || !db) return null;
   try {
-    const { data } = await supabase
+    const { data } = await db
       .from("game_players")
       .select("status")
       .eq("game_id", gameId)
