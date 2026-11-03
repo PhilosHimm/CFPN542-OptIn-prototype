@@ -102,7 +102,7 @@ export function ChatsScreen() {
   useEffect(() => {
     if (isDemo || !profile?.id) return;
 
-    // Load conversations from Supabase
+    // Load conversations from the database
     Promise.all([
       getDirectMessages(profile.id),
       getGroupMessages(profile.id)
@@ -155,7 +155,7 @@ export function ChatsScreen() {
     });
   }, [friendIds, isDemo, profile?.id]);
 
-  // Demo mode: filter mock players by query. Live mode: use Supabase results or suggested friends.
+  // Demo mode: filter mock players by query. Live mode: use database results or suggested friends.
   const usersToDisplay: UserOption[] = isDemo
     ? mockPlayers
         .filter((p) => p.id !== profile?.id)
@@ -200,7 +200,7 @@ export function ChatsScreen() {
     loadRelationships();
   }, [profile?.id]);
 
-  // Auto-search Supabase in live mode with debounce
+  // Auto-search the database in live mode with debounce
   useEffect(() => {
     if (isDemo) return;
     setComposerFeedback(null);

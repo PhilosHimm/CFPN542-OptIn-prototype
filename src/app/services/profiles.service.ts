@@ -1,4 +1,4 @@
-import { supabase, isDemoMode } from "@/lib/supabase";
+import { db, isDemoMode } from "@/lib/db";
 import { players as mockPlayers, type Player } from "../data/games";
 
 export interface ProfileSearchResult {
@@ -12,10 +12,10 @@ export interface ProfileSearchResult {
 
 export async function getPlayers(): Promise<Player[]> {
   if (isDemoMode()) return mockPlayers;
-  if (!supabase) return [];
+  if (!db) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("profiles")
       .select("*")
       .order("name");
@@ -45,10 +45,10 @@ export async function getProfilesByIds(ids: string[]): Promise<ProfileSearchResu
       .map((p) => ({ id: p.id, name: p.name, color: p.color }));
   }
 
-  if (!supabase) return [];
+  if (!db) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("profiles")
       .select("id, name, username, color, email, avatar_url")
       .in("id", ids);
@@ -86,14 +86,14 @@ export async function searchProfiles(
       }));
   }
 
-  if (!supabase) return [];
+  if (!db) return [];
 
   // Queries the profiles table directly (not filtered by game membership).
-  // The supabase client auto-attaches the user's JWT so requests are authenticated.
+  // The db client auto-attaches the user's JWT so requests are authenticated.
   // The profiles SELECT RLS policy uses USING (true), allowing all users to discover
   // each other by name/username — this is intentional for the friend-search flow.
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("profiles")
       .select("id, name, username, color, email, avatar_url")
       .or(`name.ilike.%${normalizedQuery}%,username.ilike.%${normalizedQuery}%`)
@@ -121,7 +121,7 @@ export async function updatePlayerProfile(
   updates: { name?: string; bio?: string; avatar_url?: string | null }
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
-  if (!supabase) return { error: "Unable to connect to the server." };
+  if (!db) return { error: "Unable to connect to the server." };
 
   try {
     const updateData: Record<string, unknown> = { ...updates };
@@ -134,7 +134,7 @@ export async function updatePlayerProfile(
         .slice(0, 2);
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("profiles")
       .update(updateData)
       .eq("id", userId);

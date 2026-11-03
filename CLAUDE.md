@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**OptIn** — a mobile-first PWA for scheduling recreational pickup sports games by group consensus voting. Coursework for CFPN542; originated as a Figma Make export. React 18 + Vite + Tailwind v4 + Supabase.
+**OptIn** — a mobile-first PWA for scheduling recreational pickup sports games by group consensus voting. Coursework for CFPN542; originated as a Figma Make export. React 18 + Vite + Tailwind v4 + Neon (Neon Auth + Data API).
 
 ## Commands
 
@@ -18,19 +18,19 @@ There is no test suite and no linter configured. `npm run typecheck` is the only
 
 ## Environment
 
-`.env.local` holds `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_APP_ENV`.
+`.env.local` holds `VITE_NEON_URL` and `VITE_APP_ENV`. `VITE_NEON_URL` is the HTTPS form of the Neon host + database with no credentials (e.g. `https://ep-xxx.c-2.us-east-1.aws.neon.tech/neondb`); the SDK derives the Auth and Data API URLs from it. It is public by design.
 
-`VITE_APP_ENV` is `demo | development | production`, defaulting to `production`. Setting it to `demo` (or omitting Supabase credentials) makes [supabase.ts](src/lib/supabase.ts) export a `null` client and puts the whole app into **demo mode**. CI builds with `VITE_APP_ENV=demo` so missing credentials never break the build; Vercel injects the real values.
+`VITE_APP_ENV` is `demo | development | production`, defaulting to `production`. Setting it to `demo` (or omitting `VITE_NEON_URL`) makes [db.ts](src/lib/db.ts) export a `null` client and puts the whole app into **demo mode**. CI builds with `VITE_APP_ENV=demo` so missing credentials never break the build; Vercel injects the real values.
 
 ## Demo mode is a cross-cutting concern
 
-Every data function begins with an `isDemoMode()` check and returns hardcoded mock data instead of hitting Supabase. `AuthProvider` short-circuits to a `DEMO_PROFILE` and skips all auth. Mock data lives in [DEMO_GAMES](src/app/components/gameData.ts) and [data/games.ts](src/app/data/games.ts).
+Every data function begins with an `isDemoMode()` check and returns hardcoded mock data instead of hitting the database. `AuthProvider` short-circuits to a `DEMO_PROFILE` and skips all auth. Mock data lives in [DEMO_GAMES](src/app/components/gameData.ts) and [data/games.ts](src/app/data/games.ts).
 
 Any new data-fetching function must follow this pattern, or demo mode silently breaks:
 
 ```ts
 if (isDemoMode()) return mockThing;
-if (!supabase) return [];   // supabase is `SupabaseClient | null` — always narrow it
+if (!db) return [];   // db is the Neon client or `null` — always narrow it
 ```
 
 ## Architecture
@@ -39,7 +39,7 @@ if (!supabase) return [];   // supabase is `SupabaseClient | null` — always na
 
 **[Layout.tsx](src/app/components/Layout.tsx)** is the app shell and the auth gate in one: it redirects unauthenticated non-demo users to `/login`, redirects real users without a `profile.username` to `/onboarding`, renders the offline / session-expired / demo banners, constrains the viewport to `max-w-[430px]`, and mounts `BottomNav`.
 
-**Auth** — [AuthContext.tsx](src/app/contexts/AuthContext.tsx) owns session, profile, demo-mode toggling, and a 60s interval that refreshes the Supabase token and sets `sessionExpired` on failure. It also lazily creates a `profiles` row for new Google OAuth users when the fetch returns `PGRST116`. Consume via `useAuth()`.
+**Auth** — [AuthContext.tsx](src/app/contexts/AuthContext.tsx) owns session, profile, demo-mode toggling, and a 60s interval that refreshes the Neon Auth session and sets `sessionExpired` on failure. It also lazily creates a `profiles` row for any user (email or Google) whose profile fetch returns `PGRST116`. Consume via `useAuth()`.
 
 ### Two parallel data layers — know which one you're in
 
@@ -54,29 +54,32 @@ The two `Game` shapes are **not** interchangeable. Some screens import from both
 
 Note this removed the only consumers of the `services/*` + [data/games.ts](src/app/data/games.ts) `Game` shape for *game* screens; `games.service.ts` is still live for invites and notifications, and `messages`/`profiles`/`friendships` services are still used throughout.
 
-### Supabase / game state machine
+### Neon / game state machine
 
-**A Supabase GitHub integration is linked to this repo** (the "Supabase Preview" check on pull requests). It does two things to [supabase/migrations/](supabase/migrations/), in order: (1) checks that the folder has one file per version already recorded in `supabase_migrations.schema_migrations` on the linked project, and (2) provisions a **fresh, empty preview database per PR** and replays the *entire* directory against it from scratch. Consolidating history into a single baseline file broke check 1 (`Remote migration versions not found in local migrations directory.`); fixing that to exactly the 13 ledger-tracked versions then broke check 2 (`relation "public.conversations" does not exist`), because none of those 13 files create a single table — production's foundational tables were created by hand, outside CLI tracking, and have no ledger entry at all. Reconciled on 2026-07-27 — see [supabase/archive/README.md](supabase/archive/README.md) for the full story, including a third bug (`001`'s own policies colliding with, and in some cases silently undermining, later ones) caught only by actually replaying the directory locally.
+The database is **Neon** (moved from Supabase on 2026-11-03), used through two Neon features: **Neon Auth** (managed Better Auth) for sign-in, and the **Data API** (PostgREST-compatible) for every `db.from()` / `db.rpc()` call. [db.ts](src/lib/db.ts) builds the client with `createClient` from `@neon/neon-js/supabase`, which keeps supabase-js's `auth.*` method names (`signInWithPassword`, `onAuthStateChange`, …) and query builder, so most call sites didn't change. There is no server and no secret key in the browser: **RLS is the only thing enforcing access.**
 
-`supabase/migrations/` now holds **17 files**: the 13 ledger-tracked versions plus 4 that create the foundational tables (`001`–`003`, `008`) with no ledger entry but which later files require to exist.
+The project is Neon `long-mode-22787064` ("optin", branch `main` = `br-rapid-tooth-bbbpk18h`, database `neondb`), linked to Vercel project `cfpn-542-opt-in-prototype`. `VITE_NEON_URL` is `https://ep-sweet-snow-bbd8dgld.c-15.us-east-1.aws.neon.tech/neondb`. Neon Auth has email/password and Google (Neon's shared OAuth app) enabled; `localhost` and `https://cfpn-542-opt-in-prototype.vercel.app` are the trusted redirect origins — Vercel **preview** URLs are not, so OAuth redirects fail there unless added.
 
-**A PR preview and a `main` push replay these files against two different databases, and only one starts empty.** A PR gets a fresh throwaway branch; `main` applies directly to the real, already-populated project. `npx supabase start` (needs Docker) validates the *empty* case — it will not catch a statement that's only unsafe when the target already has the object. That gap is exactly what broke `main` after `001`/`003` passed CI once already: `001`'s `create trigger` and `alter publication add table` statements, and `003`'s `create policy` statements, were all bare/unconditional and collided live against `iokxjsvlpqlekptexjxy` even though they replayed clean from empty. All are now guarded (`drop trigger/policy if exists`, or a `pg_publication_tables` existence check). Before changing `001`, `002`, `003`, or `008` again, verify **both** ways: `npx supabase start` locally, and the change wrapped in `begin; ... rollback;` run directly against the real project via Supabase MCP — the 13 ledger-tracked files don't need the second check, since the integration skips versions already recorded as applied. See [supabase/archive/README.md](supabase/archive/README.md) for the full incident, including two confidently-wrong claims this file's own history made about production state without re-checking them.
+The Neon org is **managed by Vercel** — projects are created from the Vercel dashboard (Storage → Neon), not via the Neon API/MCP, which refuses `create_project`. Everything else (SQL, Auth, Data API config) works through the Neon MCP.
 
-**[supabase/000_baseline_schema.sql](supabase/000_baseline_schema.sql)** (outside `migrations/`, deliberately, so the integration never scans it) is the full schema in one file, for standing up a **new** project by hand (dashboard or Supabase MCP) — generated on 2026-07-27 from the live schema of project `iokxjsvlpqlekptexjxy` and verified object-for-object (77/77 constraints, functions, indexes, triggers).
+**[neon/schema.sql](neon/schema.sql)** is the whole schema in one file, ported from the old Supabase baseline (see its header for each difference). There are no migrations and no CI integration — change the schema by editing that file **and** applying the same statement to the project (Neon MCP `run_sql`). Test risky changes on a Neon branch first.
 
-[supabase/archive/](supabase/archive/) (also outside `migrations/`) holds 3 migrations that are neither ledger-tracked nor required to build the schema: `009` (superseded by `014`/`015`; also carries an `end_time > start_time` CHECK that's wrong on text columns — never resurrect it), `010` (would fail with a duplicate-policy error if replayed — its policies already exist by the time it would run), `013` (superseded by `014`).
-
-The Supabase CLI is a devDependency (`npx supabase`) and `supabase/config.toml` now exists for **local validation only** — running `npx supabase start` stands up the full stack via Docker and replays `migrations/` exactly like the GitHub integration does, so this class of bug can be caught before pushing. This is not the same as linking to the real project (no project ref is configured); never run `supabase db push` against `iokxjsvlpqlekptexjxy`. New migrations should use `supabase migration new <name>` or otherwise follow the `<timestamp>_name.sql` convention by hand — matching the real CLI/integration format is load-bearing, not cosmetic.
+Neon-specific rules that differ from Supabase and are easy to get wrong:
+- Use `public.current_uid()` (uuid) in policies and functions, never `auth.uid()` / `auth.user_id()` directly. `authenticated` has **no USAGE on the `auth` schema**, so calling those from a policy fails with `permission denied for schema auth`; `current_uid()` is `SECURITY DEFINER` to get around that. (`auth.user_id()` also returns text, not uuid.)
+- The container this repo is worked on from usually can't reach Neon hosts directly (no psql). Apply SQL through the Neon MCP (`run_sql` takes one statement; use `run_sql_transaction` for several). To test RLS as a user, `set_config('request.jwt.claims', '{"sub":"<uuid>","role":"authenticated"}', true)` then `set local role authenticated` inside a `do` block that ends in `raise exception` so it rolls back.
+- Roles are `authenticated` and `anonymous` (not `anon`). New tables need `grant ... to authenticated` as well as RLS policies.
+- Neon Auth users live in the managed `neon_auth` schema. Nothing references it: `profiles` has no FK to it, and there is no signup trigger — `AuthContext.fetchProfile` creates the `profiles` row on first sign-in (`PGRST116`).
+- Old Supabase accounts and data were **not** migrated (password hashes are incompatible).
 
 Tables: `profiles`, `groups`/`group_members`, `games`, `game_options`, `votes`, `game_players`, `conversations`/`conversation_members`/`messages`, `friend_requests`/`friendships`.
 
-Game lifecycle is `proposal → confirmed | cancelled → completed`, and the transitions are enforced **in Postgres, not in the client** — `auto_transition_game(uuid)` and `auto_transition_all_games()` are `SECURITY DEFINER` functions (migration 015) that close voting past `voting_deadline`, auto-confirm a unique winning option among `status = 'approved'` options, cancel when nobody voted "in" or `min_players` is unmet, record ties for the host to break, and mark past confirmed games completed. The client fires `auto_transition_all_games` fire-and-forget on load. Change status logic in a migration, not in TS.
+Game lifecycle is `proposal → confirmed | cancelled → completed`, and the transitions are enforced **in Postgres, not in the client** — `auto_transition_game(uuid)` and `auto_transition_all_games()` are `SECURITY DEFINER` functions that close voting past `voting_deadline`, auto-confirm a unique winning option among `status = 'approved'` options, cancel when nobody voted "in" or `min_players` is unmet, record ties for the host to break, and mark past confirmed games completed. The client fires `auto_transition_all_games` fire-and-forget on load. Change status logic in SQL, not in TS.
 
-`pg_cron` is **not** installed, so nothing runs the sweep unless a user opens the app. Game creation goes through the `create_game_with_options` RPC (migration 016), which is transactional and takes `created_by` from `auth.uid()`.
+`pg_cron` is **not** installed, so nothing runs the sweep unless a user opens the app. Game creation goes through the `create_game_with_options` RPC, which is transactional and takes `created_by` from `public.current_uid()`.
 
-Visibility (`Public` / `Group Only` / `Private`) is enforced by RLS on `games` (migration 009), and `getGames` additionally filters client-side so users see only games they created or explicitly joined — `game_players.status = 'invited'` rows are deliberately excluded from the main list and surface in the notifications panel instead.
+Visibility (`Public` / `Group Only` / `Private`) is enforced by RLS on `games`, and `getGames` additionally filters client-side so users see only games they created or explicitly joined — `game_players.status = 'invited'` rows are deliberately excluded from the main list and surface in the notifications panel instead.
 
-Realtime subscriptions (`postgres_changes`) are used for invites, votes, roster changes, and chat; always `supabase.removeChannel(channel)` in the effect cleanup.
+There is no realtime. Invites, votes, roster changes and chat **poll** through `poll()` in [db.ts](src/lib/db.ts) (5s default, skipped while the tab is hidden, fires once on becoming visible). `poll()` returns a stop function — always call it in the effect cleanup.
 
 ### Styling
 

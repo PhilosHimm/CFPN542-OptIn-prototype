@@ -1,7 +1,7 @@
 // @refresh reset
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase, isSupabaseConfigured, isDemoMode, setDemoModePreference, devLog } from "@/lib/supabase";
-import type { Session, User, AuthChangeEvent } from "@supabase/supabase-js";
+import { db, isDbConfigured, isDemoMode, setDemoModePreference, devLog } from "@/lib/db";
+import type { Session, User } from "@/lib/db";
 
 interface UserProfile {
   id: string;
@@ -24,7 +24,7 @@ interface AuthContextType {
   loading: boolean;
   isDemo: boolean;
   sessionExpired: boolean;
-  supabaseConfigured: boolean;
+  dbConfigured: boolean;
   toggleDemoMode: (enabled: boolean) => void;
   enterDemoMode: () => void;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [isDemo, setIsDemo] = useState(() => isDemoMode() || localStorage.getItem(DEMO_SESSION_KEY) === "true");
-  const supabaseConfigured = isSupabaseConfigured();
+  const dbConfigured = isDbConfigured();
 
   useEffect(() => {
     if (isDemo) {
@@ -78,12 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!supabase) {
+    if (!db) {
       setLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    db.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, newSession: Session | null) => {
+    } = db.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
@@ -114,12 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Periodic session refresh check — attempt token refresh, detect expiry
     const refreshInterval = setInterval(async () => {
-      if (!supabase) return;
+      if (!db) return;
       try {
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error } = await db.auth.getSession();
         if ((!currentSession || error) && user) {
           // Attempt to refresh the token before giving up
-          const { data: refreshData } = await supabase.auth.refreshSession();
+          const { data: refreshData } = await db.auth.refreshSession();
           if (!refreshData.session) {
             setSessionExpired(true);
             setUser(null);
@@ -139,9 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isDemo]);
 
   async function fetchProfile(userId: string) {
-    if (!supabase) { setLoading(false); return; }
+    if (!db) { setLoading(false); return; }
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("profiles")
         .select("*")
         .eq("id", userId)
@@ -151,14 +151,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(data as UserProfile);
       } else if (error?.code === "PGRST116") {
         // No profile row — new OAuth user. Create a minimal profile from auth metadata.
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const { data: { user: authUser } } = await db.auth.getUser();
         if (authUser) {
           const name =
             authUser.user_metadata?.full_name ??
             authUser.user_metadata?.name ??
             authUser.email?.split("@")[0] ??
             "User";
-          await supabase.from("profiles").insert({
+          await db.from("profiles").insert({
             id: userId,
             email: authUser.email ?? "",
             name,
@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             weeks_played: 0,
             attendance_rate: 0,
           });
-          const { data: newProfile } = await supabase
+          const { data: newProfile } = await db
             .from("profiles")
             .select("*")
             .eq("id", userId)
@@ -206,10 +206,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string) => {
     if (isDemo) return { error: "Running in demo mode" };
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await db.auth.signUp({
         email,
         password,
         options: {
@@ -226,15 +226,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     if (isDemo) return { error: "Running in demo mode" };
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await db.auth.signInWithPassword({ email, password });
       if (!error) {
         setSessionExpired(false);
-        // Dev-only: confirm auth.uid() is set correctly after sign-in
-        supabase.auth.getUser().then(({ data }) => {
-          devLog("Signed in — auth.uid():", data.user?.id ?? "null");
+        // Dev-only: confirm the user id is set correctly after sign-in
+        db.auth.getUser().then(({ data }) => {
+          devLog("Signed in — user id:", data.user?.id ?? "null");
         });
       }
       return { error: error?.message ?? null };
@@ -245,8 +245,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (isDemo) return { error: "Running in demo mode" };
-    if (!supabase) return { error: "Supabase not configured" };
-    const { error } = await supabase.auth.signInWithOAuth({
+    if (!db) return { error: "Database not configured" };
+    const { error } = await db.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
@@ -271,8 +271,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (supabase) {
-      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    if (db) {
+      try { await db.auth.signOut(); } catch { /* ignore */ }
     }
     setProfile(null);
     setUser(null);
@@ -281,10 +281,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     if (isDemo) return { error: "Running in demo mode" };
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await db.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/login`,
       });
       return { error: error?.message ?? null };
@@ -300,10 +300,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!user) return { error: "Not authenticated" };
-    if (!supabase) return { error: "Supabase not configured" };
+    if (!db) return { error: "Database not configured" };
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from("profiles")
         .update(updates)
         .eq("id", user.id);
@@ -320,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, session, loading, isDemo, sessionExpired, supabaseConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signInWithGoogle, signOut, updateProfile, resetPassword }}
+      value={{ user, profile, session, loading, isDemo, sessionExpired, dbConfigured, toggleDemoMode, enterDemoMode, signUp, signIn, signInWithGoogle, signOut, updateProfile, resetPassword }}
     >
       {children}
     </AuthContext.Provider>

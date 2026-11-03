@@ -41,7 +41,10 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
     }
 
     let sub: { unsubscribe: () => void } | null = null;
+    let cancelled = false;
     getChatMessages(conversation.id, profile.id).then((initialMsgs) => {
+      // Unmounted before the fetch resolved — don't start a poller nobody stops.
+      if (cancelled) return;
       setMessages(initialMsgs);
       sub = subscribeToMessages(conversation.id, profile.id, (newMsg) => {
         setMessages((prev) => {
@@ -53,6 +56,7 @@ export function ChatView({ conversation, onBack, onSendMessage, onDelete, isRequ
     });
 
     return () => {
+      cancelled = true;
       if (sub) sub.unsubscribe();
     };
   }, [conversation.id, isDemo, isRequest, profile]);

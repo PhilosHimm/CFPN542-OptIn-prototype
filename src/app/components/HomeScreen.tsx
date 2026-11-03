@@ -5,7 +5,7 @@ import { GameCard } from "./GameCard";
 import { fetchAllGames, type Game, DEMO_REFERENCE_DATE } from "./gameData";
 import { useAuth } from "../contexts/AuthContext";
 import { getInvites, respondToInvite, type GameInvite } from "../services/games.service";
-import { supabase, isDemoMode } from "@/lib/supabase";
+import { db, isDemoMode, poll } from "@/lib/db";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -104,27 +104,10 @@ export function HomeScreen() {
     if (profile) getInvites(profile.id).then(setInvites);
   }, [profile?.id]);
 
-  // Subscribe to new invite inserts in real-time
+  // Poll for new invites while Home is open (Neon has no realtime push).
   useEffect(() => {
-    if (!profile || isDemoMode() || !supabase) return;
-    const channel = supabase
-      .channel(`invites:user-${profile.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "game_players",
-          filter: `user_id=eq.${profile.id}`,
-        },
-        (payload) => {
-          if ((payload.new as any)?.status === "invited") {
-            getInvites(profile.id).then(setInvites);
-          }
-        }
-      )
-      .subscribe();
-    return () => { supabase?.removeChannel(channel); };
+    if (!profile || isDemoMode() || !db) return;
+    return poll(() => getInvites(profile.id).then(setInvites), 15_000);
   }, [profile?.id]);
 
   const getGamesForDate = (dateStr: string) => {

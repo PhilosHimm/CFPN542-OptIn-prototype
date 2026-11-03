@@ -1,4 +1,4 @@
-import { supabase, isDemoMode } from "@/lib/supabase";
+import { db, isDemoMode, poll } from "@/lib/db";
 import {
   directMessages as mockDirectMessages,
   groupMessages as mockGroupMessages,
@@ -28,16 +28,16 @@ export async function getGroupMessages(currentUserId?: string): Promise<Message[
 }
 
 async function fetchConversations(type: "direct" | "group", currentUserId?: string): Promise<Message[]> {
-  if (!supabase) return [];
+  if (!db) return [];
 
   // Try to grab current user from session if not provided
   if (!currentUserId) {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await db.auth.getSession();
     currentUserId = session?.user?.id;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("conversations")
       .select("*, conversation_members(user_id, unread_count, profiles:user_id(name, initials, color)), messages(content, created_at, is_system)")
       .eq("type", type)
@@ -108,10 +108,10 @@ export async function getChatMessages(conversationId: string, currentUserId: str
     ];
   }
 
-  if (!supabase) return [];
+  if (!db) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("messages")
       .select("*, profiles:sender_id(name, initials, color)")
       .eq("conversation_id", conversationId)
@@ -146,17 +146,17 @@ export async function sendMessage(
 
   if (isDemoMode()) return { error: null };
 
-  if (!supabase) return { error: "Unable to connect to the server. Please try again later." };
+  if (!db) return { error: "Unable to connect to the server. Please try again later." };
 
   try {
-    const { error } = await supabase.from("messages").insert({
+    const { error } = await db.from("messages").insert({
       conversation_id: conversationId,
       sender_id: senderId,
       content: trimmedContent,
     });
 
     if (!error) {
-      await supabase
+      await db
         .from("conversations")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", conversationId);
@@ -175,54 +175,38 @@ export function subscribeToMessages(
 ) {
   if (isDemoMode()) return { unsubscribe: () => {} };
 
-  if (!supabase) return { unsubscribe: () => {} };
+  if (!db) return { unsubscribe: () => {} };
 
-  try {
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          if (!supabase) return;
-          // Fetch the inserted message with profile data
-          const { data, error } = await supabase
-            .from("messages")
-            .select("*, profiles:sender_id(name, initials, color)")
-            .eq("id", payload.new.id)
-            .single();
+  // Poll for rows newer than a cursor. The cursor starts a minute in the past to
+  // cover the gap since the caller's initial fetch and client/server clock skew;
+  // the overlap is harmless because callers dedupe by message id.
+  let since = new Date(Date.now() - 60_000).toISOString();
+  const stop = poll(async () => {
+    if (!db) return;
+    const { data, error } = await db
+      .from("messages")
+      .select("*, profiles:sender_id(name, initials, color)")
+      .eq("conversation_id", conversationId)
+      .gt("created_at", since)
+      .order("created_at", { ascending: true });
+    if (error || !data) return;
+    for (const row of data) {
+      if (row.created_at && row.created_at > since) since = row.created_at;
+      onMessage({
+        id: row.id,
+        senderId: row.sender_id ?? "",
+        senderName: row.profiles?.name || "Unknown",
+        senderInitials: row.profiles?.initials || "?",
+        senderColor: row.profiles?.color || "#999",
+        content: row.content,
+        timestamp: formatTimestamp(row.created_at ?? new Date().toISOString()),
+        isMe: row.sender_id === currentUserId,
+        isSystem: row.is_system ?? false,
+      });
+    }
+  });
 
-          if (!error && data) {
-            onMessage({
-              id: data.id,
-              senderId: data.sender_id ?? "",
-              senderName: data.profiles?.name || "Unknown",
-              senderInitials: data.profiles?.initials || "?",
-              senderColor: data.profiles?.color || "#999",
-              content: data.content,
-              timestamp: formatTimestamp(data.created_at ?? new Date().toISOString()),
-              isMe: data.sender_id === currentUserId,
-              isSystem: data.is_system ?? false,
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return {
-      unsubscribe: () => {
-        supabase?.removeChannel(channel);
-      },
-    };
-  } catch {
-
-    return { unsubscribe: () => {} };
-  }
+  return { unsubscribe: stop };
 }
 
 function formatTimestamp(isoString: string): string {
@@ -246,14 +230,14 @@ export async function createConversation(
   name: string,
   participantIds: string[]
 ): Promise<string | null> {
-  if (isDemoMode() || !supabase) return Date.now().toString();
+  if (isDemoMode() || !db) return Date.now().toString();
 
   try {
     // Generate an ID up-front so we don't have to rely on a .select() which fails RLS
     // since the user isn't a part of the conversation yet.
     const newConvId = crypto.randomUUID();
 
-    const { error: convError } = await supabase
+    const { error: convError } = await db
       .from("conversations")
       .insert({
         id: newConvId,
@@ -268,7 +252,7 @@ export async function createConversation(
       user_id: id,
     }));
 
-    const { error: memError } = await supabase
+    const { error: memError } = await db
       .from("conversation_members")
       .insert(membersToInsert);
 

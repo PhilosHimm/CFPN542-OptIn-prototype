@@ -26,7 +26,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Use demo mode so the build does not fail on missing Supabase credentials.
+          # Use demo mode so the build does not fail on a missing VITE_NEON_URL.
           # Real values are injected by the Vercel project for production deploys.
           VITE_APP_ENV: demo
 

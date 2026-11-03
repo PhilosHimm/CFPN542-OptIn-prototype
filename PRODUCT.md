@@ -57,8 +57,8 @@ The voting unit is also deliberately per-option rather than per-game. A player i
 
 **Technical constraints that bind design**
 
-- React 18 + Vite + Tailwind v4 (CSS-first, no `tailwind.config.js`) + Supabase. Deployed on Vercel.
-- **Demo mode is cross-cutting.** With `VITE_APP_ENV=demo` or absent Supabase credentials the client is `null`, auth is skipped, and every data function returns hardcoded mock data. Any new data path must handle this or demo mode silently breaks. This is also how the app is presented and evaluated, so demo mode must always look like the real product.
+- React 18 + Vite + Tailwind v4 (CSS-first, no `tailwind.config.js`) + Neon (Neon Auth + Data API). Deployed on Vercel.
+- **Demo mode is cross-cutting.** With `VITE_APP_ENV=demo` or an absent `VITE_NEON_URL` the client is `null`, auth is skipped, and every data function returns hardcoded mock data. Any new data path must handle this or demo mode silently breaks. This is also how the app is presented and evaluated, so demo mode must always look like the real product.
 - **`pg_cron` is not installed.** Nothing sweeps game state on a schedule; transitions only run when a user opens the app and the client fires `auto_transition_all_games` fire-and-forget. A game can therefore be visibly stale for as long as nobody looks at it. Any UI that implies real-time authority over deadlines is overpromising.
 - Status logic lives in migrations, not in TypeScript. Visibility is enforced by RLS.
 - Realtime subscriptions back invites, votes, roster changes, and chat, so multi-user state can change under the user mid-screen.
@@ -83,7 +83,7 @@ The voting unit is also deliberately per-option rather than per-game. A player i
 
 **Real:**
 
-- A working, deployed application with a live Supabase project and a complete schema (17 tracked migrations, plus [supabase/000_baseline_schema.sql](supabase/000_baseline_schema.sql) as a verified full-schema baseline).
+- A working, deployed application backed by a Neon project (Neon Auth + Data API) with a complete schema in [neon/schema.sql](neon/schema.sql). Moved from Supabase on 2026-11-03; existing Supabase accounts and data were not carried over.
 - A substantial demo dataset in [gameData.ts](src/app/components/gameData.ts) (`DEMO_GAMES`) and [data/games.ts](src/app/data/games.ts) covering every lifecycle state — proposals, confirmed, completed, cancelled — across basketball, soccer, volleyball, tennis and pickleball. This is the honest thing to demonstrate with.
 - Sport hero photography sourced from Unsplash, keyed by sport in `SPORT_HERO_IMAGES`.
 - App icons at [public/icon-192.svg](public/icon-192.svg) and [public/icon-512.svg](public/icon-512.svg), plus a PWA manifest.
