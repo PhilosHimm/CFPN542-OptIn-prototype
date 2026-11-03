@@ -1,5 +1,5 @@
 import { db, isDemoMode } from "@/lib/db";
-import { players as mockPlayers, type Player } from "../data/games";
+import { players as mockPlayers, type Player } from "../data/activities";
 
 export interface ProfileSearchResult {
   id: string;
@@ -27,7 +27,7 @@ export async function getPlayers(): Promise<Player[]> {
       name: p.name,
       initials: p.initials,
       color: p.color,
-      gamesPlayed: p.games_played,
+      activitiesPlayed: p.activities_played,
       weeksPlayed: p.weeks_played,
       attendanceRate: p.attendance_rate,
     }));
@@ -88,7 +88,7 @@ export async function searchProfiles(
 
   if (!db) return [];
 
-  // Queries the profiles table directly (not filtered by game membership).
+  // Queries the profiles table directly (not filtered by activity membership).
   // The db client auto-attaches the user's JWT so requests are authenticated.
   // The profiles SELECT RLS policy uses USING (true), allowing all users to discover
   // each other by name/username — this is intentional for the friend-search flow.

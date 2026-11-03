@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "../contexts/AuthContext";
 import { searchProfiles, getProfilesByIds } from "../services/profiles.service";
-import { players as mockPlayers } from "../data/games";
+import { players as mockPlayers } from "../data/activities";
 import {
   acceptMessageRequest,
   declineMessageRequest,
@@ -30,7 +30,7 @@ import {
   sendMessageRequest,
   type MessageRequestItem,
 } from "../services/friendships.service";
-import { demoConversations, type DemoConversation, type ChatMessage } from "../data/games";
+import { demoConversations, type DemoConversation, type ChatMessage } from "../data/activities";
   import { getDirectMessages, getGroupMessages, sendMessage as sendServiceMessage, createConversation as createServiceConv } from "../services/messages.service";
 import { ChatView } from "./ChatView";
 

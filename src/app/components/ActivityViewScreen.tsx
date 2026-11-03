@@ -29,31 +29,31 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  fetchGameById,
-  autoTransitionGame,
-  addGameOption,
-  approveGameOption,
-  updateGameOption,
-  deleteGameOption,
-  updateGameVotingDeadline,
-  updateGameVisibility,
-  cancelGame,
-  deleteGame,
-  confirmGame,
-  unconfirmGame,
+  fetchActivityById,
+  autoTransitionActivity,
+  addActivityOption,
+  approveActivityOption,
+  updateActivityOption,
+  deleteActivityOption,
+  updateActivityVotingDeadline,
+  updateActivityVisibility,
+  cancelActivity,
+  deleteActivity,
+  confirmActivity,
+  unconfirmActivity,
   clearVotesForOption,
   castVote,
   deleteVote,
   getUserVotes,
-  isGameVotable,
+  isActivityVotable,
   getMinPlayers,
-  removePlayerFromGame,
-  type Game,
+  removePlayerFromActivity,
+  type Activity,
   type VoteOption,
   type Player,
-} from "./gameData";
+} from "./activityData";
 import { isDemoMode } from "@/lib/db";
-import { getPlayerStatusForGame, respondToInvite } from "../services/games.service";
+import { getPlayerStatusForActivity, respondToInvite } from "../services/activities.service";
 
 // ─── Helpers ──────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -73,7 +73,7 @@ function formatTime(timeStr: string): string {
   return `${h12}:${m} ${ampm}`;
 }
 
-function getStatusConfig(status: Game["status"]) {
+function getStatusConfig(status: Activity["status"]) {
   switch (status) {
     case "proposal":
       return {
@@ -523,14 +523,14 @@ function RosterSection({
 }
 
 // ─── Main Component ───────────────────────────────────────
-export function GameViewScreen() {
+export function ActivityViewScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [game, setGame] = useState<Game | undefined>(undefined);
+  const [activity, setActivity] = useState<Activity | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showHostMenu, setShowHostMenu] = useState(false);
-  const isHost = !!game && !!user && game.createdBy === user.id;
+  const isHost = !!activity && !!user && activity.createdBy === user.id;
 
   // Form states
   const [showProposeTime, setShowProposeTime] = useState(false);
@@ -575,13 +575,13 @@ export function GameViewScreen() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
 
-  const refreshGame = useCallback(() => {
+  const refreshActivity = useCallback(() => {
     if (!id) return;
-    fetchGameById(id).then(async (g) => {
+    fetchActivityById(id).then(async (g) => {
       if (g) {
-        setGame(g);
+        setActivity(g);
         if (user && !isDemoMode()) {
-          const status = await getPlayerStatusForGame(id, user.id);
+          const status = await getPlayerStatusForActivity(id, user.id);
           setPlayerStatus(status);
         }
       }
@@ -590,16 +590,16 @@ export function GameViewScreen() {
 
   useEffect(() => {
     if (!id) return;
-    // fetchGameById calls auto_transition_game RPC internally (SECURITY DEFINER),
-    // so the game status is always up-to-date regardless of who is viewing.
-    fetchGameById(id).then(async (g) => {
+    // fetchActivityById calls auto_transition_activity RPC internally (SECURITY DEFINER),
+    // so the activity status is always up-to-date regardless of who is viewing.
+    fetchActivityById(id).then(async (g) => {
       if (g) {
-        setGame(g);
+        setActivity(g);
         // Load this user's existing votes so buttons reflect prior choices
         if (user && !isDemoMode()) {
           const [existing, status] = await Promise.all([
             getUserVotes(id, user.id),
-            getPlayerStatusForGame(id, user.id)
+            getPlayerStatusForActivity(id, user.id)
           ]);
           setVotes(existing);
           setPlayerStatus(status);
@@ -610,9 +610,9 @@ export function GameViewScreen() {
   }, [id, user]);
 
   const handleRespondToInvite = async (accept: boolean) => {
-    if (!game || !user) return;
+    if (!activity || !user) return;
     setRespondingToInvite(true);
-    const { error } = await respondToInvite(game.id, user.id, accept);
+    const { error } = await respondToInvite(activity.id, user.id, accept);
     setRespondingToInvite(false);
     if (error) {
       toast.error(error);
@@ -624,23 +624,23 @@ export function GameViewScreen() {
         setPlayerStatus("declined");
         navigate("/");
       }
-      refreshGame();
+      refreshActivity();
     }
   };
 
-  // Handlers for advanced game operations
+  // Handlers for advanced activity operations
   const handleProposeSubmit = async () => {
-    if (!game || !formDate || !formStart || !formEnd) return;
+    if (!activity || !formDate || !formStart || !formEnd) return;
     const status = isHost ? "approved" : "pending";
     try {
-      await addGameOption(
-        game.id,
+      await addActivityOption(
+        activity.id,
         { date: formDate, start_time: formStart, end_time: formEnd, location: formLocation || undefined },
         status,
         user?.id,
       );
       setShowProposeTime(false);
-      refreshGame();
+      refreshActivity();
       toast.success(isHost ? "New time option added!" : "Proposal sent to the host for approval!");
     } catch (e: any) {
       toast.error("Failed to propose time option: " + e.message);
@@ -649,17 +649,17 @@ export function GameViewScreen() {
 
   const handleApproveOption = async (optionId: string) => {
     setApprovingId(optionId);
-    const ok = await approveGameOption(optionId);
+    const ok = await approveActivityOption(optionId);
     setApprovingId(null);
-    if (ok) { refreshGame(); toast.success("Proposal approved — players can now vote on it."); }
+    if (ok) { refreshActivity(); toast.success("Proposal approved — players can now vote on it."); }
     else toast.error("Failed to approve proposal.");
   };
 
   const handleDeclineOption = async (optionId: string) => {
     setDecliningId(optionId);
-    const ok = await deleteGameOption(optionId);
+    const ok = await deleteActivityOption(optionId);
     setDecliningId(null);
-    if (ok) { refreshGame(); toast.success("Proposal declined."); }
+    if (ok) { refreshActivity(); toast.success("Proposal declined."); }
     else toast.error("Failed to decline proposal.");
   };
 
@@ -675,7 +675,7 @@ export function GameViewScreen() {
     }
     // These helpers return false on failure and never throw, so the old
     // try/catch could not fire and the success toast was unconditional.
-    const ok = await updateGameOption(showEditTime.id, {
+    const ok = await updateActivityOption(showEditTime.id, {
       date: formDate,
       start_time: formStart,
       end_time: formEnd,
@@ -692,44 +692,44 @@ export function GameViewScreen() {
       toast.success("Option updated successfully!");
     }
     setShowEditTime(null);
-    refreshGame();
+    refreshActivity();
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (game?.confirmedOptionId === optionId) {
+    if (activity?.confirmedOptionId === optionId) {
       toast.error("Cannot delete the confirmed time — undo the confirmation first.");
       return;
     }
-    const ok = await deleteGameOption(optionId);
+    const ok = await deleteActivityOption(optionId);
     if (!ok) {
       toast.error("Failed to delete option — you may not have permission.");
       return;
     }
     if (showEditTime?.id === optionId) setShowEditTime(null);
-    refreshGame();
+    refreshActivity();
     toast.success("Option deleted.");
   };
 
   const handleDeadlineSubmit = async () => {
-    if (!game || !deadlineDate) return;
-    const ok = await updateGameVotingDeadline(game.id, deadlineDate);
+    if (!activity || !deadlineDate) return;
+    const ok = await updateActivityVotingDeadline(activity.id, deadlineDate);
     if (!ok) {
       toast.error("Failed to update deadline — you may not have permission.");
       return;
     }
     setShowDeadline(false);
-    refreshGame();
+    refreshActivity();
     toast.success("Voting deadline updated!");
   };
 
   const handleVisibilitySubmit = async () => {
-    if (!game) return;
+    if (!activity) return;
     try {
-      const success = await updateGameVisibility(game.id, visibilitySelected);
+      const success = await updateActivityVisibility(activity.id, visibilitySelected);
       if (success) {
         toast.success("Visibility updated!");
         setShowVisibilitySheet(false);
-        refreshGame();
+        refreshActivity();
       } else {
         toast.error("Failed to update visibility");
       }
@@ -740,104 +740,104 @@ export function GameViewScreen() {
   };
 
   // Task 11: cancel with reason sheet
-  const handleCancelGame = () => {
-    if (!game) return;
+  const handleCancelActivity = () => {
+    if (!activity) return;
     setCancelReason("");
     setShowHostMenu(false);
     setShowCancelSheet(true);
   };
 
   const handleCancelConfirm = async () => {
-    if (!game) return;
-    const ok = await cancelGame(game.id, cancelReason || undefined);
+    if (!activity) return;
+    const ok = await cancelActivity(activity.id, cancelReason || undefined);
     if (!ok) {
-      toast.error("Failed to cancel game — you may not have permission.");
+      toast.error("Failed to cancel activity — you may not have permission.");
       return;
     }
     setShowCancelSheet(false);
-    refreshGame();
-    toast.success("Game cancelled.");
+    refreshActivity();
+    toast.success("Activity cancelled.");
   };
 
-  const handleDeleteGame = async () => {
-    if (!game) return;
-    if (window.confirm("Are you sure you want to completely delete this game? This cannot be undone and will remove it for all users.")) {
-      const ok = await deleteGame(game.id);
+  const handleDeleteActivity = async () => {
+    if (!activity) return;
+    if (window.confirm("Are you sure you want to completely delete this activity? This cannot be undone and will remove it for all users.")) {
+      const ok = await deleteActivity(activity.id);
       if (!ok) {
-        toast.error("Failed to delete game — you may not have permission.");
+        toast.error("Failed to delete activity — you may not have permission.");
         return;
       }
       setShowHostMenu(false);
-      toast.success("Game permanently deleted.");
+      toast.success("Activity permanently deleted.");
       navigate("/");
     }
   };
 
   // Task 5: confirm with min-player check
   const handleConfirmWithChecks = useCallback(async (optionId: string) => {
-    if (!game) return;
-    const opt = game.timeOptions.find((o) => o.id === optionId);
+    if (!activity) return;
+    const opt = activity.timeOptions.find((o) => o.id === optionId);
     const inCount = opt?.votes.in.length ?? 0;
-    const minRequired = getMinPlayers(game.activity);
+    const minRequired = getMinPlayers(activity.type);
     if (inCount < minRequired) {
       setShowMinPlayerWarning({ optionId, inCount, minRequired });
       return;
     }
-    const ok = await confirmGame(game.id, optionId);
+    const ok = await confirmActivity(activity.id, optionId);
     if (!ok) {
       // Previously this toasted success unconditionally, so a non-host who
-      // reached the tie-breaker was told the game was confirmed while RLS
+      // reached the tie-breaker was told the activity was confirmed while RLS
       // silently discarded the write.
-      toast.error("Only the host can confirm this game.");
+      toast.error("Only the host can confirm this activity.");
       return;
     }
-    refreshGame();
-    toast.success("Game confirmed!");
-  }, [game, refreshGame]);
+    refreshActivity();
+    toast.success("Activity confirmed!");
+  }, [activity, refreshActivity]);
 
-  const handleConfirmGame = (optionId: string) => {
+  const handleConfirmActivity = (optionId: string) => {
     handleConfirmWithChecks(optionId);
   };
 
   // Task 4: undo confirmation
   const handleUndoConfirm = async () => {
-    if (!game || game.status !== "confirmed") return;
-    const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+    if (!activity || activity.status !== "confirmed") return;
+    const confirmedOpt = activity.timeOptions.find((o) => o.id === activity.confirmedOptionId);
     // Was `date + "T00:00"` — blocked undo as soon as it turned midnight on
-    // game day, hours before the game even started. Compares against the
-    // game's end time instead, still parsed in the viewer's own browser
+    // activity day, hours before the activity even started. Compares against the
+    // activity's end time instead, still parsed in the viewer's own browser
     // timezone rather than the server's fixed one (see docs/BACKLOG.md item
     // #23) — a real fix needs the server's computed end instant exposed to
-    // the client, which this doesn't do. The server's own auto_transition_game
+    // the client, which this doesn't do. The server's own auto_transition_activity
     // is the actual source of truth for completion; this is only a
     // best-effort client-side guard for the window before that sweep runs.
     if (confirmedOpt && new Date(`${confirmedOpt.date}T${confirmedOpt.endTime || confirmedOpt.startTime}`) < new Date()) {
-      toast.error("Cannot undo — the game has already passed.");
+      toast.error("Cannot undo — the activity has already passed.");
       return;
     }
-    const ok = await unconfirmGame(game.id);
+    const ok = await unconfirmActivity(activity.id);
     if (!ok) {
       toast.error("Failed to undo confirmation — you may not have permission.");
       return;
     }
     setShowHostMenu(false);
-    refreshGame();
+    refreshActivity();
     toast.success("Confirmation undone — back to voting.");
   };
 
   // Deadline expiry → server-side auto-transition, then show tie-break UI if needed
   const handleDeadlineExpiry = useCallback(async () => {
-    if (!game || game.status !== "proposal") return;
+    if (!activity || activity.status !== "proposal") return;
 
     if (!isDemoMode()) {
-      // auto_transition_game RPC handles cancel and single-winner confirm server-side.
+      // auto_transition_activity RPC handles cancel and single-winner confirm server-side.
       // Any authenticated user can call it (SECURITY DEFINER bypasses RLS).
-      await autoTransitionGame(game.id);
-      const updated = await fetchGameById(game.id);
+      await autoTransitionActivity(activity.id);
+      const updated = await fetchActivityById(activity.id);
       if (updated) {
-        setGame(updated);
+        setActivity(updated);
         // If still proposal after transition, there's a tie — show tiebreak for host.
-        // NB: the old check compared `updated.createdBy === game.createdBy`, i.e. a
+        // NB: the old check compared `updated.createdBy === activity.createdBy`, i.e. a
         // refetch of the same row against itself — always true, so every player saw
         // the sheet and non-hosts got a success toast for a write RLS discarded.
         if (updated.status === "proposal" && !!user && updated.createdBy === user.id) {
@@ -856,10 +856,10 @@ export function GameViewScreen() {
     }
 
     // Demo mode: client-side logic only
-    const opts = [...game.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
+    const opts = [...activity.timeOptions].sort((a, b) => b.votes.in.length - a.votes.in.length);
     const maxVotes = opts.length > 0 ? opts[0].votes.in.length : 0;
     if (maxVotes === 0) {
-      toast.info("Voting closed with no attendees — game cancelled.");
+      toast.info("Voting closed with no attendees — activity cancelled.");
       return;
     }
     const topOptions = opts.filter((o) => o.votes.in.length === maxVotes);
@@ -869,7 +869,7 @@ export function GameViewScreen() {
       setTiedOptions(topOptions);
       setShowTieBreak(true);
     }
-  }, [game, handleConfirmWithChecks]);
+  }, [activity, handleConfirmWithChecks]);
 
   const handleShare = useCallback(() => {
     setShowShareModal(true);
@@ -880,16 +880,16 @@ export function GameViewScreen() {
   const voteCooldown = useRef<Set<string>>(new Set());
 
   const handleRemovePlayer = async (playerId: string) => {
-    if (!game || !user) return;
+    if (!activity || !user) return;
     
     // In demo mode or if it works, update local state
-    const success = await removePlayerFromGame(game.id, playerId);
+    const success = await removePlayerFromActivity(activity.id, playerId);
     if (success) {
-      setGame(prev => prev ? {
+      setActivity(prev => prev ? {
         ...prev,
         roster: prev.roster.filter(p => p.id !== playerId)
       } : prev);
-      toast.success("Player removed from game.");
+      toast.success("Player removed from activity.");
     } else {
       toast.error("Failed to remove player.");
     }
@@ -929,55 +929,55 @@ export function GameViewScreen() {
           return;
         }
 
-        // Refresh game data to get accurate vote counts from DB
-        refreshGame();
+        // Refresh activity data to get accurate vote counts from DB
+        refreshActivity();
       }
     },
-    [votes, user, refreshGame]
+    [votes, user, refreshActivity]
   );
 
   // Sort options by "in" count descending for proposal status
   // Non-hosts only see approved options in the voting list
   const sortedOptions = useMemo(() => {
-    if (!game) return [];
-    const opts = game.timeOptions.filter((o) => isHost || (o.status ?? "approved") === "approved");
-    if (game.status === "proposal") {
+    if (!activity) return [];
+    const opts = activity.timeOptions.filter((o) => isHost || (o.status ?? "approved") === "approved");
+    if (activity.status === "proposal") {
       opts.sort((a, b) => b.votes.in.length - a.votes.in.length);
     }
     return opts;
-  }, [game, isHost]);
+  }, [activity, isHost]);
 
   // Pending proposals — shown to host only
   const pendingOptions = useMemo(() => {
-    if (!game || !isHost) return [];
-    return game.timeOptions.filter((o) => (o.status ?? "approved") === "pending");
-  }, [game, isHost]);
+    if (!activity || !isHost) return [];
+    return activity.timeOptions.filter((o) => (o.status ?? "approved") === "pending");
+  }, [activity, isHost]);
 
   // Stable 0-based index by creation order — doesn't shift when votes re-sort the list
   const stableIndexMap = useMemo(() => {
-    if (!game) return {} as Record<string, number>;
-    return Object.fromEntries(game.timeOptions.map((opt, i) => [opt.id, i]));
-  }, [game]);
+    if (!activity) return {} as Record<string, number>;
+    return Object.fromEntries(activity.timeOptions.map((opt, i) => [opt.id, i]));
+  }, [activity]);
 
-  const isReadOnly = game?.status === "completed" || game?.status === "cancelled";
-  const isConfirmed = game?.status === "confirmed";
-  const isVotingClosed = game ? !isGameVotable(game) && game.status === "proposal" : false;
+  const isReadOnly = activity?.status === "completed" || activity?.status === "cancelled";
+  const isConfirmed = activity?.status === "confirmed";
+  const isVotingClosed = activity ? !isActivityVotable(activity) && activity.status === "proposal" : false;
 
   // True for both pricing models: a fixed total to split, or a flat per-person price.
-  const hasCost = !!game && (game.totalCost > 0 || (game.perPersonCost ?? 0) > 0);
+  const hasCost = !!activity && (activity.totalCost > 0 || (activity.perPersonCost ?? 0) > 0);
 
   const perPersonCost = useMemo(() => {
-    if (!game) return "Free";
-    // costType is the source of truth (migration 019); demo games predate the
+    if (!activity) return "Free";
+    // costType is the source of truth (migration 019); demo activities predate the
     // column, so fall back to the totalCost===0 inference used before it existed.
-    const costType = game.costType ?? (game.totalCost === 0 ? (game.perPersonCost ? "per_player" : "free") : "fixed");
+    const costType = activity.costType ?? (activity.totalCost === 0 ? (activity.perPersonCost ? "per_player" : "free") : "fixed");
 
     if (costType === "free") return "Free";
 
     // Per-player pricing: the per-person amount is authoritative and does not
     // depend on headcount, so return it directly.
     if (costType === "per_player") {
-      const flat = game.perPersonCost ?? 0;
+      const flat = activity.perPersonCost ?? 0;
       return flat > 0 ? `$${flat.toFixed(2)}` : "Free";
     }
 
@@ -986,12 +986,12 @@ export function GameViewScreen() {
     // the full total (dividing by the old `|| 1` fallback) misrepresented an
     // empty roster's cost as the per-person price. See docs/BACKLOG.md #19, #45.
     const attendeeCount =
-      game.status === "confirmed" && game.confirmedOptionId
-        ? game.timeOptions.find((o) => o.id === game.confirmedOptionId)?.votes.in.length ?? 0
-        : game.roster.length;
+      activity.status === "confirmed" && activity.confirmedOptionId
+        ? activity.timeOptions.find((o) => o.id === activity.confirmedOptionId)?.votes.in.length ?? 0
+        : activity.roster.length;
     if (attendeeCount === 0) return "—";
-    return `$${(game.totalCost / attendeeCount).toFixed(2)}`;
-  }, [game]);
+    return `$${(activity.totalCost / attendeeCount).toFixed(2)}`;
+  }, [activity]);
 
   // ─── Loading / 404 ──────────────────────────────────────
   if (loading) {
@@ -1004,10 +1004,10 @@ export function GameViewScreen() {
     );
   }
 
-  if (!game) {
+  if (!activity) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <p className="text-body-lg text-on-surface-variant mb-4">Game not found.</p>
+        <p className="text-body-lg text-on-surface-variant mb-4">Activity not found.</p>
         <button
           onClick={() => navigate("/")}
           className="px-6 py-3 bg-primary text-on-primary rounded-md3-full text-label-lg font-medium min-h-[48px]"
@@ -1024,8 +1024,8 @@ export function GameViewScreen() {
       <div className="flex flex-col min-h-screen bg-surface max-w-lg mx-auto w-full relative">
         <div className="relative h-[300px] overflow-hidden">
           <ImageWithFallback
-            src={game.heroImage}
-            alt={game.title}
+            src={activity.heroImage}
+            alt={activity.title}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -1038,13 +1038,13 @@ export function GameViewScreen() {
         </div>
         <div className="px-6 py-8 flex flex-col items-center flex-1 -mt-10 bg-surface rounded-t-[32px] relative z-10 shadow-[0_-4px_24px_rgba(0,0,0,0.1)]">
           <div className="w-16 h-16 bg-primary-container rounded-md3-full flex items-center justify-center mb-6 shadow-sm text-3xl">
-            {game.activityEmoji}
+            {activity.typeEmoji}
           </div>
           <h1 className="text-title-lg text-on-surface font-semibold text-center mb-4 leading-tight">
-            You've been invited to<br /> {game.title}
+            You've been invited to<br /> {activity.title}
           </h1>
           <p className="text-body-lg text-on-surface-variant text-center mb-10 leading-relaxed px-2">
-            Accept the invite to view game details, vote on times, and see who else is going.
+            Accept the invite to view activity details, vote on times, and see who else is going.
           </p>
 
           <div className="w-full space-y-3 mt-auto mb-6">
@@ -1070,7 +1070,7 @@ export function GameViewScreen() {
     );
   }
 
-  const statusConfig = getStatusConfig(game.status);
+  const statusConfig = getStatusConfig(activity.status);
   const createdByPlayer = null as { avatar: string; name: string } | null;
 
   return (
@@ -1078,8 +1078,8 @@ export function GameViewScreen() {
       {/* Hero Image */}
       <div className="relative h-[200px] overflow-hidden">
         <ImageWithFallback
-          src={game.heroImage}
-          alt={game.title}
+          src={activity.heroImage}
+          alt={activity.title}
           className="w-full h-full object-cover"
         />
         {/* Gradient overlay */}
@@ -1107,7 +1107,7 @@ export function GameViewScreen() {
           {/* Share button */}
           <button
             onClick={handleShare}
-            aria-label="Share game"
+            aria-label="Share activity"
             className="w-10 h-10 rounded-md3-full bg-surface/90 flex items-center justify-center min-w-[48px] min-h-[48px] shadow-md"
           >
             <Share2 className="w-5 h-5 text-on-surface" />
@@ -1122,7 +1122,7 @@ export function GameViewScreen() {
             {statusConfig.label}
           </span>
           <h1 className="text-title-lg font-medium text-white leading-tight drop-shadow-md">
-            {game.title}
+            {activity.title}
           </h1>
         </div>
       </div>
@@ -1132,19 +1132,19 @@ export function GameViewScreen() {
         {/* Quick Info Row */}
         <div className="flex items-center flex-wrap gap-2 mb-4">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-md3-full">
-            <span className="text-body-md leading-none">{game.activityEmoji}</span>
+            <span className="text-body-md leading-none">{activity.typeEmoji}</span>
             <span className="text-label-md font-medium text-on-surface leading-none">
-              {game.activity}
+              {activity.type}
             </span>
           </span>
           <span
             className={`inline-flex items-center px-3 py-1.5 rounded-md3-full text-label-md font-medium leading-none ${
-              game.gameType === "competitive"
+              activity.intensity === "competitive"
                 ? "bg-tertiary-container text-on-tertiary-container"
                 : "bg-primary-container text-on-primary-container"
             }`}
           >
-            {game.gameType === "competitive" ? "\uD83C\uDFC6 Competitive" : "\uD83C\uDF89 Casual"}
+            {activity.intensity === "competitive" ? "\uD83C\uDFC6 Competitive" : "\uD83C\uDF89 Casual"}
           </span>
           <span
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md3-full text-label-md font-medium leading-none ${
@@ -1171,25 +1171,25 @@ export function GameViewScreen() {
             <div className="flex items-center gap-3">
               <MapPin className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
               <span className="text-body-md text-on-surface leading-normal">
-                {game.location}
+                {activity.location}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <CalendarDays className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
               <span className="text-body-md text-on-surface leading-normal">
-                {game.date}
+                {activity.date}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
               <span className="text-body-md text-on-surface leading-normal">
-                {game.time}
+                {activity.time}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <Users className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
               <span className="text-body-md text-on-surface leading-normal">
-                {game.maxPlayers ? `${game.roster.length}/${game.maxPlayers} players` : `${game.roster.length} players`}
+                {activity.maxPlayers ? `${activity.roster.length}/${activity.maxPlayers} players` : `${activity.roster.length} players`}
               </span>
             </div>
             {createdByPlayer && (
@@ -1204,8 +1204,8 @@ export function GameViewScreen() {
         </div>
 
         {/* Voting Countdown — proposal only */}
-        {game.status === "proposal" && (
-          <CountdownTimer deadline={game.votingDeadline} onExpire={handleDeadlineExpiry} />
+        {activity.status === "proposal" && (
+          <CountdownTimer deadline={activity.votingDeadline} onExpire={handleDeadlineExpiry} />
         )}
 
         {/* Confirmed banner */}
@@ -1213,32 +1213,32 @@ export function GameViewScreen() {
           <div className="flex items-center gap-2 bg-primary-container rounded-md3-medium px-4 py-3 mb-4">
             <CheckCircle2 className="w-5 h-5 text-on-primary-container flex-shrink-0" />
             <p className="text-body-md text-on-primary-container font-medium leading-normal">
-              This game is confirmed! See you there.
+              This activity is confirmed! See you there.
             </p>
           </div>
         )}
 
         {/* Completed banner */}
-        {game.status === "completed" && (
+        {activity.status === "completed" && (
           <div className="flex items-center gap-2 bg-surface-container rounded-md3-medium px-4 py-3 mb-4">
             <Trophy className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
             <p className="text-body-md text-on-surface-variant font-medium leading-normal">
-              This game has been completed. Thanks for playing!
+              This activity has been completed. Thanks for playing!
             </p>
           </div>
         )}
 
         {/* Cancelled banner with reason (Task 11) */}
-        {game.status === "cancelled" && (
+        {activity.status === "cancelled" && (
           <div className="flex items-start gap-2 bg-error-container rounded-md3-medium px-4 py-3 mb-4">
             <Ban className="w-5 h-5 text-on-error-container flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-body-md text-on-error-container font-medium leading-normal">
-                This game has been cancelled.
+                This activity has been cancelled.
               </p>
-              {game.cancellationReason && (
+              {activity.cancellationReason && (
                 <p className="text-body-sm text-on-error-container mt-0.5">
-                  Reason: {game.cancellationReason}
+                  Reason: {activity.cancellationReason}
                 </p>
               )}
             </div>
@@ -1248,10 +1248,10 @@ export function GameViewScreen() {
         {/* Time Options Section */}
         <div className="mb-4">
           <h2 className="text-title-md font-medium text-on-surface mb-3 leading-none">
-            {game.status === "proposal"
+            {activity.status === "proposal"
               ? isVotingClosed ? "Voting Closed" : "Vote on a Time"
-              : game.status === "confirmed"
-              ? "Game Time Options"
+              : activity.status === "confirmed"
+              ? "Activity Time Options"
               : "Final Results"}
           </h2>
 
@@ -1273,7 +1273,7 @@ export function GameViewScreen() {
                 index={stableIndexMap[option.id] ?? 0}
                 isWinner={
                   (isConfirmed || isReadOnly) &&
-                  option.id === game.confirmedOptionId
+                  option.id === activity.confirmedOptionId
                 }
                 isConfirmed={isConfirmed}
                 isReadOnly={isReadOnly || isConfirmed || isVotingClosed}
@@ -1314,7 +1314,7 @@ export function GameViewScreen() {
               <div className="p-3 flex flex-col gap-3">
                 <AnimatePresence initial={false}>
                   {pendingOptions.map((option) => {
-                    const proposer = game.roster.find((p) => p.id === option.proposedBy);
+                    const proposer = activity.roster.find((p) => p.id === option.proposedBy);
                     const proposerInitials = proposer?.name
                       ? proposer.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
                       : "?";
@@ -1400,7 +1400,7 @@ export function GameViewScreen() {
           )}
 
           {/* Propose new time */}
-          {game.status === "proposal" && !isVotingClosed && (
+          {activity.status === "proposal" && !isVotingClosed && (
             <button
               onClick={() => {
                 setFormDate(""); setFormStart(""); setFormEnd(""); setFormLocation("");
@@ -1412,10 +1412,10 @@ export function GameViewScreen() {
             </button>
           )}
 
-          {/* Confirm Game — host only, proposal with at least one option with votes, voting still open */}
-          {isHost && game.status === "proposal" && !isVotingClosed && sortedOptions.length > 0 && sortedOptions[0].votes.in.length > 0 && (
+          {/* Confirm Activity — host only, proposal with at least one option with votes, voting still open */}
+          {isHost && activity.status === "proposal" && !isVotingClosed && sortedOptions.length > 0 && sortedOptions[0].votes.in.length > 0 && (
             <button
-              onClick={() => handleConfirmGame(sortedOptions[0].id)}
+              onClick={() => handleConfirmActivity(sortedOptions[0].id)}
               className="w-full h-12 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center gap-2 mt-2 hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
             >
               <CheckCircle2 className="w-5 h-5" />
@@ -1434,7 +1434,7 @@ export function GameViewScreen() {
               </h3>
             </div>
             {/* Task 10: cost-split warning when no confirmed attendees */}
-            {game.status === "confirmed" && game.roster.length === 0 && (
+            {activity.status === "confirmed" && activity.roster.length === 0 && (
               <div className="flex items-center gap-2 bg-error-container rounded-xl px-3 py-2 mb-3">
                 <CircleAlert className="w-4 h-4 text-on-error-container shrink-0" />
                 <p className="text-body-sm text-on-error-container">
@@ -1448,7 +1448,7 @@ export function GameViewScreen() {
                   Total Venue Cost
                 </span>
                 <span className="text-body-md text-on-surface font-medium leading-normal">
-                  ${game.totalCost.toFixed(2)}
+                  ${activity.totalCost.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1456,7 +1456,7 @@ export function GameViewScreen() {
                   Split
                 </span>
                 <span className="text-body-md text-on-surface leading-normal">
-                  {game.splitCost ? "Equally" : "No split"}
+                  {activity.splitCost ? "Equally" : "No split"}
                 </span>
               </div>
               <div className="border-t border-outline-variant/50 pt-2 mt-1 flex justify-between">
@@ -1472,10 +1472,10 @@ export function GameViewScreen() {
         )}
 
         {/* Roster */}
-        <RosterSection roster={game.roster} maxPlayers={game.maxPlayers} isHost={isHost} hostId={game.createdBy} onRemovePlayer={handleRemovePlayer} />
+        <RosterSection roster={activity.roster} maxPlayers={activity.maxPlayers} isHost={isHost} hostId={activity.createdBy} onRemovePlayer={handleRemovePlayer} />
 
         {/* Group Info */}
-        {game.group && (
+        {activity.group && (
           <div className="bg-surface-container-lowest rounded-md3-large p-4 shadow-md3-1 mb-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1483,7 +1483,7 @@ export function GameViewScreen() {
                   Group
                 </p>
                 <p className="text-body-md font-medium text-on-surface leading-none">
-                  {game.group}
+                  {activity.group}
                 </p>
               </div>
               <button className="px-4 py-2 rounded-md3-full bg-secondary-container text-label-lg font-medium text-on-secondary-container min-h-[48px]">
@@ -1524,7 +1524,7 @@ export function GameViewScreen() {
 
               <div className="flex-1 overflow-y-auto p-6 pb-safe mb-8 flex flex-col gap-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
                 {/* Proposal-only actions */}
-                {game.status === "proposal" && (
+                {activity.status === "proposal" && (
                   <>
                     <button
                       onClick={() => {
@@ -1542,7 +1542,7 @@ export function GameViewScreen() {
                       onClick={() => {
                         setShowHostMenu(false);
                         setShowDeadline(true);
-                        setDeadlineDate(game.votingDeadline ? new Date(game.votingDeadline).toISOString().slice(0, 16) : "");
+                        setDeadlineDate(activity.votingDeadline ? new Date(activity.votingDeadline).toISOString().slice(0, 16) : "");
                       }}
                       className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
                     >
@@ -1555,7 +1555,7 @@ export function GameViewScreen() {
                 <button
                   onClick={() => {
                     setShowHostMenu(false);
-                    setVisibilitySelected((game.visibility as "Public" | "Group Only" | "Private") || "Public");
+                    setVisibilitySelected((activity.visibility as "Public" | "Group Only" | "Private") || "Public");
                     setShowVisibilitySheet(true);
                   }}
                   className="w-full flex items-center p-4 bg-surface rounded-xl shadow-sm text-left gap-3"
@@ -1565,8 +1565,8 @@ export function GameViewScreen() {
                 </button>
 
                 {/* Confirmed-only actions (Task 4 — undo confirm) */}
-                {game.status === "confirmed" && (() => {
-                  const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+                {activity.status === "confirmed" && (() => {
+                  const confirmedOpt = activity.timeOptions.find((o) => o.id === activity.confirmedOptionId);
                   const canUndo = confirmedOpt ? new Date(confirmedOpt.date + "T00:00") >= new Date() : false;
                   return canUndo ? (
                     <button
@@ -1582,19 +1582,19 @@ export function GameViewScreen() {
                 <div className="h-px w-full bg-outline-variant" />
 
                 <button
-                  onClick={handleCancelGame}
+                  onClick={handleCancelActivity}
                   className="w-full flex items-center p-4 bg-error-container rounded-xl shadow-sm text-left gap-3"
                 >
                   <Ban className="w-5 h-5 text-error" />
-                  <span className="text-body-lg font-medium text-on-error-container">Cancel Game</span>
+                  <span className="text-body-lg font-medium text-on-error-container">Cancel Activity</span>
                 </button>
 
                 <button
-                  onClick={handleDeleteGame}
+                  onClick={handleDeleteActivity}
                   className="w-full flex items-center p-4 bg-error rounded-xl shadow-sm text-left gap-3"
                 >
                   <Ban className="w-5 h-5 text-on-error" />
-                  <span className="text-body-lg font-medium text-on-error">Delete Game</span>
+                  <span className="text-body-lg font-medium text-on-error">Delete Activity</span>
                 </button>
               </div>
             </motion.div>
@@ -1620,11 +1620,11 @@ export function GameViewScreen() {
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
               role="dialog"
               aria-modal="true"
-              aria-label="Cancel Game"
+              aria-label="Cancel Activity"
               className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-surface-container-high rounded-t-[28px] overflow-hidden z-[61] p-6 pb-8 shadow-md3-5"
             >
               <div className="w-8 h-1 bg-on-surface-variant/40 rounded-full mx-auto mb-6" />
-              <h2 className="text-title-lg font-semibold text-on-surface mb-2">Cancel Game</h2>
+              <h2 className="text-title-lg font-semibold text-on-surface mb-2">Cancel Activity</h2>
               <p className="text-body-md text-on-surface-variant mb-5">
                 Select a reason (optional) — this will be shown to all players.
               </p>
@@ -1753,9 +1753,9 @@ export function GameViewScreen() {
                       const { optionId } = showMinPlayerWarning;
                       setShowMinPlayerWarning(null);
                       try {
-                        await confirmGame(game!.id, optionId);
-                        refreshGame();
-                        toast.success("Game confirmed!");
+                        await confirmActivity(activity!.id, optionId);
+                        refreshActivity();
+                        toast.success("Activity confirmed!");
                       } catch (e: any) {
                         toast.error("Failed to confirm: " + e.message);
                       }
@@ -1956,7 +1956,7 @@ export function GameViewScreen() {
               className="relative bg-surface rounded-3xl p-6 w-full max-w-sm shadow-md3-5 z-10"
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-title-lg font-semibold text-on-surface">Share Game</h2>
+                <h2 className="text-title-lg font-semibold text-on-surface">Share Activity</h2>
                 <button onClick={() => setShowShareModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-variant text-on-surface-variant transition-colors active:scale-95">
                   <X className="w-5 h-5" />
                 </button>
@@ -1965,14 +1965,14 @@ export function GameViewScreen() {
               <div className="space-y-3">
                 <button 
                   onClick={() => {
-                    if (game?.visibility === "Public") {
+                    if (activity?.visibility === "Public") {
                       navigator.clipboard.writeText(window.location.href);
-                      toast.success("Game link copied!");
+                      toast.success("Activity link copied!");
                       setShowShareModal(false);
                     }
                   }}
-                  disabled={game?.visibility !== "Public"}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-colors ${game?.visibility !== "Public" ? "bg-surface-variant/50 opacity-50 cursor-not-allowed" : "bg-surface-variant hover:bg-surface-variant/80 active:bg-surface-variant/60"}`}
+                  disabled={activity?.visibility !== "Public"}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-colors ${activity?.visibility !== "Public" ? "bg-surface-variant/50 opacity-50 cursor-not-allowed" : "bg-surface-variant hover:bg-surface-variant/80 active:bg-surface-variant/60"}`}
                 >
                   <div className="w-10 h-10 rounded-full bg-on-surface/5 flex items-center justify-center">
                     <Copy className="w-5 h-5 text-on-surface" />
@@ -1980,7 +1980,7 @@ export function GameViewScreen() {
                   <div className="flex-1">
                     <p className="font-medium text-on-surface text-body-lg">Copy link</p>
                     <p className="text-body-sm text-on-surface-variant">
-                      {game?.visibility !== "Public" ? "Requires public open access game" : "Anyone with the link can join"}
+                      {activity?.visibility !== "Public" ? "Requires public open access activity" : "Anyone with the link can join"}
                     </p>
                   </div>
                 </button>
@@ -2013,7 +2013,7 @@ export function GameViewScreen() {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-on-surface text-body-lg">Group invite</p>
-                    <p className="text-body-sm text-on-surface-variant">Share this game directly with a group</p>
+                    <p className="text-body-sm text-on-surface-variant">Share this activity directly with a group</p>
                   </div>
                 </button>
               </div>
@@ -2055,7 +2055,7 @@ export function GameViewScreen() {
                     }}
                     className={`w-full flex items-center p-4 rounded-xl shadow-sm text-left gap-3 ${visibilitySelected === vis ? 'bg-primary text-on-primary ring-2 ring-primary ring-offset-2 ring-offset-surface' : 'bg-surface-container text-on-surface'}`}
                   >
-                    <span className="text-body-lg font-medium">{vis}{vis === 'Public' ? ' Game' : ''}</span>
+                    <span className="text-body-lg font-medium">{vis}{vis === 'Public' ? ' Activity' : ''}</span>
                   </button>
                 ))}
                 
@@ -2119,7 +2119,7 @@ export function GameViewScreen() {
                     ) : (
                       <div className="flex flex-col gap-2">
                         {ids.map((uid) => {
-                          const player = game?.roster.find((p) => p.id === uid);
+                          const player = activity?.roster.find((p) => p.id === uid);
                           const name = player?.name ?? uid;
                           return (
                             <div key={uid} className="flex items-center gap-3">

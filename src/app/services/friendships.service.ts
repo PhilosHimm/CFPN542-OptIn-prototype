@@ -1,6 +1,6 @@
 import { db, isDemoMode } from "@/lib/db";
 import { createConversation } from "./messages.service";
-import { players as mockPlayers } from "../data/games";
+import { players as mockPlayers } from "../data/activities";
 
 export interface MessageRequestItem {
   id: string;

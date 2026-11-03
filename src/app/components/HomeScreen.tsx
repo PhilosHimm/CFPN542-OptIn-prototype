@@ -1,31 +1,31 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Bell, ChevronRight, Plus, CalendarDays, X } from "lucide-react";
-import { GameCard } from "./GameCard";
-import { fetchAllGames, type Game, DEMO_REFERENCE_DATE } from "./gameData";
+import { ActivityCard } from "./ActivityCard";
+import { fetchAllActivities, type Activity, DEMO_REFERENCE_DATE } from "./activityData";
 import { useAuth } from "../contexts/AuthContext";
-import { getInvites, respondToInvite, type GameInvite } from "../services/games.service";
+import { getInvites, respondToInvite, type ActivityInvite } from "../services/activities.service";
 import { db, isDemoMode, poll } from "@/lib/db";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function isGameExpired(game: Game, todayStr: string): boolean {
-  if (game.timeOptions.length === 0) return false;
-  if (game.status === "confirmed") {
-    const confirmed = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+function isActivityExpired(activity: Activity, todayStr: string): boolean {
+  if (activity.timeOptions.length === 0) return false;
+  if (activity.status === "confirmed") {
+    const confirmed = activity.timeOptions.find((o) => o.id === activity.confirmedOptionId);
     return !confirmed || confirmed.date < todayStr;
   }
-  return game.timeOptions.every((o) => o.date < todayStr);
+  return activity.timeOptions.every((o) => o.date < todayStr);
 }
 
-function buildSchedule(allGames: Game[], todayStr: string, today: Date = new Date()) {
-  const upcoming = allGames.filter((g) => g.status === "proposal" || g.status === "confirmed" || g.status === "completed");
+function buildSchedule(allActivities: Activity[], todayStr: string, today: Date = new Date()) {
+  const upcoming = allActivities.filter((g) => g.status === "proposal" || g.status === "confirmed" || g.status === "completed");
   const dateStatusMap: Record<string, "proposal" | "confirmed" | "completed"> = {};
-  for (const game of upcoming) {
-    if (game.status === "confirmed" || game.status === "completed") {
-      const confirmedOpt = game.timeOptions.find((o) => o.id === game.confirmedOptionId);
+  for (const activity of upcoming) {
+    if (activity.status === "confirmed" || activity.status === "completed") {
+      const confirmedOpt = activity.timeOptions.find((o) => o.id === activity.confirmedOptionId);
       if (!confirmedOpt) continue;
-      if (game.status === "confirmed") {
+      if (activity.status === "confirmed") {
         dateStatusMap[confirmedOpt.date] = "confirmed";
       } else {
         if (dateStatusMap[confirmedOpt.date] !== "confirmed") {
@@ -33,7 +33,7 @@ function buildSchedule(allGames: Game[], todayStr: string, today: Date = new Dat
         }
       }
     } else {
-      for (const opt of game.timeOptions) {
+      for (const opt of activity.timeOptions) {
         if (opt.date < todayStr) continue;
         if (!dateStatusMap[opt.date]) {
           dateStatusMap[opt.date] = "proposal";
@@ -67,10 +67,10 @@ function getGreeting(): string {
 export function HomeScreen() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [allGames, setAllGames] = useState<Game[]>([]);
+  const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [invites, setInvites] = useState<GameInvite[]>([]);
+  const [invites, setInvites] = useState<ActivityInvite[]>([]);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
   const todayObj = isDemoMode()
@@ -82,8 +82,8 @@ export function HomeScreen() {
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
 
   useEffect(() => {
-    fetchAllGames().then((g) => {
-      setAllGames(g);
+    fetchAllActivities().then((g) => {
+      setAllActivities(g);
       setLoading(false);
     });
   }, []);
@@ -92,7 +92,7 @@ export function HomeScreen() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        fetchAllGames().then((g) => setAllGames(g));
+        fetchAllActivities().then((g) => setAllActivities(g));
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -110,8 +110,8 @@ export function HomeScreen() {
     return poll(() => getInvites(profile.id).then(setInvites), 15_000);
   }, [profile?.id]);
 
-  const getGamesForDate = (dateStr: string) => {
-    return allGames.filter((g) => {
+  const getActivitiesForDate = (dateStr: string) => {
+    return allActivities.filter((g) => {
       if (g.status === "cancelled") return false;
       return g.timeOptions.some((opt) => {
         if (g.status === "confirmed" || g.status === "completed") {
@@ -123,20 +123,20 @@ export function HomeScreen() {
   };
 
   const isDefaultView = selectedDateStr === todayStr;
-  const gamesToday = getGamesForDate(todayStr);
-  const gamesForSelectedDate = getGamesForDate(selectedDateStr);
+  const activitiesToday = getActivitiesForDate(todayStr);
+  const activitiesForSelectedDate = getActivitiesForDate(selectedDateStr);
 
-  const upcomingGames = allGames.filter((g) => {
+  const upcomingActivities = allActivities.filter((g) => {
     if (g.status === "completed" || g.status === "cancelled") return false;
-    if (isGameExpired(g, todayStr)) return false;
+    if (isActivityExpired(g, todayStr)) return false;
     if (isDefaultView) {
-      return !gamesToday.some((tg) => tg.id === g.id);
+      return !activitiesToday.some((tg) => tg.id === g.id);
     }
     return true;
   });
 
-  const completedGames = allGames.filter((g) => g.status === "completed");
-  const scheduleItems = buildSchedule(allGames, todayStr, todayObj);
+  const completedActivities = allActivities.filter((g) => g.status === "completed");
+  const scheduleItems = buildSchedule(allActivities, todayStr, todayObj);
   const firstName = profile?.name?.split(" ")[0] || "there";
 
   const renderEmptyState = () => (
@@ -144,16 +144,16 @@ export function HomeScreen() {
       <div className="w-14 h-14 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
         <CalendarDays className="w-7 h-7 text-on-surface-variant" />
       </div>
-      <p className="text-body-lg font-medium text-on-surface mb-1">No upcoming games</p>
+      <p className="text-body-lg font-medium text-on-surface mb-1">No upcoming activities</p>
       <p className="text-body-md text-on-surface-variant text-center mb-4">
-        Create a game to get started
+        Create an activity to get started
       </p>
       <button
         onClick={() => navigate("/create")}
         className="flex items-center gap-2 px-5 h-[40px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium shadow-md3-1"
       >
         <Plus className="w-4 h-4" />
-        Create Game
+        Create Activity
       </button>
     </div>
   );
@@ -231,7 +231,7 @@ export function HomeScreen() {
         </div>
       </div>
 
-      {/* Games List Sections */}
+      {/* Activities List Sections */}
       <div className="px-4 mb-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -241,22 +241,22 @@ export function HomeScreen() {
           </div>
         ) : isDefaultView ? (
           <div className="flex flex-col gap-6">
-            {gamesToday.length > 0 && (
+            {activitiesToday.length > 0 && (
               <div className="flex flex-col gap-3">
                 <h2 className="text-title-md font-medium text-on-surface">
-                  Games Today
+                  Activities Today
                 </h2>
-                {gamesToday.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    id={game.id}
-                    title={game.title}
-                    date={game.date}
-                    time={game.time}
-                    location={game.location}
-                    players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
-                    isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
-                    variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
+                {activitiesToday.map((activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    id={activity.id}
+                    title={activity.title}
+                    date={activity.date}
+                    time={activity.time}
+                    location={activity.location}
+                    players={activity.maxPlayers ? `${activity.roster.length}/${activity.maxPlayers}` : `${activity.roster.length}`} 
+                    isFull={activity.maxPlayers ? activity.roster.length >= activity.maxPlayers : false}
+                    variant={activity.status === "proposal" ? "vote" : activity.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))}
               </div>
@@ -264,20 +264,20 @@ export function HomeScreen() {
             
             <div className="flex flex-col gap-3">
               <h2 className="text-title-md font-medium text-on-surface">
-                Upcoming Games
+                Upcoming Activities
               </h2>
-              {upcomingGames.length > 0 ? (
-                upcomingGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    id={game.id}
-                    title={game.title}
-                    date={game.date}
-                    time={game.time}
-                    location={game.location}
-                    players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
-                    isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
-                    variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
+              {upcomingActivities.length > 0 ? (
+                upcomingActivities.map((activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    id={activity.id}
+                    title={activity.title}
+                    date={activity.date}
+                    time={activity.time}
+                    location={activity.location}
+                    players={activity.maxPlayers ? `${activity.roster.length}/${activity.maxPlayers}` : `${activity.roster.length}`} 
+                    isFull={activity.maxPlayers ? activity.roster.length >= activity.maxPlayers : false}
+                    variant={activity.status === "proposal" ? "vote" : activity.status === "completed" ? "completed" : "confirmed"}
                   />
                 ))
               ) : (
@@ -288,26 +288,26 @@ export function HomeScreen() {
         ) : (
           <div className="flex flex-col gap-3">
             <h2 className="text-title-md font-medium text-on-surface">
-              Games for {new Date(selectedDateStr) && !isNaN(new Date(selectedDateStr).getTime()) ? new Date(selectedDateStr.replace(/-/g, '\/')).toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' }) : selectedDateStr}
+              Activities for {new Date(selectedDateStr) && !isNaN(new Date(selectedDateStr).getTime()) ? new Date(selectedDateStr.replace(/-/g, '\/')).toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' }) : selectedDateStr}
             </h2>
-            {gamesForSelectedDate.length > 0 ? (
-              gamesForSelectedDate.map((game) => (
-                <GameCard
-                  key={game.id}
-                  id={game.id}
-                  title={game.title}
-                  date={game.date}
-                  time={game.time}
-                  location={game.location}
-                  players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
-                  isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
-                  variant={game.status === "proposal" ? "vote" : game.status === "completed" ? "completed" : "confirmed"}
+            {activitiesForSelectedDate.length > 0 ? (
+              activitiesForSelectedDate.map((activity) => (
+                <ActivityCard
+                  key={activity.id}
+                  id={activity.id}
+                  title={activity.title}
+                  date={activity.date}
+                  time={activity.time}
+                  location={activity.location}
+                  players={activity.maxPlayers ? `${activity.roster.length}/${activity.maxPlayers}` : `${activity.roster.length}`} 
+                  isFull={activity.maxPlayers ? activity.roster.length >= activity.maxPlayers : false}
+                  variant={activity.status === "proposal" ? "vote" : activity.status === "completed" ? "completed" : "confirmed"}
                 />
               ))
             ) : (
               <div className="flex flex-col items-center py-10 px-4">
                 <p className="text-body-md text-on-surface-variant text-center">
-                  No games scheduled for this date
+                  No activities scheduled for this date
                 </p>
               </div>
             )}
@@ -315,28 +315,28 @@ export function HomeScreen() {
         )}
       </div>
 
-      {/* Completed Games */}
-      {completedGames.length > 0 && (
+      {/* Completed Activities */}
+      {completedActivities.length > 0 && (
         <div className="px-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-title-md font-medium text-on-surface">
-              Recent Games
+              Recent Activities
             </h2>
             <button className="flex items-center gap-0.5 text-label-lg text-primary font-medium min-h-[48px]">
               See all <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="flex flex-col gap-3">
-            {completedGames.map((game) => (
-              <GameCard
-                key={game.id}
-                id={game.id}
-                title={game.title}
-                date={game.date}
-                time={game.time}
-                location={game.location}
-                players={game.maxPlayers ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`} 
-                isFull={game.maxPlayers ? game.roster.length >= game.maxPlayers : false}
+            {completedActivities.map((activity) => (
+              <ActivityCard
+                key={activity.id}
+                id={activity.id}
+                title={activity.title}
+                date={activity.date}
+                time={activity.time}
+                location={activity.location}
+                players={activity.maxPlayers ? `${activity.roster.length}/${activity.maxPlayers}` : `${activity.roster.length}`} 
+                isFull={activity.maxPlayers ? activity.roster.length >= activity.maxPlayers : false}
                 variant="completed"
               />
             ))}
@@ -379,16 +379,16 @@ export function HomeScreen() {
             ) : (
               <div className="space-y-3 overflow-y-auto max-h-96">
                 {invites.map((invite) => (
-                  <div key={invite.gameId} className="bg-surface-container rounded-2xl p-4 space-y-3">
+                  <div key={invite.activityId} className="bg-surface-container rounded-2xl p-4 space-y-3">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
-                        style={{ backgroundColor: invite.activityColor }}
+                        style={{ backgroundColor: invite.typeColor }}
                       >
-                        <span className="text-lg">{invite.activityEmoji}</span>
+                        <span className="text-lg">{invite.typeEmoji}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-label-sm font-medium text-primary uppercase tracking-wider mb-0.5">Game Invite</p>
+                        <p className="text-label-sm font-medium text-primary uppercase tracking-wider mb-0.5">Activity Invite</p>
                         <p className="text-body-lg font-medium text-on-surface truncate">{invite.title}</p>
                         {invite.bestOptionDisplayDate && (
                           <p className="text-body-sm text-on-surface-variant">
@@ -400,29 +400,29 @@ export function HomeScreen() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        disabled={respondingTo === invite.gameId}
+                        disabled={respondingTo === invite.activityId}
                         onClick={async () => {
                           if (!profile) return;
-                          setRespondingTo(invite.gameId);
-                          await respondToInvite(invite.gameId, profile.id, true);
-                          const [updatedInvites, updatedGames] = await Promise.all([
+                          setRespondingTo(invite.activityId);
+                          await respondToInvite(invite.activityId, profile.id, true);
+                          const [updatedInvites, updatedActivities] = await Promise.all([
                             getInvites(profile.id),
-                            fetchAllGames(),
+                            fetchAllActivities(),
                           ]);
                           setInvites(updatedInvites);
-                          setAllGames(updatedGames);
+                          setAllActivities(updatedActivities);
                           setRespondingTo(null);
                         }}
                         className="flex-1 h-10 rounded-full bg-primary text-on-primary font-medium text-label-lg disabled:opacity-50 active:opacity-80 transition-opacity"
                       >
-                        {respondingTo === invite.gameId ? "..." : "Accept"}
+                        {respondingTo === invite.activityId ? "..." : "Accept"}
                       </button>
                       <button
-                        disabled={respondingTo === invite.gameId}
+                        disabled={respondingTo === invite.activityId}
                         onClick={async () => {
                           if (!profile) return;
-                          setRespondingTo(invite.gameId);
-                          await respondToInvite(invite.gameId, profile.id, false);
+                          setRespondingTo(invite.activityId);
+                          await respondToInvite(invite.activityId, profile.id, false);
                           getInvites(profile.id).then(setInvites);
                           setRespondingTo(null);
                         }}

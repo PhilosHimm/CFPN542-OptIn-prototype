@@ -1,71 +1,71 @@
 import { db, isDemoMode, poll } from "@/lib/db";
 import { toast } from "sonner";
 import {
-  games as mockGames,
+  activities as mockActivities,
   groups as mockGroups,
   calendarMarkers as mockCalendarMarkers,
-  activities,
-  type Game,
+  activityTypes,
+  type Activity,
   type Group,
-  type GameStatus,
+  type ActivityStatus,
   type VoteValue,
-} from "../data/games";
+} from "../data/activities";
 
 function showNetworkError(context: string) {
   toast.error(`Failed to load ${context}. Check your connection and try again.`);
 }
 
-export async function getGames(userId?: string): Promise<Game[]> {
-  if (isDemoMode()) return mockGames;
+export async function getActivities(userId?: string): Promise<Activity[]> {
+  if (isDemoMode()) return mockActivities;
   if (!db) return [];
 
   try {
-    // Fire and forget auto-transition to keep game statuses up to date
-    db.rpc("auto_transition_all_games").then((res) => {
-      if (res.error) console.error("Failed to transition games:", res.error);
+    // Fire and forget auto-transition to keep activity statuses up to date
+    db.rpc("auto_transition_all_activities").then((res) => {
+      if (res.error) console.error("Failed to transition activities:", res.error);
     });
 
     if (!userId) return [];
 
-    // Resolve which game IDs this user should see before building the query:
-    //   - games they created (always visible to the creator)
-    //   - games they have explicitly accepted (status = "joined")
-    // Games with status = "invited" are intentionally excluded — they belong in
+    // Resolve which activity IDs this user should see before building the query:
+    //   - activities they created (always visible to the creator)
+    //   - activities they have explicitly accepted (status = "joined")
+    // Activities with status = "invited" are intentionally excluded — they belong in
     // the notifications panel until the user accepts.
     const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
-      db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
-      db.from("games").select("id").eq("created_by", userId),
-      db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+      db.from("activity_players").select("activity_id").eq("user_id", userId).eq("status", "joined"),
+      db.from("activities").select("id").eq("created_by", userId),
+      db.from("activity_players").select("activity_id").eq("user_id", userId).eq("status", "invited"),
     ]);
 
-    const invitedIds = new Set((invitedRows || []).map((r: any) => r.game_id));
+    const invitedIds = new Set((invitedRows || []).map((r: any) => r.activity_id));
     const visibleIds = [
       ...new Set([
-        ...(joinedRows || []).map((r: any) => r.game_id),
-        // Creator always sees their own games, unless they have been explicitly
-        // added as an invitee to their own game (edge-case guard)
+        ...(joinedRows || []).map((r: any) => r.activity_id),
+        // Creator always sees their own activities, unless they have been explicitly
+        // added as an invitee to their own activity (edge-case guard)
         ...(createdRows || []).map((r: any) => r.id).filter((id: string) => !invitedIds.has(id)),
       ]),
     ];
 
     if (visibleIds.length === 0) return [];
 
-    const { data: gamesData, error } = await db
-      .from("games")
-      .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
+    const { data: activitiesData, error } = await db
+      .from("activities")
+      .select("*, activity_options!activity_options_activity_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .in("id", visibleIds)
       .order("created_at", { ascending: false });
 
-    if (error || !gamesData) return [];
+    if (error || !activitiesData) return [];
 
-    return gamesData.map((g: any) => ({
+    return activitiesData.map((g: any) => ({
       id: g.id,
       title: g.title,
-      activity: g.activity,
-      activityEmoji: g.activity_emoji,
-      activityColor: g.activity_color,
-      status: g.status as GameStatus,
-      gameType: g.game_type,
+      type: g.type,
+      typeEmoji: g.type_emoji,
+      typeColor: g.type_color,
+      status: g.status as ActivityStatus,
+      intensity: g.intensity,
       maxPlayers: g.max_players,
       currentPlayers: g.current_players,
       createdBy: g.created_by,
@@ -73,7 +73,7 @@ export async function getGames(userId?: string): Promise<Game[]> {
       countdownH: 0,
       countdownM: 0,
       countdownS: 0,
-      options: (g.game_options || []).map((o: any) => {
+      options: (g.activity_options || []).map((o: any) => {
         const votes = o.votes || [];
         const inVoters = votes.filter((v: any) => v.value === "in").map((v: any) => v.profiles?.initials || "?");
         return {
@@ -93,45 +93,45 @@ export async function getGames(userId?: string): Promise<Game[]> {
       perPersonCost: g.per_person_cost,
       confirmedOptionId: g.confirmed_option_id,
       description: g.description,
-      pendingProposalCount: (g.game_options || []).filter((o: any) => o.status === "pending").length,
+      pendingProposalCount: (g.activity_options || []).filter((o: any) => o.status === "pending").length,
     }));
   } catch {
-    showNetworkError("games");
+    showNetworkError("activities");
     return [];
   }
 }
 
-export async function getGameById(id: string): Promise<Game | null> {
+export async function getActivityById(id: string): Promise<Activity | null> {
   if (isDemoMode()) {
-    return mockGames.find((g) => g.id === id) || null;
+    return mockActivities.find((g) => g.id === id) || null;
   }
   if (!db) return null;
 
   try {
-    // Fire and forget auto-transition for this specific game
-    db.rpc("auto_transition_game", { p_game_id: id }).then((res) => {
-      if (res.error) console.error("Failed to transition game:", res.error);
+    // Fire and forget auto-transition for this specific activity
+    db.rpc("auto_transition_activity", { p_activity_id: id }).then((res) => {
+      if (res.error) console.error("Failed to transition activity:", res.error);
     });
 
     const { data, error } = await db
-      .from("games")
-      .select("*, game_options!game_options_game_id_fkey(*, votes(value, profiles:user_id(initials)))")
+      .from("activities")
+      .select("*, activity_options!activity_options_activity_id_fkey(*, votes(value, profiles:user_id(initials)))")
       .eq("id", id)
       .single();
 
     if (error || !data) {
-      if (error) showNetworkError("game details");
+      if (error) showNetworkError("activity details");
       return null;
     }
 
     return {
       id: data.id,
       title: data.title,
-      activity: data.activity,
-      activityEmoji: data.activity_emoji,
-      activityColor: data.activity_color,
-      status: data.status as GameStatus,
-      gameType: data.game_type as "Casual" | "Competitive",
+      type: data.type,
+      typeEmoji: data.type_emoji,
+      typeColor: data.type_color,
+      status: data.status as ActivityStatus,
+      intensity: data.intensity as "Casual" | "Competitive",
       maxPlayers: data.max_players,
       currentPlayers: data.current_players,
       createdBy: data.created_by,
@@ -139,7 +139,7 @@ export async function getGameById(id: string): Promise<Game | null> {
       countdownH: 0,
       countdownM: 0,
       countdownS: 0,
-      options: ((data as any).game_options || []).map((o: any) => {
+      options: ((data as any).activity_options || []).map((o: any) => {
         const votes = o.votes || [];
         const inVoters = votes.filter((v: any) => v.value === "in").map((v: any) => v.profiles?.initials || "?");
         return {
@@ -161,7 +161,7 @@ export async function getGameById(id: string): Promise<Game | null> {
       description: data.description ?? undefined,
     };
   } catch {
-    showNetworkError("game details");
+    showNetworkError("activity details");
     return null;
   }
 }
@@ -172,9 +172,9 @@ export async function getGroups(): Promise<Group[]> {
 
   try {
     // Previously this selected every group in the database with no membership
-    // filter, so CreateGameScreen's `assignedGroup = mapped[0]` picked whatever
+    // filter, so CreateActivityScreen's `assignedGroup = mapped[0]` picked whatever
     // group sorted first globally — a stranger's group — and attached the new
-    // game to it.
+    // activity to it.
     const { data: auth } = await db.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return [];
@@ -193,11 +193,11 @@ export async function getGroups(): Promise<Group[]> {
     return data.map((g: any) => ({
       id: g.id,
       name: g.name,
-      activity: g.activity ?? "",
-      activityEmoji: g.activity_emoji,
+      type: g.type ?? "",
+      typeEmoji: g.type_emoji,
       color: g.color,
       memberCount: g.member_count,
-      nextGame: g.next_game,
+      nextActivity: g.next_activity,
       initials: g.initials,
     }));
   } catch {
@@ -206,34 +206,34 @@ export async function getGroups(): Promise<Group[]> {
   }
 }
 
-export async function getCalendarMarkers(userId?: string): Promise<Record<string, { status: GameStatus; gameId: string }[]>> {
+export async function getCalendarMarkers(userId?: string): Promise<Record<string, { status: ActivityStatus; activityId: string }[]>> {
   if (isDemoMode()) return mockCalendarMarkers;
   if (!db) return {};
 
   try {
     let query = db
-      .from("game_options")
-      .select("date, game_id, games!game_options_game_id_fkey!inner(id, status)")
+      .from("activity_options")
+      .select("date, activity_id, activities!activity_options_activity_id_fkey!inner(id, status)")
       .order("date");
 
     if (userId) {
       const [{ data: joinedRows }, { data: createdRows }, { data: invitedRows }] = await Promise.all([
-        db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "joined"),
-        db.from("games").select("id").eq("created_by", userId),
-        db.from("game_players").select("game_id").eq("user_id", userId).eq("status", "invited"),
+        db.from("activity_players").select("activity_id").eq("user_id", userId).eq("status", "joined"),
+        db.from("activities").select("id").eq("created_by", userId),
+        db.from("activity_players").select("activity_id").eq("user_id", userId).eq("status", "invited"),
       ]);
 
-      const invitedGameIds = new Set((invitedRows || []).map((r: any) => r.game_id));
+      const invitedActivityIds = new Set((invitedRows || []).map((r: any) => r.activity_id));
 
       const accessibleIds = [
         ...new Set([
-          ...(joinedRows || []).map((r: any) => r.game_id),
+          ...(joinedRows || []).map((r: any) => r.activity_id),
           ...(createdRows || []).map((r: any) => r.id),
         ]),
-      ].filter((id) => !invitedGameIds.has(id));
+      ].filter((id) => !invitedActivityIds.has(id));
 
       if (accessibleIds.length === 0) return {};
-      query = query.in("game_id", accessibleIds);
+      query = query.in("activity_id", accessibleIds);
     }
 
     const { data, error } = await query;
@@ -243,14 +243,14 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
       return {};
     }
 
-    const markers: Record<string, { status: GameStatus; gameId: string }[]> = {};
+    const markers: Record<string, { status: ActivityStatus; activityId: string }[]> = {};
     for (const row of data as any[]) {
       const date = row.date;
-      const status = row.games?.status as GameStatus;
-      const gameId = row.game_id;
+      const status = row.activities?.status as ActivityStatus;
+      const activityId = row.activity_id;
       if (!markers[date]) markers[date] = [];
-      if (!markers[date].some((m: any) => m.gameId === gameId)) {
-        markers[date].push({ status, gameId });
+      if (!markers[date].some((m: any) => m.activityId === activityId)) {
+        markers[date].push({ status, activityId });
       }
     }
     return markers;
@@ -260,9 +260,9 @@ export async function getCalendarMarkers(userId?: string): Promise<Record<string
   }
 }
 
-// Game creation goes exclusively through gameData.ts's saveGame(), which calls
-// the transactional create_game_with_options RPC (migration 016). A duplicate
-// non-atomic createGame() used to live here — unused by CreateGameScreen (or
+// Activity creation goes exclusively through activityData.ts's saveActivity(), which calls
+// the transactional create_activity_with_options RPC (migration 016). A duplicate
+// non-atomic createActivity() used to live here — unused by CreateActivityScreen (or
 // anywhere else), with its own divergent per-person-cost formula and silently
 // discarded option/invite insert errors. Deleted rather than fixed; see
 // docs/BACKLOG.md items #19, #30, #43, #49.
@@ -291,7 +291,7 @@ export async function castVote(
 
     if (error) return { error: error.message };
 
-    // The fn_sync_vote_counts database trigger automatically updates game_options
+    // The fn_sync_vote_counts database trigger automatically updates activity_options
     // counts, making vote casting atomic and free of race conditions.
 
     return { error: null };
@@ -301,58 +301,58 @@ export async function castVote(
   }
 }
 
-export async function joinGame(gameId: string, userId: string): Promise<{ error: string | null }> {
+export async function joinActivity(activityId: string, userId: string): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
   if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    // fn_sync_current_players (trigger on game_players, migration 006) keeps
-    // games.current_players correct server-side; writing it here too raced
+    // fn_sync_current_players (trigger on activity_players, migration 006) keeps
+    // activities.current_players correct server-side; writing it here too raced
     // against the trigger and, for non-hosts, silently no-op'd under RLS
-    // (games UPDATE requires created_by = auth.uid()).
-    const { error } = await db.from("game_players").upsert(
-      { game_id: gameId, user_id: userId, status: "joined" },
-      { onConflict: "game_id,user_id" }
+    // (activities UPDATE requires created_by = auth.uid()).
+    const { error } = await db.from("activity_players").upsert(
+      { activity_id: activityId, user_id: userId, status: "joined" },
+      { onConflict: "activity_id,user_id" }
     );
 
     return { error: error?.message ?? null };
   } catch (err) {
 
-    return { error: "Something went wrong while joining the game. Please try again." };
+    return { error: "Something went wrong while joining the activity. Please try again." };
   }
 }
 
-export async function leaveGame(gameId: string, userId: string): Promise<{ error: string | null }> {
+export async function leaveActivity(activityId: string, userId: string): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
   if (!db) return { error: "Unable to connect to the database. Please try again later." };
 
   try {
-    // fn_sync_current_players (trigger on game_players, migration 006) keeps
-    // games.current_players correct server-side; see joinGame for why the
+    // fn_sync_current_players (trigger on activity_players, migration 006) keeps
+    // activities.current_players correct server-side; see joinActivity for why the
     // client used to also write it and no longer does.
     const { error } = await db
-      .from("game_players")
+      .from("activity_players")
       .update({ status: "declined" })
-      .eq("game_id", gameId)
+      .eq("activity_id", activityId)
       .eq("user_id", userId);
 
     return { error: error?.message ?? null };
   } catch (err) {
 
-    return { error: "Something went wrong while leaving the game. Please try again." };
+    return { error: "Something went wrong while leaving the activity. Please try again." };
   }
 }
 
 export async function createGroup(input: {
   name: string;
-  activity: string;
+  type: string;
   createdBy: string;
 }): Promise<{ id: string; error: string | null }> {
   if (isDemoMode()) return { id: `group-${Date.now()}`, error: null };
   if (!db) return { id: "", error: "Unable to connect to the database. Please try again later." };
 
   try {
-    const activityData = activities.find((s) => s.name === input.activity);
+    const typeData = activityTypes.find((s) => s.name === input.type);
     const initials = input.name
       .split(" ")
       .map((w) => w[0])
@@ -365,9 +365,9 @@ export async function createGroup(input: {
     const { error } = await db.from("groups").insert({
       id: groupId,
       name: input.name,
-      activity: input.activity,
-      activity_emoji: activityData?.emoji || "",
-      color: activityData?.color || "#007AFF",
+      type: input.type,
+      type_emoji: typeData?.emoji || "",
+      color: typeData?.color || "#007AFF",
       initials,
       created_by: input.createdBy,
     });
@@ -454,18 +454,18 @@ export async function leaveGroup(
 }
 
 export async function getUserVotes(
-  gameId: string,
+  activityId: string,
   userId: string
 ): Promise<Record<string, VoteValue>> {
   if (isDemoMode()) return {};
   if (!db) return {};
 
   try {
-    // First get all option IDs belonging to this game
+    // First get all option IDs belonging to this activity
     const { data: options, error: optionsError } = await db
-      .from("game_options")
+      .from("activity_options")
       .select("id")
-      .eq("game_id", gameId);
+      .eq("activity_id", activityId);
 
     if (optionsError || !options || options.length === 0) return {};
 
@@ -491,17 +491,17 @@ export async function getUserVotes(
   }
 }
 
-export async function confirmGame(gameId: string, optionId: string): Promise<{ error: string | null }> {
+export async function confirmActivity(activityId: string, optionId: string): Promise<{ error: string | null }> {
   if (isDemoMode() || !db) return { error: null };
   try {
     const { error } = await db
-      .from("games")
+      .from("activities")
       .update({
         status: "confirmed",
         confirmed_option_id: optionId,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", gameId);
+      .eq("id", activityId);
 
     return { error: error?.message || null };
   } catch (err: any) {
@@ -509,17 +509,17 @@ export async function confirmGame(gameId: string, optionId: string): Promise<{ e
   }
 }
 
-export async function deleteGame(gameId: string): Promise<{ error: string | null }> {
+export async function deleteActivity(activityId: string): Promise<{ error: string | null }> {
   if (isDemoMode() || !db) {
-    const idx = mockGames.findIndex((g) => g.id === gameId);
-    if (idx !== -1) mockGames.splice(idx, 1);
+    const idx = mockActivities.findIndex((g) => g.id === activityId);
+    if (idx !== -1) mockActivities.splice(idx, 1);
     return { error: null };
   }
   try {
     const { error } = await db
-      .from("games")
+      .from("activities")
       .delete()
-      .eq("id", gameId);
+      .eq("id", activityId);
 
     return { error: error?.message || null };
   } catch (err: any) {
@@ -527,17 +527,17 @@ export async function deleteGame(gameId: string): Promise<{ error: string | null
   }
 }
 
-export async function cancelGame(gameId: string, reason?: string): Promise<{ error: string | null }> {
+export async function cancelActivity(activityId: string, reason?: string): Promise<{ error: string | null }> {
   if (isDemoMode() || !db) return { error: null };
   try {
     const { error } = await db
-      .from("games")
+      .from("activities")
       .update({
         status: "cancelled",
         cancellation_reason: reason || "Cancelled by host",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", gameId);
+      .eq("id", activityId);
 
     return { error: error?.message || null };
   } catch (err: any) {
@@ -545,78 +545,78 @@ export async function cancelGame(gameId: string, reason?: string): Promise<{ err
   }
 }
 
-export interface GameInvite {
-  gamePlayerId: string;
-  gameId: string;
+export interface ActivityInvite {
+  activityPlayerId: string;
+  activityId: string;
   title: string;
-  activity: string;
-  activityColor: string;
-  activityEmoji: string;
+  type: string;
+  typeColor: string;
+  typeEmoji: string;
   bestOptionDisplayDate: string | null;
   bestOptionStartTime: string | null;
 }
 
-export async function getInvites(userId: string): Promise<GameInvite[]> {
+export async function getInvites(userId: string): Promise<ActivityInvite[]> {
   if (isDemoMode()) return [];
   if (!db) return [];
   try {
     const { data, error } = await db
-      .from("game_players")
+      .from("activity_players")
       .select(`
         id,
-        game_id,
-        games (
+        activity_id,
+        activities (
           id,
           title,
-          activity,
-          activity_color,
-          activity_emoji,
+          type,
+          type_color,
+          type_emoji,
           confirmed_option_id,
-          game_options!game_options_game_id_fkey ( id, display_date, start_time, in_votes )
+          activity_options!activity_options_activity_id_fkey ( id, display_date, start_time, in_votes )
         )
       `)
       .eq("user_id", userId)
       .eq("status", "invited");
     if (error || !data) return [];
     return (data as any[]).map((row) => {
-      const game = row.games;
-      if (!game) return null;
-      const options: any[] = game.game_options || [];
+      const activity = row.activities;
+      if (!activity) return null;
+      const options: any[] = activity.activity_options || [];
       let bestOption: any = null;
-      if (game.confirmed_option_id) {
-        bestOption = options.find((o: any) => o.id === game.confirmed_option_id) || null;
+      if (activity.confirmed_option_id) {
+        bestOption = options.find((o: any) => o.id === activity.confirmed_option_id) || null;
       }
       if (!bestOption && options.length > 0) {
         bestOption = [...options].sort((a: any, b: any) => b.in_votes - a.in_votes)[0];
       }
       return {
-        gamePlayerId: row.id,
-        gameId: game.id,
-        title: game.title,
-        activity: game.activity,
-        activityColor: game.activity_color,
-        activityEmoji: game.activity_emoji,
+        activityPlayerId: row.id,
+        activityId: activity.id,
+        title: activity.title,
+        type: activity.type,
+        typeColor: activity.type_color,
+        typeEmoji: activity.type_emoji,
         bestOptionDisplayDate: bestOption?.display_date ?? null,
         bestOptionStartTime: bestOption?.start_time ?? null,
-      } as GameInvite;
-    }).filter(Boolean) as GameInvite[];
+      } as ActivityInvite;
+    }).filter(Boolean) as ActivityInvite[];
   } catch {
     return [];
   }
 }
 
 export async function respondToInvite(
-  gameId: string,
+  activityId: string,
   userId: string,
   accept: boolean
 ): Promise<{ error: string | null }> {
   if (isDemoMode()) return { error: null };
   if (!db) return { error: "Unable to connect to the database. Please try again later." };
-  return accept ? joinGame(gameId, userId) : leaveGame(gameId, userId);
+  return accept ? joinActivity(activityId, userId) : leaveActivity(activityId, userId);
 }
 
-export function subscribeToGamePlayers(
-  gameId: string,
+export function subscribeToActivityPlayers(
+  activityId: string,
   onPlayerChange: () => void
 ): { unsubscribe: () => void } {
   if (isDemoMode()) return { unsubscribe: () => {} };
@@ -627,9 +627,9 @@ export function subscribeToGamePlayers(
   const stop = poll(async () => {
     if (!db) return;
     const { data, error } = await db
-      .from("game_players")
+      .from("activity_players")
       .select("*")
-      .eq("game_id", gameId)
+      .eq("activity_id", activityId)
       .order("user_id");
     if (error) return;
     const fingerprint = JSON.stringify(data);
@@ -662,16 +662,16 @@ export function subscribeToVotes(
   return { unsubscribe: stop };
 }
 
-export async function getPlayerStatusForGame(
-  gameId: string,
+export async function getPlayerStatusForActivity(
+  activityId: string,
   userId: string
 ): Promise<"invited" | "joined" | "declined" | null> {
   if (isDemoMode() || !db) return null;
   try {
     const { data } = await db
-      .from("game_players")
+      .from("activity_players")
       .select("status")
-      .eq("game_id", gameId)
+      .eq("activity_id", activityId)
       .eq("user_id", userId)
       .maybeSingle();
     return (data?.status as "invited" | "joined" | "declined") ?? null;
@@ -680,4 +680,4 @@ export async function getPlayerStatusForGame(
   }
 }
 
-export { activities };
+export { activityTypes };

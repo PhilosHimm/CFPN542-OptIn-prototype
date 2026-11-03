@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays, Plus } from "lucide-react";
 import { useNavigate } from "react-router";
-import { GameCard } from "./GameCard";
-import { fetchAllGames, type Game } from "./gameData";
+import { ActivityCard } from "./ActivityCard";
+import { fetchAllActivities, type Activity } from "./activityData";
 
 const MONTH_NAMES = [
   "January",
@@ -41,12 +41,12 @@ export function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [selectedDate, setSelectedDate] = useState(now.getDate());
-  const [games, setGames] = useState<Game[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAllGames().then((g) => {
-      setGames(g);
+    fetchAllActivities().then((g) => {
+      setActivities(g);
       setLoading(false);
     });
   }, []);
@@ -55,7 +55,7 @@ export function CalendarScreen() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        fetchAllGames().then((g) => setGames(g));
+        fetchAllActivities().then((g) => setActivities(g));
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -68,16 +68,16 @@ export function CalendarScreen() {
   const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Map game dates to calendar days
+  // Map activity dates to calendar days
   const eventDatesMap = useMemo(() => {
     const map: Record<number, { hasConfirmed: boolean; hasProposal: boolean; hasCompleted: boolean; hasCancelled: boolean }> = {};
-    games.forEach((game) => {
-      const isConfirmed = game.status === "confirmed";
-      const isCompleted = game.status === "completed";
-      const isCancelled = game.status === "cancelled";
+    activities.forEach((activity) => {
+      const isConfirmed = activity.status === "confirmed";
+      const isCompleted = activity.status === "completed";
+      const isCancelled = activity.status === "cancelled";
       const relevantOptions = (isConfirmed || isCompleted || isCancelled)
-        ? game.timeOptions.filter((opt) => opt.id === game.confirmedOptionId)
-        : game.timeOptions;
+        ? activity.timeOptions.filter((opt) => opt.id === activity.confirmedOptionId)
+        : activity.timeOptions;
       relevantOptions.forEach((opt) => {
         const d = new Date(opt.date + "T00:00:00");
         if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
@@ -91,12 +91,12 @@ export function CalendarScreen() {
       });
     });
     return map;
-  }, [currentMonth, currentYear, games]);
+  }, [currentMonth, currentYear, activities]);
 
-  // Find games for selected date
-  const gamesForDate = useMemo(() => {
+  // Find activities for selected date
+  const activitiesForDate = useMemo(() => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
-    return games.filter((g) => {
+    return activities.filter((g) => {
       if (g.confirmedOptionId) {
         const confirmedOption = g.timeOptions.find(
           (opt) => opt.id === g.confirmedOptionId
@@ -105,7 +105,7 @@ export function CalendarScreen() {
       }
       return g.timeOptions.some((opt) => opt.date === dateStr);
     });
-  }, [selectedDate, currentMonth, currentYear, games]);
+  }, [selectedDate, currentMonth, currentYear, activities]);
 
   const goToPrevMonth = () => {
     if (currentMonth === 0) {
@@ -136,7 +136,7 @@ export function CalendarScreen() {
     <div className="flex flex-col">
       {/* Top App Bar */}
       <div className="sticky top-0 z-10 bg-surface px-4 pt-[48px] pb-3">
-        <h1 className="text-title-lg font-medium text-on-surface">Games</h1>
+        <h1 className="text-title-lg font-medium text-on-surface">Activities</h1>
       </div>
 
       {/* Calendar */}
@@ -225,7 +225,7 @@ export function CalendarScreen() {
         </div>
       </div>
 
-      {/* Games for selected date */}
+      {/* Activities for selected date */}
       <div className="px-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -233,20 +233,20 @@ export function CalendarScreen() {
               <span className="text-label-lg font-medium text-on-primary-container">O</span>
             </div>
           </div>
-        ) : gamesForDate.length > 0 ? (
+        ) : activitiesForDate.length > 0 ? (
           <>
             <h2 className="text-title-md font-medium text-on-surface mb-3">
-              {MONTH_NAMES[currentMonth]} {selectedDate} Games
+              {MONTH_NAMES[currentMonth]} {selectedDate} Activities
             </h2>
             <div className="flex flex-col gap-3">
-              {gamesForDate.map((game) => {
-                let displayDate = game.date;
-                let displayTime = game.time;
-                let displayLocation = game.location;
+              {activitiesForDate.map((activity) => {
+                let displayDate = activity.date;
+                let displayTime = activity.time;
+                let displayLocation = activity.location;
 
-                if (!game.confirmedOptionId) {
+                if (!activity.confirmedOptionId) {
                   const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
-                  const matchingOpts = game.timeOptions.filter((opt) => opt.date === dateStr);
+                  const matchingOpts = activity.timeOptions.filter((opt) => opt.date === dateStr);
                   if (matchingOpts.length === 1) {
                     const opt = matchingOpts[0];
                     displayDate = formatOptionDate(opt.date);
@@ -260,21 +260,21 @@ export function CalendarScreen() {
                 }
 
                 return (
-                  <GameCard
-                    key={game.id}
-                    id={game.id}
-                    title={game.title}
+                  <ActivityCard
+                    key={activity.id}
+                    id={activity.id}
+                    title={activity.title}
                     date={displayDate}
                     time={displayTime}
                     location={displayLocation}
-                    players={game.maxPlayers != null ? `${game.roster.length}/${game.maxPlayers}` : `${game.roster.length}`}
-                    isFull={game.maxPlayers != null && game.roster.length >= game.maxPlayers}
+                    players={activity.maxPlayers != null ? `${activity.roster.length}/${activity.maxPlayers}` : `${activity.roster.length}`}
+                    isFull={activity.maxPlayers != null && activity.roster.length >= activity.maxPlayers}
                     variant={
-                      game.status === "proposal"
+                      activity.status === "proposal"
                         ? "vote"
-                        : game.status === "confirmed"
+                        : activity.status === "confirmed"
                         ? "confirmed"
-                        : game.status === "cancelled"
+                        : activity.status === "cancelled"
                         ? "cancelled"
                         : "completed"
                     }
@@ -286,21 +286,21 @@ export function CalendarScreen() {
         ) : (
           <>
             <h2 className="text-title-md font-medium text-on-surface mb-3">
-              Scheduled Games
+              Scheduled Activities
             </h2>
             <div className="flex flex-col items-center py-8">
               <div className="w-12 h-12 rounded-md3-full bg-surface-container flex items-center justify-center mb-3">
                 <CalendarDays className="w-6 h-6 text-on-surface-variant" />
               </div>
               <p className="text-body-md text-on-surface-variant text-center">
-                No games on {MONTH_NAMES[currentMonth]} {selectedDate}.
+                No activities on {MONTH_NAMES[currentMonth]} {selectedDate}.
               </p>
               <button
                 onClick={() => navigate("/create")}
                 className="mt-3 flex items-center gap-2 px-4 h-[36px] bg-primary text-on-primary rounded-md3-full text-label-lg font-medium"
               >
                 <Plus className="w-4 h-4" />
-                Create Game
+                Create Activity
               </button>
             </div>
           </>
