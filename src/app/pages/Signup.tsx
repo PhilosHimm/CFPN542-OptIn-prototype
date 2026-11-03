@@ -72,10 +72,12 @@ export function Signup() {
             <p className="text-body-md text-on-surface-variant">
               {isDemo
                 ? "Demo mode active. Let's set up your profile."
-                : "Check your email to verify your account, then sign in to complete your profile."}
+                : user
+                  ? "You're signed in. Let's set up your profile."
+                  : "Sign in to complete your profile."}
             </p>
           </div>
-          {isDemo ? (
+          {isDemo || user ? (
             <button
               onClick={() => navigate("/onboarding")}
               className="w-full h-14 bg-primary text-on-primary text-label-lg font-medium rounded-md3-full flex items-center justify-center hover:shadow-md3-1 active:bg-primary/90 transition-all md3-state-primary"
