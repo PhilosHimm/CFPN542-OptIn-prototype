@@ -63,7 +63,7 @@ export function Login() {
             </div>
           </div>
           <h1 className="text-headline-lg font-medium text-on-surface">{APP_NAME}</h1>
-          <p className="text-body-md text-on-surface-variant">Pickup sports, simplified.</p>
+          <p className="text-body-md text-on-surface-variant">Group plans, simplified.</p>
         </div>
 
         {/* Form */}

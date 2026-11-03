@@ -38,13 +38,13 @@ export function ProfileScreen() {
   const [notifFriendRequests, setNotifFriendRequests] = useState(true);
 
   // Game preferences
-  const allSports = ["Soccer", "Basketball", "Volleyball", "Tennis", "Flag Football", "Softball"];
-  const [preferredSports, setPreferredSports] = useState<string[]>(["Soccer"]);
+  const allActivities = ["Soccer", "Basketball", "Volleyball", "Tennis", "Flag Football", "Softball"];
+  const [preferredActivities, setPreferredActivities] = useState<string[]>(["Soccer"]);
   const [skillLevel, setSkillLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
 
-  const toggleSport = (sport: string) => {
-    setPreferredSports((prev) =>
-      prev.includes(sport) ? prev.filter((s) => s !== sport) : [...prev, sport]
+  const toggleActivity = (activity: string) => {
+    setPreferredActivities((prev) =>
+      prev.includes(activity) ? prev.filter((s) => s !== activity) : [...prev, activity]
     );
   };
 
@@ -331,14 +331,14 @@ export function ProfileScreen() {
           </DialogHeader>
           <div className="flex flex-col gap-6">
             <div>
-              <p className="text-label-md font-medium text-on-surface-variant mb-3">Preferred Sports</p>
+              <p className="text-label-md font-medium text-on-surface-variant mb-3">Preferred Activities</p>
               <div className="flex flex-wrap gap-2">
-                {allSports.map((sport) => {
-                  const active = preferredSports.includes(sport);
+                {allActivities.map((activity) => {
+                  const active = preferredActivities.includes(activity);
                   return (
                     <button
-                      key={sport}
-                      onClick={() => toggleSport(sport)}
+                      key={activity}
+                      onClick={() => toggleActivity(activity)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-label-lg font-medium border transition-colors ${
                         active
                           ? "bg-secondary-container text-on-secondary-container border-transparent"
@@ -346,7 +346,7 @@ export function ProfileScreen() {
                       }`}
                     >
                       {active && <Check className="w-3.5 h-3.5" />}
-                      {sport}
+                      {activity}
                     </button>
                   );
                 })}
