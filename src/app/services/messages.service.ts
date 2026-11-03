@@ -15,6 +15,8 @@ export interface ChatMessage {
   timestamp: string;
   isMe: boolean;
   isSystem: boolean;
+  /** Server timestamp (ISO). Used as the polling cursor; never the device clock. */
+  createdAt?: string;
 }
 
 export async function getDirectMessages(currentUserId?: string): Promise<Message[]> {
@@ -131,6 +133,7 @@ export async function getChatMessages(conversationId: string, currentUserId: str
       timestamp: formatTimestamp(m.created_at),
       isMe: m.sender_id === currentUserId,
       isSystem: m.is_system,
+      createdAt: m.created_at,
     }));
   } catch {
 
@@ -168,16 +171,19 @@ export async function sendMessage(
 export function subscribeToMessages(
   conversationId: string,
   currentUserId: string,
-  onMessage: (message: ChatMessage) => void
+  onMessage: (message: ChatMessage) => void,
+  /** created_at of the newest message the caller already has, if any. */
+  sinceCreatedAt?: string
 ) {
   if (isDemoMode()) return { unsubscribe: () => {} };
 
   if (!db) return { unsubscribe: () => {} };
 
-  // Poll for rows newer than a cursor. The cursor starts a minute in the past to
-  // cover the gap since the caller's initial fetch and client/server clock skew;
-  // the overlap is harmless because callers dedupe by message id.
-  let since = new Date(Date.now() - 60_000).toISOString();
+  // Poll for rows newer than a cursor. The cursor is a *server* timestamp: the
+  // newest message the caller already loaded, or the epoch for an empty chat.
+  // It used to start at the device clock minus a minute, so a phone whose clock
+  // ran ahead of the server never fetched new messages while the chat was open.
+  let since = sinceCreatedAt ?? "1970-01-01T00:00:00Z";
   const stop = poll(async () => {
     if (!db) return;
     const { data, error } = await db
@@ -199,6 +205,7 @@ export function subscribeToMessages(
         timestamp: formatTimestamp(row.created_at ?? new Date().toISOString()),
         isMe: row.sender_id === currentUserId,
         isSystem: row.is_system ?? false,
+        createdAt: row.created_at ?? undefined,
       });
     }
   });
@@ -247,6 +254,17 @@ export async function createConversation(
   } catch {
     return { id: null, error: "Failed to start chat. Please try again." };
   }
+}
+
+/** Total unread messages across the caller's conversations (Chats tab badge). */
+export async function getUnreadTotal(userId: string): Promise<number> {
+  if (isDemoMode() || !db || !userId) return 0;
+  const { data, error } = await db
+    .from("conversation_members")
+    .select("unread_count")
+    .eq("user_id", userId);
+  if (error || !data) return 0;
+  return data.reduce((sum: number, row: any) => sum + (row.unread_count ?? 0), 0);
 }
 
 /** Clear the caller's unread badge for a conversation. */

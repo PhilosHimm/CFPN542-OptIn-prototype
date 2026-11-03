@@ -69,7 +69,11 @@ export function setDemoModePreference(enabled: boolean): void {
 // backgrounded PWA costs no requests.
 export const POLL_INTERVAL_MS = 5_000;
 
-export function poll(tick: () => void | Promise<void>, intervalMs = POLL_INTERVAL_MS): () => void {
+export function poll(
+  tick: () => void | Promise<void>,
+  intervalMs = POLL_INTERVAL_MS,
+  { immediate = false }: { immediate?: boolean } = {}
+): () => void {
   let stopped = false;
   let running = false;
   const run = async () => {
@@ -78,6 +82,9 @@ export function poll(tick: () => void | Promise<void>, intervalMs = POLL_INTERVA
     try { await tick(); } catch { /* transient — next tick retries */ }
     running = false;
   };
+  // immediate: run once now. Without it the first tick waits a whole interval,
+  // so anything that polls its *initial* load sat empty for that long.
+  if (immediate) void run();
   const id = setInterval(run, intervalMs);
   const onVisible = () => { if (document.visibilityState === "visible") void run(); };
   document.addEventListener("visibilitychange", onVisible);

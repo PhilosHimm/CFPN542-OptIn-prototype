@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Navigate, useLocation } from "react-router";
 import { Mail, Lock, Eye, EyeOff, LogIn, Play } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { APP_NAME } from "../constants/app";
+import { describeAuthError } from "@/lib/authMethods";
 
 export function Login() {
   const navigate = useNavigate();
@@ -22,6 +23,19 @@ export function Login() {
   // as an open redirect.
   const fromState = (useLocation().state as { from?: unknown } | null)?.from;
   const returnTo = typeof fromState === "string" && fromState.startsWith("/") && !fromState.startsWith("//") ? fromState : "/";
+
+  // A refused Google sign-in returns here as /login?error=<code>. Show what
+  // happened, then drop the parameter so a reload doesn't repeat it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("error");
+    if (!code) return;
+    setError(describeAuthError(code));
+    params.delete("error");
+    params.delete("error_description");
+    const qs = params.toString();
+    window.history.replaceState(window.history.state, "", window.location.pathname + (qs ? `?${qs}` : ""));
+  }, []);
 
   if (!authLoading && (isDemo || user)) return <Navigate to={returnTo} replace />;
 

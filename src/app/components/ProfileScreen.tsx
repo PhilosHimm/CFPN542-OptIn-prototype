@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical, Check } from "lucide-react";
+import { ChevronRight, Users, Gamepad2, Bell, Settings, LogOut, X, FlaskConical, Check, KeyRound } from "lucide-react";
+import { toast } from "sonner";
 import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -8,12 +9,15 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { FriendsListDialog } from "./FriendsListDialog";
+import { SignInMethodsDialog } from "./SignInMethodsDialog";
+import { describeAuthError } from "@/lib/authMethods";
 
 const settingsItems = [
   { id: "groups", icon: Users, label: "Friends list" },
   { id: "preferences", icon: Gamepad2, label: "Activity preferences" },
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "account", icon: Settings, label: "Account settings" },
+  { id: "signin", icon: KeyRound, label: "Sign-in methods" },
 ];
 
 export function ProfileScreen() {
@@ -22,6 +26,22 @@ export function ProfileScreen() {
   
   // Sheet/Dialog states
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
+
+  // Coming back from "Connect Google": /profile?signin=google-linked on success,
+  // /profile?error=<code> if Better Auth refused. Report it, reopen the panel,
+  // and drop the parameters so a reload doesn't repeat them.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const linked = params.get("signin") === "google-linked";
+    const code = params.get("error");
+    if (!linked && !code) return;
+    if (linked) toast.success("Google connected. You can now sign in either way.");
+    if (code) toast.error(describeAuthError(code));
+    setActiveDialog("signin");
+    ["signin", "error", "error_description"].forEach((k) => params.delete(k));
+    const qs = params.toString();
+    window.history.replaceState(window.history.state, "", window.location.pathname + (qs ? `?${qs}` : ""));
+  }, []);
 
   // Account Settings state
   const [accountName, setAccountName] = useState(profile?.name ?? "");
@@ -69,6 +89,8 @@ export function ProfileScreen() {
       setActiveDialog("notifications");
     } else if (id === "preferences") {
       setActiveDialog("preferences");
+    } else if (id === "signin") {
+      setActiveDialog("signin");
     }
   };
 
@@ -133,7 +155,7 @@ export function ProfileScreen() {
 
       {/* Settings List */}
       <div className="mx-4 bg-surface-container-lowest rounded-md3-large shadow-md3-1 overflow-hidden mb-8">
-        {settingsItems.map((item, index) => {
+        {settingsItems.filter((item) => item.id !== "signin" || !isDemo).map((item, index) => {
           const Icon = item.icon;
           return (
             <button
@@ -163,6 +185,9 @@ export function ProfileScreen() {
           Log Out
         </button>
       </div>
+
+      {/* Sign-in methods (email + password and/or Google) */}
+      <SignInMethodsDialog open={activeDialog === "signin"} onOpenChange={(open) => setActiveDialog(open ? "signin" : null)} />
 
       {/* Friends List Dialog */}
       <FriendsListDialog open={activeDialog === "groups"} onOpenChange={(open) => !open && setActiveDialog(null)} />

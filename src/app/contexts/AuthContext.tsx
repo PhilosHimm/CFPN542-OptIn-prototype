@@ -1,5 +1,6 @@
 // @refresh reset
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { signInWithGoogle as googleSignIn } from "@/lib/authMethods";
 import { db, isDbConfigured, isDemoMode, setDemoModePreference, devLog } from "@/lib/db";
 import type { Session, User } from "@/lib/db";
 
@@ -265,14 +266,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // returnTo is a same-origin path; Neon Auth's trusted-domain check is on the
   // origin, so any path on a trusted origin is accepted as a redirect target.
+  // A refused sign-in comes back to /login?error=<code> (see lib/authMethods).
   const signInWithGoogle = async (returnTo = "/") => {
     if (isDemo) return { error: "Running in demo mode" };
     if (!db) return { error: "Database not configured" };
-    const { error } = await db.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + (returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/") },
-    });
-    return { error: error?.message ?? null };
+    return googleSignIn(returnTo);
   };
 
   const signOut = async () => {
