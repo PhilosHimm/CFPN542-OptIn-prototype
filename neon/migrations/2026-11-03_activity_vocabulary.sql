@@ -7,8 +7,8 @@
 -- This file exists only because column renames can't be applied by re-running it.
 --
 -- The client must ship in the same release: PostgREST rejects the old column
--- names as soon as this runs. Apply it when the matching code is deployed to
--- production, not before.
+-- names as soon as this runs. Applied to production on 2026-11-03, right after the
+-- matching code deployed.
 --
 -- Run as one transaction (Neon MCP run_sql_transaction, or psql -1).
 -- ═══════════════════════════════════════════════════════════════════════════════
